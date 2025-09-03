@@ -5,11 +5,19 @@ import Footer from '@/components/Footer'
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-transparent">
-      <Hero />
-      <Features />
-      <HowItWorks />
-      <Footer />
-    </main>
+    <div className="min-h-screen bg-transparent">
+      <section id="hero">
+        <Hero />
+      </section>
+      <section id="features">
+        <Features />
+      </section>
+      <section id="how-it-works">
+        <HowItWorks />
+      </section>
+      <section id="footer">
+        <Footer />
+      </section>
+    </div>
   )
 }
