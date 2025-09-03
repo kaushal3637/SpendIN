@@ -71,7 +71,7 @@ export default function HowItWorks() {
                         How It <span className="text-emerald-600">Works</span>
                     </h2>
                     <p className="text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl mx-auto px-4">
-                        Three simple steps to revolutionize your payment experience with Web3 technology
+                        Three simple steps to revolutionize your payment experience with StableUPI
                     </p>
                 </div>
 
