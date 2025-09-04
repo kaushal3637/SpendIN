@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { ChevronRight, Wallet, QrCode, Banknote } from 'lucide-react'
 
 export default function Hero() {
@@ -49,15 +50,19 @@ export default function Hero() {
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-4 justify-center items-center px-4 sm:px-0">
-          <button className="group relative inline-flex items-center justify-center w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/25">
-            <span className="mr-2">Get Started</span>
-            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-700 to-teal-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10"></div>
-          </button>
+          <Link href="/scan">
+            <button className="group relative inline-flex items-center justify-center w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/25">
+              <span className="mr-2">Get Started</span>
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-700 to-teal-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10"></div>
+            </button>
+          </Link>
 
-          <button className="inline-flex items-center justify-center w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-slate-700 border-2 border-emerald-200 rounded-full transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-lg">
-            Learn More
-          </button>
+          <Link href="#features">
+            <button className="inline-flex items-center justify-center w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-slate-700 border-2 border-emerald-200 rounded-full transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-lg">
+              Learn More
+            </button>
+          </Link>
         </div>
 
         {/* Stats */}
