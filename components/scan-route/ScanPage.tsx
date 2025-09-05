@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote } from 'lucide-react'
+import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSignIcon } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse } from '@/types/upi.types'
 
@@ -17,12 +17,16 @@ export default function ScanPage() {
     const [userAmount, setUserAmount] = useState<string>('')
     const [isConverting, setIsConverting] = useState(false)
     const [conversionResult, setConversionResult] = useState<{
-      usdAmount: number;
-      usdcAmount: number;
-      exchangeRate: number;
-      lastUpdated: string;
+        usdAmount: number;
+        usdcAmount: number;
+        exchangeRate: number;
+        lastUpdated: string;
+        networkFee: number;
+        networkName: string;
+        totalUsdcAmount: number;
     } | null>(null)
     const [showConversionModal, setShowConversionModal] = useState(false)
+    const [showReason, setShowReason] = useState(false)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
@@ -223,8 +227,10 @@ export default function ScanPage() {
         setUserAmount('')
         setConversionResult(null)
         setShowConversionModal(false)
+        setShowReason(false)
         stopScanning()
     }
+
 
     const convertInrToUsdc = async (inrAmount: number) => {
         try {
@@ -236,7 +242,10 @@ export default function ScanPage() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ amount: inrAmount }),
+                body: JSON.stringify({
+                    amount: inrAmount,
+                    chainId: 421614 // Default to Arbitrum Sepolia, can be made dynamic later
+                }),
             })
 
             if (!response.ok) {
@@ -245,6 +254,7 @@ export default function ScanPage() {
             }
 
             const data = await response.json()
+
             setConversionResult(data)
             return data
         } catch (err) {
@@ -288,203 +298,424 @@ export default function ScanPage() {
 
     return (
         <>
-        <div className="min-h-screen bg-transparent">
+            <div className="min-h-screen bg-transparent">
 
-            <div className={`relative z-10 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+                <div className={`relative z-10 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
 
-                {/* Main Content */}
-                <div className="flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
-                    <div className="max-w-2xl mx-auto text-center">
-                        {/* Header */}
-                        <div className="mb-6 sm:mb-8">
-                            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 mb-4 sm:mb-6">
-                                <QrCode className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                    {/* Main Content */}
+                    <div className="flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+                        <div className="max-w-2xl mx-auto text-center">
+                            {/* Header */}
+                            <div className="mb-6 sm:mb-8">
+                                <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 mb-4 sm:mb-6">
+                                    <QrCode className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                                </div>
+                                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-4">
+                                    Scan Merchant QR
+                                </h1>
+                                <p className="text-base sm:text-lg md:text-xl text-slate-600 max-w-xl mx-auto px-4">
+                                    Scan the merchant&apos;s QR to start payment.
+                                </p>
                             </div>
-                            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-4">
-                                Scan Merchant QR
-                            </h1>
-                            <p className="text-base sm:text-lg md:text-xl text-slate-600 max-w-xl mx-auto px-4">
-                                Scan the merchant&apos;s QR to start payment.
-                            </p>
-                        </div>
 
-                        {/* QR Scanner */}
-                        <div className="mb-8 sm:mb-12">
-                            <div className="relative max-w-md mx-auto">
-                                {/* Scanner Frame */}
-                                <div className="relative bg-white rounded-2xl shadow-lg border-2 border-emerald-200 p-6 sm:p-8 overflow-hidden">
-                                    {/* Video Element for Camera Feed */}
-                                    <div className="relative bg-slate-900 rounded-lg overflow-hidden border-2 border-emerald-300">
-                                        <video
-                                            ref={videoRef}
-                                            className={`w-full h-64 sm:h-80 object-cover ${!isScanning ? 'hidden' : ''}`}
-                                            playsInline
-                                            muted
-                                        />
+                            {/* QR Scanner */}
+                            <div className="mb-8 sm:mb-12">
+                                <div className="relative max-w-md mx-auto">
+                                    {/* Scanner Frame */}
+                                    <div className="relative bg-white rounded-2xl shadow-lg border-2 border-emerald-200 p-6 sm:p-8 overflow-hidden">
+                                        {/* Video Element for Camera Feed */}
+                                        <div className="relative bg-slate-900 rounded-lg overflow-hidden border-2 border-emerald-300">
+                                            <video
+                                                ref={videoRef}
+                                                className={`w-full h-64 sm:h-80 object-cover ${!isScanning ? 'hidden' : ''}`}
+                                                playsInline
+                                                muted
+                                            />
 
-                                        {/* Placeholder when not scanning */}
-                                        {!isScanning && !scanResult && !error && (
-                                            <div className="w-full h-64 sm:h-80 flex items-center justify-center bg-slate-50">
-                                                <div className="text-center">
-                                                    <Camera className="w-12 h-12 sm:w-16 sm:h-16 text-slate-400 mx-auto mb-4" />
-                                                    <h3 className="text-lg sm:text-xl font-semibold text-slate-700 mb-2">
-                                                        Camera Ready
-                                                    </h3>
-                                                    <p className="text-sm sm:text-base text-slate-500">
-                                                        Click start to begin scanning
-                                                    </p>
+                                            {/* Placeholder when not scanning */}
+                                            {!isScanning && !scanResult && !error && (
+                                                <div className="w-full h-64 sm:h-80 flex items-center justify-center bg-slate-50">
+                                                    <div className="text-center">
+                                                        <Camera className="w-12 h-12 sm:w-16 sm:h-16 text-slate-400 mx-auto mb-4" />
+                                                        <h3 className="text-lg sm:text-xl font-semibold text-slate-700 mb-2">
+                                                            Camera Ready
+                                                        </h3>
+                                                        <p className="text-sm sm:text-base text-slate-500">
+                                                            Click start to begin scanning
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
 
-                                        {/* Scan Result Display */}
-                                        {scanResult && (
-                                            <div className="absolute inset-0 bg-white flex items-center justify-center p-4">
-                                                <div className="w-full h-full">
-                                                    {isLoading ? (
-                                                        <div className="text-center">
-                                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-                                                            <p className="text-slate-600">Processing QR data...</p>
-                                                        </div>
+                                            {/* Scan Result Display */}
+                                            {scanResult && (
+                                                <div className="absolute inset-0 bg-white flex items-center justify-center p-4">
+                                                    <div className="w-full h-full">
+                                                        {isLoading ? (
+                                                            <div className="text-center">
+                                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                                                                <p className="text-slate-600">Processing QR data...</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-left text-sm">
+                                                                <p className="font-medium mb-2">Raw QR Data:</p>
+                                                                <p className="text-slate-600 break-all">{scanResult}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Error Display */}
+                                            {error && (
+                                                <div className="absolute inset-0 bg-red-50 flex items-center justify-center">
+                                                    <div className="text-center p-4">
+                                                        <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-600 mx-auto mb-4" />
+                                                        <h3 className="text-lg sm:text-xl font-semibold text-red-800 mb-2">
+                                                            Scanning Error
+                                                        </h3>
+                                                        <p className="text-sm sm:text-base text-red-700">
+                                                            {error}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Control Buttons */}
+                                        <div className="mt-4 flex gap-3 justify-center">
+                                            {!scanResult && !error && (
+                                                <button
+                                                    onClick={toggleScanning}
+                                                    disabled={hasPermission === false}
+                                                    className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 ${isScanning
+                                                        ? 'bg-red-600 hover:bg-red-700 text-white'
+                                                        : hasPermission === false
+                                                            ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                                                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                                        } disabled:bg-slate-400 disabled:cursor-not-allowed`}
+                                                >
+                                                    {isScanning ? (
+                                                        <>
+                                                            <Square className="w-4 h-4" />
+                                                            Stop
+                                                        </>
+                                                    ) : hasPermission === false ? (
+                                                        <>
+                                                            <Camera className="w-4 h-4" />
+                                                            Request Permission
+                                                        </>
                                                     ) : (
-                                                        <div className="text-left text-sm">
-                                                            <p className="font-medium mb-2">Raw QR Data:</p>
-                                                            <p className="text-slate-600 break-all">{scanResult}</p>
-                                                        </div>
+                                                        <>
+                                                            <Play className="w-4 h-4" />
+                                                            Start Scan
+                                                        </>
                                                     )}
-                                                </div>
-                                            </div>
-                                        )}
+                                                </button>
+                                            )}
 
-                                        {/* Error Display */}
-                                        {error && (
-                                            <div className="absolute inset-0 bg-red-50 flex items-center justify-center">
-                                                <div className="text-center p-4">
-                                                    <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-600 mx-auto mb-4" />
-                                                    <h3 className="text-lg sm:text-xl font-semibold text-red-800 mb-2">
-                                                        Scanning Error
-                                                    </h3>
-                                                    <p className="text-sm sm:text-base text-red-700">
-                                                        {error}
+                                            {(scanResult || error) && (
+                                                <button
+                                                    onClick={resetScan}
+                                                    className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-full font-medium transition-all duration-200"
+                                                >
+                                                    <QrCode className="w-4 h-4" />
+                                                    Scan Again
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Permission Status */}
+                                        <div className="mt-4 text-center">
+                                            {hasPermission === false && (
+                                                <div className="space-y-2">
+                                                    <p className="text-xs sm:text-sm text-red-600">
+                                                        Camera access denied. Please allow camera access to continue.
                                                     </p>
                                                 </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Control Buttons */}
-                                    <div className="mt-4 flex gap-3 justify-center">
-                                        {!scanResult && !error && (
-                                            <button
-                                                onClick={toggleScanning}
-                                                disabled={hasPermission === false}
-                                                className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 ${isScanning
-                                                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                                                    : hasPermission === false
-                                                        ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                                    } disabled:bg-slate-400 disabled:cursor-not-allowed`}
-                                            >
-                                                {isScanning ? (
-                                                    <>
-                                                        <Square className="w-4 h-4" />
-                                                        Stop
-                                                    </>
-                                                ) : hasPermission === false ? (
-                                                    <>
-                                                        <Camera className="w-4 h-4" />
-                                                        Request Permission
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Play className="w-4 h-4" />
-                                                        Start Scan
-                                                    </>
-                                                )}
-                                            </button>
-                                        )}
-
-                                        {(scanResult || error) && (
-                                            <button
-                                                onClick={resetScan}
-                                                className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-full font-medium transition-all duration-200"
-                                            >
-                                                <QrCode className="w-4 h-4" />
-                                                Scan Again
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Permission Status */}
-                                    <div className="mt-4 text-center">
-                                        {hasPermission === false && (
-                                            <div className="space-y-2">
-                                                <p className="text-xs sm:text-sm text-red-600">
-                                                    Camera access denied. Please allow camera access to continue.
+                                            )}
+                                            {hasPermission === null && (
+                                                <p className="text-xs sm:text-sm text-slate-500">
+                                                    Camera access will be requested when you start scanning.
                                                 </p>
+                                            )}
+                                            {hasPermission === true && (
+                                                <p className="text-xs sm:text-sm text-green-600">
+                                                    Camera access granted ✓
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* Next Steps */}
+                            <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-6 sm:p-8 border border-emerald-100">
+                                {scanResult ? (
+                                    <>
+                                        <div className="flex items-center justify-center gap-3 mb-4">
+                                            <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-green-600" />
+                                            <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
+                                                QR Code Scanned Successfully!
+                                            </h3>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center justify-center gap-3 mb-4">
+                                            <Wallet className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
+                                            <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
+                                                Wallet Connection Required
+                                            </h3>
+                                        </div>
+                                        <p className="text-sm sm:text-base text-slate-600 mb-6 text-center">
+                                            Connect your Web3 wallet & scan the merchant&apos;s QR to proceed with payment.
+                                        </p>
+                                        <div className="text-center">
+                                            <p className="text-xs sm:text-sm text-slate-500 mb-4">
+                                                Make sure your camera is enabled and pointed at the QR code
+                                            </p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Confirmation Modal */}
+                {showModal && parsedData && parsedData.data && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                                <h3 className="text-xl font-bold text-slate-900">
+                                    Confirm Payment Details
+                                </h3>
+                                <button
+                                    onClick={() => setShowModal(false)}
+                                    className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                                >
+                                    <X className="w-5 h-5 text-slate-500" />
+                                </button>
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="p-6 space-y-4">
+                                {/* QR Type */}
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <QrCode className="w-5 h-5 text-emerald-600" />
+                                        <span className="font-medium text-slate-900">QR Type</span>
+                                    </div>
+                                    <p className="text-slate-600 capitalize">
+                                        {parsedData.qrType.replace('_', ' ')}
+                                    </p>
+                                </div>
+
+                                {/* Account Details */}
+                                <div className="space-y-3">
+                                    <div className="bg-slate-50 rounded-lg p-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Wallet className="w-5 h-5 text-emerald-600" />
+                                            <span className="font-medium text-slate-900">Payee UPI ID</span>
+                                        </div>
+                                        <p className="text-slate-600 font-mono">
+                                            {parsedData.data.pa}
+                                        </p>
+                                    </div>
+
+                                    {parsedData.data.pn && (
+                                        <div className="bg-slate-50 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <CheckCircle className="w-5 h-5 text-emerald-600" />
+                                                <span className="font-medium text-slate-900">Payee Name</span>
                                             </div>
-                                        )}
-                                        {hasPermission === null && (
-                                            <p className="text-xs sm:text-sm text-slate-500">
-                                                Camera access will be requested when you start scanning.
+                                            <p className="text-slate-600">
+                                                {parsedData.data.pn}
                                             </p>
-                                        )}
-                                        {hasPermission === true && (
-                                            <p className="text-xs sm:text-sm text-green-600">
-                                                Camera access granted ✓
-                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Amount Section */}
+                                    <div className={`rounded-lg p-4 ${(!isCurrencySupported(parsedData.data.cu) ||
+                                        (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
+                                        (!parsedData.data.am && userAmount && !isAmountValid(userAmount)))
+                                        ? 'bg-red-50 border border-red-200'
+                                        : 'bg-slate-50'
+                                        }`}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Banknote className="w-5 h-5 text-emerald-600" />
+                                            <span className="font-medium text-slate-900">Amount</span>
+                                            {(!isCurrencySupported(parsedData.data.cu) ||
+                                                (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
+                                                (!parsedData.data.am && userAmount && !isAmountValid(userAmount))) && (
+                                                    <AlertCircle className="w-4 h-4 text-red-600" />
+                                                )}
+                                        </div>
+                                        {parsedData.data.am ? (
+                                            // Display amount from QR
+                                            <div>
+                                                <p className={`${isCurrencySupported(parsedData.data.cu) && isAmountValid(parsedData.data.am)
+                                                    ? 'text-slate-600'
+                                                    : 'text-red-700'
+                                                    }`}>
+                                                    {parsedData.data.am} {parsedData.data.cu || 'INR'}
+                                                </p>
+                                                {getCurrencyError(parsedData.data.cu) && (
+                                                    <p className="text-xs text-red-600 mt-1">
+                                                        {getCurrencyError(parsedData.data.cu)}
+                                                    </p>
+                                                )}
+                                                {parsedData.data.am && !isAmountValid(parsedData.data.am) && (
+                                                    <p className="text-xs text-red-600 mt-1">
+                                                        {getAmountError(parsedData.data.am)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            // Input field for amount when not specified in QR
+                                            <div className="space-y-2">
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">₹</span>
+                                                    <input
+                                                        type="number"
+                                                        value={userAmount}
+                                                        onChange={(e) => setUserAmount(e.target.value)}
+                                                        placeholder="Enter amount (max ₹25,000)"
+                                                        className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                        min="1"
+                                                        max="25000"
+                                                        step="0.01"
+                                                        disabled={!isCurrencySupported(parsedData.data.cu)}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <p className="text-xs text-slate-500">Currency: INR (Indian Rupees)</p>
+                                                    <p className="text-xs text-slate-500">Max: ₹25,000</p>
+                                                </div>
+                                                {getCurrencyError(parsedData.data.cu) && (
+                                                    <p className="text-xs text-red-600 mt-1">
+                                                        {getCurrencyError(parsedData.data.cu)}
+                                                    </p>
+                                                )}
+                                                {userAmount && !isAmountValid(userAmount) && (
+                                                    <p className="text-xs text-red-600 mt-1">
+                                                        {getAmountError(userAmount)}
+                                                    </p>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
 
+                                {/* Validation Status */}
+                                <div className={`rounded-lg p-4 ${parsedData && parsedData.isValid &&
+                                    parsedData.data && isCurrencySupported(parsedData.data.cu) &&
+                                    (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
+                                    (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true)
+                                    ? 'bg-green-50 border border-green-200'
+                                    : 'bg-red-50 border border-red-200'
+                                    }`}>
+                                    <div className="flex items-center gap-2">
+                                        {parsedData && parsedData.isValid &&
+                                            parsedData.data && isCurrencySupported(parsedData.data.cu) &&
+                                            (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
+                                            (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true) ? (
+                                            <CheckCircle className="w-5 h-5 text-green-600" />
+                                        ) : (
+                                            <AlertCircle className="w-5 h-5 text-red-600" />
+                                        )}
+                                        <span className={`font-medium ${parsedData && parsedData.isValid &&
+                                            parsedData.data && isCurrencySupported(parsedData.data.cu) &&
+                                            (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
+                                            (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true)
+                                            ? 'text-green-900'
+                                            : 'text-red-900'
+                                            }`}>
+                                            {parsedData && parsedData.isValid &&
+                                                parsedData.data && isCurrencySupported(parsedData.data.cu) &&
+                                                (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
+                                                (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true)
+                                                ? 'Valid QR Code'
+                                                : 'Invalid QR Code'}
+                                        </span>
+                                    </div>
+                                    {/* Show other validation errors */}
+                                    {/* {parsedData.errors && parsedData.errors.length > 0 && (
+                                    <ul className="mt-2 text-sm text-red-700 space-y-1">
+                                        {parsedData.errors.map((error, index) => (
+                                            <li key={index}>• {error}</li>
+                                        ))}
+                                    </ul>
+                                )} */}
+                                </div>
+
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="flex gap-3 p-6 border-t border-slate-200">
+                                <button
+                                    onClick={() => setShowModal(false)}
+                                    className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    key={`confirm-${parsedData?.data?.cu || 'no-currency'}-${userAmount}`}
+                                    onClick={async () => {
+                                        try {
+                                            const finalAmount = parseFloat(parsedData!.data!.am || userAmount)
+                                            await convertInrToUsdc(finalAmount)
+                                            setShowModal(false)
+                                            setShowReason(false) // Reset to collapsed state
+                                            setShowConversionModal(true)
+                                        } catch (err) {
+                                            console.error('Conversion failed:', err)
+                                            // Could show error toast here
+                                        }
+                                    }}
+                                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                    disabled={
+                                        !parsedData ||
+                                        !parsedData.isValid ||
+                                        !parsedData.data ||
+                                        !isCurrencySupported(parsedData.data.cu) ||
+                                        (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
+                                        (!parsedData.data.am && (!userAmount.trim() || !isAmountValid(userAmount))) ||
+                                        isConverting
+                                    }
+                                >
+                                    {isConverting ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                            Converting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Check className="w-4 h-4" />
+                                            Confirm
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
-
-                        {/* Next Steps */}
-                        <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-6 sm:p-8 border border-emerald-100">
-                            {scanResult ? (
-                                <>
-                                    <div className="flex items-center justify-center gap-3 mb-4">
-                                        <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-green-600" />
-                                        <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                                            QR Code Scanned Successfully!
-                                        </h3>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="flex items-center justify-center gap-3 mb-4">
-                                        <Wallet className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
-                                        <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                                            Wallet Connection Required
-                                        </h3>
-                                    </div>
-                                    <p className="text-sm sm:text-base text-slate-600 mb-6 text-center">
-                                        Connect your Web3 wallet & scan the merchant&apos;s QR to proceed with payment.
-                                    </p>
-                                    <div className="text-center">
-                                        <p className="text-xs sm:text-sm text-slate-500 mb-4">
-                                            Make sure your camera is enabled and pointed at the QR code
-                                        </p>
-                                    </div>
-                                </>
-                            )}
-                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
-            {/* Confirmation Modal */}
-            {showModal && parsedData && parsedData.data && (
+            {/* Conversion Modal */}
+            {showConversionModal && parsedData && conversionResult && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
                         {/* Modal Header */}
                         <div className="flex items-center justify-between p-6 border-b border-slate-200">
                             <h3 className="text-xl font-bold text-slate-900">
-                                Confirm Payment Details
+                                Payment Conversion
                             </h3>
                             <button
-                                onClick={() => setShowModal(false)}
+                                onClick={() => setShowConversionModal(false)}
                                 className="p-2 hover:bg-slate-100 rounded-full transition-colors"
                             >
                                 <X className="w-5 h-5 text-slate-500" />
@@ -492,306 +723,161 @@ export default function ScanPage() {
                         </div>
 
                         {/* Modal Content */}
-                        <div className="p-6 space-y-4">
-                            {/* QR Type */}
-                            <div className="bg-slate-50 rounded-lg p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <QrCode className="w-5 h-5 text-emerald-600" />
-                                    <span className="font-medium text-slate-900">QR Type</span>
+                        <div className="p-6">
+                            {/* Payment Flow Info */}
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-6">
+                                <div className="flex items-center gap-2 text-sm text-emerald-800">
+                                    <span className="text-emerald-600">💱</span>
+                                    <span className="font-medium">You pay in USDC • Merchant receives in INR</span>
                                 </div>
-                                <p className="text-slate-600 capitalize">
-                                    {parsedData.qrType.replace('_', ' ')}
-                                </p>
                             </div>
 
-                            {/* Account Details */}
-                            <div className="space-y-3">
-                                <div className="bg-slate-50 rounded-lg p-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Wallet className="w-5 h-5 text-emerald-600" />
-                                        <span className="font-medium text-slate-900">Payee UPI ID</span>
+                            {/* Unified Payment Details Container */}
+                            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                                {/* Currency Conversion Section */}
+                                <div className="p-4 bg-gradient-to-r from-emerald-50/30 to-teal-50/30">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="w-6 h-6 bg-emerald-600 rounded-full flex items-center justify-center">
+                                            <span className="text-white text-sm font-bold">$</span>
+                                        </div>
+                                        <span className="font-semibold text-emerald-900">Currency Conversion Details</span>
                                     </div>
-                                    <p className="text-slate-600 font-mono">
-                                        {parsedData.data.pa}
-                                    </p>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-mono text-emerald-900 font-semibold text-lg">{parseFloat(parsedData!.data.am || userAmount).toFixed(2)} ₹</span>
+                                            <span className="text-emerald-700 font-medium"><ArrowBigRight className="w-4 h-4" /></span>
+                                            <span className="font-mono text-emerald-900 font-bold text-xl">{conversionResult!.usdcAmount.toFixed(6)} $</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-emerald-700 text-sm">Exchange Rate:</span>
+                                            <span className="font-mono text-emerald-900 text-sm">1 $ = {(1 / conversionResult!.exchangeRate).toFixed(2)} ₹</span>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {parsedData.data.pn && (
-                                    <div className="bg-slate-50 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <CheckCircle className="w-5 h-5 text-emerald-600" />
-                                            <span className="font-medium text-slate-900">Payee Name</span>
-                                        </div>
-                                        <p className="text-slate-600">
-                                            {parsedData.data.pn}
-                                        </p>
-                                    </div>
-                                )}
+                                {/* Horizontal Separator */}
+                                <div className="h-px bg-gradient-to-r from-transparent via-emerald-200 to-transparent"></div>
 
-                                {/* Amount Section */}
-                                <div className={`rounded-lg p-4 ${(!isCurrencySupported(parsedData.data.cu) ||
-                                        (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
-                                        (!parsedData.data.am && userAmount && !isAmountValid(userAmount)))
-                                        ? 'bg-red-50 border border-red-200'
-                                        : 'bg-slate-50'
-                                    }`}>
-                                    <div className="flex items-center gap-2 mb-2">
+                                {/* Network Service Fee Section */}
+                                <div className="p-4 bg-gradient-to-r from-teal-50/30 to-emerald-50/30">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center">
+                                            <span className="text-white text-sm">⚡</span>
+                                        </div>
+                                        <span className="font-semibold text-teal-900">Network Service Fee</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-teal-700 font-medium">Service Fee:</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono text-teal-900 font-semibold text-lg">{conversionResult!.networkFee.toFixed(2)} USDC</span>
+                                                <button
+                                                    onClick={() => setShowReason(prev => !prev)}
+                                                    className="flex items-center justify-center w-6 h-6 bg-teal-100 hover:bg-teal-200 rounded-full transition-all duration-200 group hover:scale-105 shadow-sm"
+                                                    title={showReason ? "Hide details" : "Show details"}
+                                                >
+                                                    <svg
+                                                        className={`w-3 h-3 text-teal-600 transition-transform duration-300 ${showReason ? 'rotate-180' : ''}`}
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Expandable Reason Section */}
+                                        <div className={`overflow-hidden transition-all duration-500 ease-in-out ${showReason ? 'max-h-40 opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
+                                            <div className="p-4 bg-gradient-to-r from-white/80 to-teal-50/80 rounded-lg border border-teal-200 shadow-sm">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                        <span className="text-teal-600 text-sm">💡</span>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-medium text-teal-900 mb-1">What&apos;s included in this fee?</h4>
+                                                        <p className="text-sm text-teal-800 leading-relaxed">
+                                                            This covers your <span className="font-semibold">ETH gas sponsorship</span> and upgrades your wallet to <span className="font-semibold">EIP-7702 compatible format</span> for seamless Web3 payments on <span className="font-semibold text-teal-700">{conversionResult!.networkName}</span>.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Horizontal Separator */}
+                                <div className="h-px bg-gradient-to-r from-transparent via-teal-200 to-transparent"></div>
+
+                                {/* Payment Summary Section */}
+                                <div className="p-4">
+                                    <div className="flex items-center gap-2 mb-3">
                                         <Banknote className="w-5 h-5 text-emerald-600" />
-                                        <span className="font-medium text-slate-900">Amount</span>
-                                        {(!isCurrencySupported(parsedData.data.cu) ||
-                                            (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
-                                            (!parsedData.data.am && userAmount && !isAmountValid(userAmount))) && (
-                                                <AlertCircle className="w-4 h-4 text-red-600" />
-                                            )}
+                                        <span className="font-medium text-emerald-900">Payment Summary</span>
                                     </div>
-                                    {parsedData.data.am ? (
-                                        // Display amount from QR
-                                        <div>
-                                            <p className={`${isCurrencySupported(parsedData.data.cu) && isAmountValid(parsedData.data.am)
-                                                    ? 'text-slate-600'
-                                                    : 'text-red-700'
-                                                }`}>
-                                                {parsedData.data.am} {parsedData.data.cu || 'INR'}
-                                            </p>
-                                            {getCurrencyError(parsedData.data.cu) && (
-                                                <p className="text-xs text-red-600 mt-1">
-                                                    {getCurrencyError(parsedData.data.cu)}
-                                                </p>
-                                            )}
-                                            {parsedData.data.am && !isAmountValid(parsedData.data.am) && (
-                                                <p className="text-xs text-red-600 mt-1">
-                                                    {getAmountError(parsedData.data.am)}
-                                                </p>
-                                            )}
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-emerald-700">Merchant:</span>
+                                            <span className="font-medium text-emerald-900">{parsedData!.data.pn || 'Unknown Merchant'}</span>
                                         </div>
-                                    ) : (
-                                        // Input field for amount when not specified in QR
-                                        <div className="space-y-2">
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">₹</span>
-                                                <input
-                                                    type="number"
-                                                    value={userAmount}
-                                                    onChange={(e) => setUserAmount(e.target.value)}
-                                                    placeholder="Enter amount (max ₹25,000)"
-                                                    className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                                    min="1"
-                                                    max="25000"
-                                                    step="0.01"
-                                                    disabled={!isCurrencySupported(parsedData.data.cu)}
-                                                />
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <p className="text-xs text-slate-500">Currency: INR (Indian Rupees)</p>
-                                                <p className="text-xs text-slate-500">Max: ₹25,000</p>
-                                            </div>
-                                            {getCurrencyError(parsedData.data.cu) && (
-                                                <p className="text-xs text-red-600 mt-1">
-                                                    {getCurrencyError(parsedData.data.cu)}
-                                                </p>
-                                            )}
-                                            {userAmount && !isAmountValid(userAmount) && (
-                                                <p className="text-xs text-red-600 mt-1">
-                                                    {getAmountError(userAmount)}
-                                                </p>
-                                            )}
+                                        <div className="flex justify-between">
+                                            <span className="text-emerald-700">UPI ID:</span>
+                                            <span className="font-mono text-emerald-900">{parsedData!.data.pa}</span>
                                         </div>
-                                    )}
+                                        <div className="flex justify-between">
+                                            <span className="text-emerald-700">Payment Amount:</span>
+                                            <span className="font-medium text-emerald-900">{conversionResult!.usdcAmount.toFixed(2)} USDC</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-emerald-700">Service Fee:</span>
+                                            <span className="font-medium text-emerald-900">{conversionResult!.networkFee.toFixed(2)} USDC</span>
+                                        </div>
+                                        <div className="flex justify-between border-t border-emerald-200 pt-2 mt-2">
+                                            <span className="text-emerald-700 font-semibold">You Pay:</span>
+                                            <span className="font-bold text-emerald-900 text-lg">{conversionResult!.totalUsdcAmount.toFixed(2)} USDC</span>
+                                        </div>
+                                        <div className="flex justify-between border-t border-emerald-200 pt-2 mt-2">
+                                            <span className="text-emerald-700 font-semibold">Merchant Receives:</span>
+                                            <span className="font-bold text-emerald-900 text-lg">₹{parseFloat(parsedData!.data.am || userAmount).toFixed(2)}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* Validation Status */}
-                            <div className={`rounded-lg p-4 ${parsedData && parsedData.isValid &&
-                                    parsedData.data && isCurrencySupported(parsedData.data.cu) &&
-                                    (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
-                                    (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true)
-                                    ? 'bg-green-50 border border-green-200'
-                                    : 'bg-red-50 border border-red-200'
-                                }`}>
-                                <div className="flex items-center gap-2">
-                                    {parsedData && parsedData.isValid &&
-                                        parsedData.data && isCurrencySupported(parsedData.data.cu) &&
-                                        (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
-                                        (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true) ? (
-                                        <CheckCircle className="w-5 h-5 text-green-600" />
-                                    ) : (
-                                        <AlertCircle className="w-5 h-5 text-red-600" />
-                                    )}
-                                    <span className={`font-medium ${parsedData && parsedData.isValid &&
-                                            parsedData.data && isCurrencySupported(parsedData.data.cu) &&
-                                            (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
-                                            (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true)
-                                            ? 'text-green-900'
-                                            : 'text-red-900'
-                                        }`}>
-                                        {parsedData && parsedData.isValid &&
-                                            parsedData.data && isCurrencySupported(parsedData.data.cu) &&
-                                            (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
-                                            (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true)
-                                            ? 'Valid QR Code'
-                                            : 'Invalid QR Code'}
-                                    </span>
-                                </div>
-                                {/* Show other validation errors */}
-                                {/* {parsedData.errors && parsedData.errors.length > 0 && (
-                                    <ul className="mt-2 text-sm text-red-700 space-y-1">
-                                        {parsedData.errors.map((error, index) => (
-                                            <li key={index}>• {error}</li>
-                                        ))}
-                                    </ul>
-                                )} */}
-                            </div>
-
                         </div>
 
                         {/* Modal Footer */}
                         <div className="flex gap-3 p-6 border-t border-slate-200">
                             <button
-                                onClick={() => setShowModal(false)}
+                                onClick={() => setShowConversionModal(false)}
                                 className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
-                                key={`confirm-${parsedData?.data?.cu || 'no-currency'}-${userAmount}`}
-                                onClick={async () => {
-                                    try {
-                                        const finalAmount = parseFloat(parsedData!.data!.am || userAmount)
-                                        await convertInrToUsdc(finalAmount)
-                                        setShowModal(false)
-                                        setShowConversionModal(true)
-                                    } catch (err) {
-                                        console.error('Conversion failed:', err)
-                                        // Could show error toast here
-                                    }
+                                onClick={() => {
+                                    setShowConversionModal(false)
+                                    // Here you can add logic to proceed with the USDC payment
+                                    const finalAmount = parsedData!.data.am || userAmount
+                                    console.log('Payment confirmed with USDC data:', {
+                                        ...parsedData,
+                                        finalInrAmount: finalAmount,
+                                        paymentAmount: conversionResult!.usdcAmount,
+                                        networkFee: conversionResult!.networkFee,
+                                        totalAmount: conversionResult!.totalUsdcAmount,
+                                        network: conversionResult!.networkName,
+                                        exchangeRate: conversionResult!.exchangeRate
+                                    })
                                 }}
-                                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                disabled={
-                                    !parsedData ||
-                                    !parsedData.isValid ||
-                                    !parsedData.data ||
-                                    !isCurrencySupported(parsedData.data.cu) ||
-                                    (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
-                                    (!parsedData.data.am && (!userAmount.trim() || !isAmountValid(userAmount))) ||
-                                    isConverting
-                                }
+                                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
                             >
-                                {isConverting ? (
-                                    <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                        Converting...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Check className="w-4 h-4" />
-                                        Confirm
-                                    </>
-                                )}
+                                <DollarSignIcon className="w-4 h-4" />
+                                Pay Now
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
-
-        {/* Conversion Modal */}
-        {showConversionModal && parsedData && conversionResult && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                    {/* Modal Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                        <h3 className="text-xl font-bold text-slate-900">
-                            Payment Conversion
-                        </h3>
-                        <button
-                            onClick={() => setShowConversionModal(false)}
-                            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                        >
-                            <X className="w-5 h-5 text-slate-500" />
-                        </button>
-                    </div>
-
-                    {/* Modal Content */}
-                    <div className="p-6 space-y-6">
-                        {/* Conversion Result */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                                    <span className="text-white text-sm font-bold">$</span>
-                                </div>
-                                <span className="font-semibold text-blue-900">Currency Conversion Complete</span>
-                            </div>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-blue-700 font-medium">INR Amount:</span>
-                                    <span className="font-mono text-blue-900 font-semibold text-lg">₹{parseFloat(parsedData!.data.am || userAmount).toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-blue-700 font-medium">USDC Amount:</span>
-                                    <span className="font-mono text-blue-900 font-bold text-xl">{conversionResult!.usdcAmount.toFixed(6)} USDC</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-blue-700 text-sm">Exchange Rate:</span>
-                                    <span className="font-mono text-blue-900 text-sm">1 USD = ₹{(1 / conversionResult!.exchangeRate).toFixed(2)}</span>
-                                </div>
-                                <div className="text-xs text-blue-600 mt-3 pt-3 border-t border-blue-200">
-                                    Last updated: {new Date(conversionResult!.lastUpdated).toLocaleString()}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Payment Summary */}
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Banknote className="w-5 h-5 text-emerald-600" />
-                                <span className="font-medium text-emerald-900">Payment Summary</span>
-                            </div>
-                            <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-emerald-700">Merchant:</span>
-                                    <span className="font-medium text-emerald-900">{parsedData!.data.pn || 'Unknown Merchant'}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-emerald-700">UPI ID:</span>
-                                    <span className="font-mono text-emerald-900">{parsedData!.data.pa}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-emerald-700">You Pay:</span>
-                                    <span className="font-bold text-emerald-900">{conversionResult!.usdcAmount.toFixed(6)} USDC</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Modal Footer */}
-                    <div className="flex gap-3 p-6 border-t border-slate-200">
-                        <button
-                            onClick={() => setShowConversionModal(false)}
-                            className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={() => {
-                                setShowConversionModal(false)
-                                // Here you can add logic to proceed with the USDC payment
-                                const finalAmount = parsedData!.data.am || userAmount
-                                console.log('Payment confirmed with USDC data:', {
-                                    ...parsedData,
-                                    finalInrAmount: finalAmount,
-                                    usdcAmount: conversionResult!.usdcAmount,
-                                    exchangeRate: conversionResult!.exchangeRate
-                                })
-                            }}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Banknote className="w-4 h-4" />
-                            Proceed with Payment
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
         </>
     )
 }

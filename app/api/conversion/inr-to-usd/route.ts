@@ -6,19 +6,53 @@ interface ConversionResponse {
   usdcAmount: number;
   exchangeRate: number;
   lastUpdated: string;
+  networkFee: number;
+  networkName: string;
+  totalUsdcAmount: number;
+}
+
+// Network fee structure based on chain ID
+const getNetworkFee = (chainId: number): number => {
+  switch (chainId) {
+    case 421614: // Arbitrum Sepolia Testnet
+      return 0.5
+    case 11155111: // Sepolia Testnet
+      return 1.0
+    case 42161: // Arbitrum One Mainnet
+      return 0.5
+    case 1: // Ethereum Mainnet
+      return 1.0
+    default:
+      return 0.5 // Default to 0.5 USDC for unknown networks
+  }
+}
+
+const getNetworkName = (chainId: number): string => {
+  switch (chainId) {
+    case 421614:
+      return "Arbitrum Sepolia"
+    case 11155111:
+      return "Sepolia"
+    case 42161:
+      return "Arbitrum"
+    case 1:
+      return "Ethereum"
+    default:
+      return "Unknown Network"
+  }
 }
 
 /**
  * POST /api/conversion/inr-to-usd
- * Converts INR amount to USDC using CoinGecko API
- * Body: { "amount": 1000 }
- * Response: { inrAmount, usdAmount, usdcAmount, exchangeRate, lastUpdated }
+ * Converts INR amount to USDC using CoinGecko API with network fees
+ * Body: { "amount": 1000, "chainId": 421614 } (optional chainId, defaults to 421614)
+ * Response: { inrAmount, usdAmount, usdcAmount, exchangeRate, lastUpdated, networkFee, networkName, totalUsdcAmount }
  */
 export async function POST(request: NextRequest) {
   try {
     // Parse the request body
     const body = await request.json();
-    const { amount } = body;
+    const { amount, chainId = 421614 } = body; // Default to Arbitrum Sepolia
 
     // Validate input
     if (!amount || typeof amount !== "number" || amount <= 0) {
@@ -29,6 +63,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get network fee and name
+    const networkFee = getNetworkFee(chainId);
+    const networkName = getNetworkName(chainId);
 
     // Check for CoinGecko API key
     const apiKey = process.env.COINGECKO_API_KEY;
@@ -86,12 +124,18 @@ export async function POST(request: NextRequest) {
     const usdcAmount = usdAmount; // 1 USDC = 1 USD
     const exchangeRate = 1 / inrPrice; // USD per INR
 
+    // Calculate total USDC amount including network fee
+    const totalUsdcAmount = usdcAmount + networkFee;
+
     const result: ConversionResponse = {
       inrAmount: amount,
       usdAmount: Number(usdAmount.toFixed(6)),
       usdcAmount: Number(usdcAmount.toFixed(6)),
       exchangeRate: Number(exchangeRate.toFixed(6)),
-      lastUpdated: lastUpdated ? new Date(lastUpdated * 1000).toISOString() : new Date().toISOString()
+      lastUpdated: lastUpdated ? new Date(lastUpdated * 1000).toISOString() : new Date().toISOString(),
+      networkFee,
+      networkName,
+      totalUsdcAmount: Number(totalUsdcAmount.toFixed(6))
     };
 
     return NextResponse.json(result, { status: 200 });
