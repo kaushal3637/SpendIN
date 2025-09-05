@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square } from 'lucide-react'
+import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
+import { ParsedQrResponse } from '@/types/upi.types'
 
 export default function ScanPage() {
     const [isVisible, setIsVisible] = useState(false)
@@ -10,6 +11,10 @@ export default function ScanPage() {
     const [scanResult, setScanResult] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [hasPermission, setHasPermission] = useState<boolean | null>(null)
+    const [parsedData, setParsedData] = useState<ParsedQrResponse | null>(null)
+    const [showModal, setShowModal] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
+    const [userAmount, setUserAmount] = useState<string>('')
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
@@ -21,6 +26,12 @@ export default function ScanPage() {
             stopScanning()
         }
     }, [])
+
+    // Force re-render when validation state changes
+    useEffect(() => {
+        // This ensures the component re-renders when parsedData or userAmount changes
+        // which should update the disabled state of the confirm button
+    }, [parsedData, userAmount])
 
     const requestCameraPermission = async (): Promise<boolean> => {
         try {
@@ -36,6 +47,30 @@ export default function ScanPage() {
             console.error('Camera permission denied:', err)
             setHasPermission(false)
             return false
+        }
+    }
+
+    const parseQrData = async (qrString: string): Promise<ParsedQrResponse | null> => {
+        try {
+            const response = await fetch('/api/scans', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ qrData: qrString }),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to parse QR data')
+            }
+
+            const data = await response.json()
+            return data
+        } catch (err) {
+            console.error('Error parsing QR data:', err)
+            setError(`Failed to parse QR data: ${err instanceof Error ? err.message : 'Unknown error'}`)
+            return null
         }
     }
 
@@ -111,7 +146,18 @@ export default function ScanPage() {
 
             if (result) {
                 console.log('QR Code detected:', result.getText())
+                setIsLoading(true)
                 setScanResult(result.getText())
+
+                // Parse the QR data using the API
+                const parsed = await parseQrData(result.getText())
+                setIsLoading(false)
+
+                if (parsed) {
+                    setParsedData(parsed)
+                    setShowModal(true)
+                }
+
                 setIsScanning(false)
                 stopScanning()
             }
@@ -163,8 +209,43 @@ export default function ScanPage() {
         setScanResult(null)
         setError(null)
         setIsScanning(false)
+        setParsedData(null)
+        setShowModal(false)
+        setIsLoading(false)
+        setUserAmount('')
         stopScanning()
     }
+
+    // Check if currency is supported (only INR allowed)
+    const isCurrencySupported = (currency?: string): boolean => {
+        const normalizedCurrency = (currency || 'INR').toUpperCase()
+        return normalizedCurrency === 'INR'
+    }
+
+    // Check if amount is valid (max 25000)
+    const isAmountValid = (amount?: string): boolean => {
+        if (!amount) return false
+        const numAmount = parseFloat(amount)
+        return !isNaN(numAmount) && numAmount > 0 && numAmount <= 25000
+    }
+
+    // Get currency validation error message
+    const getCurrencyError = (currency?: string): string | null => {
+        if (!isCurrencySupported(currency)) {
+            return `Unsupported currency: ${currency || 'Unknown'}. This platform only supports INR (Indian Rupees).`
+        }
+        return null
+    }
+
+    // Get amount validation error message
+    const getAmountError = (amount?: string): string | null => {
+        if (!amount) return 'Amount is required'
+        const numAmount = parseFloat(amount)
+        if (isNaN(numAmount) || numAmount <= 0) return 'Amount must be a positive number'
+        if (numAmount > 25000) return 'Amount cannot exceed ₹25,000'
+        return null
+    }
+
 
     return (
         <div className="min-h-screen bg-transparent">
@@ -220,7 +301,17 @@ export default function ScanPage() {
                                         {scanResult && (
                                             <div className="absolute inset-0 bg-white flex items-center justify-center p-4">
                                                 <div className="w-full h-full">
-                                                    {scanResult}
+                                                    {isLoading ? (
+                                                        <div className="text-center">
+                                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                                                            <p className="text-slate-600">Processing QR data...</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-left text-sm">
+                                                            <p className="font-medium mb-2">Raw QR Data:</p>
+                                                            <p className="text-slate-600 break-all">{scanResult}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
@@ -342,6 +433,214 @@ export default function ScanPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Confirmation Modal */}
+            {showModal && parsedData && parsedData.data && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                            <h3 className="text-xl font-bold text-slate-900">
+                                Confirm Payment Details
+                            </h3>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                            >
+                                <X className="w-5 h-5 text-slate-500" />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-6 space-y-4">
+                            {/* QR Type */}
+                            <div className="bg-slate-50 rounded-lg p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <QrCode className="w-5 h-5 text-emerald-600" />
+                                    <span className="font-medium text-slate-900">QR Type</span>
+                                </div>
+                                <p className="text-slate-600 capitalize">
+                                    {parsedData.qrType.replace('_', ' ')}
+                                </p>
+                            </div>
+
+                            {/* Account Details */}
+                            <div className="space-y-3">
+                                <div className="bg-slate-50 rounded-lg p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Wallet className="w-5 h-5 text-emerald-600" />
+                                        <span className="font-medium text-slate-900">Payee UPI ID</span>
+                                    </div>
+                                    <p className="text-slate-600 font-mono">
+                                        {parsedData.data.pa}
+                                    </p>
+                                </div>
+
+                                {parsedData.data.pn && (
+                                    <div className="bg-slate-50 rounded-lg p-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <CheckCircle className="w-5 h-5 text-emerald-600" />
+                                            <span className="font-medium text-slate-900">Payee Name</span>
+                                        </div>
+                                        <p className="text-slate-600">
+                                            {parsedData.data.pn}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Amount Section */}
+                                <div className={`rounded-lg p-4 ${(!isCurrencySupported(parsedData.data.cu) ||
+                                        (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
+                                        (!parsedData.data.am && userAmount && !isAmountValid(userAmount)))
+                                        ? 'bg-red-50 border border-red-200'
+                                        : 'bg-slate-50'
+                                    }`}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Banknote className="w-5 h-5 text-emerald-600" />
+                                        <span className="font-medium text-slate-900">Amount</span>
+                                        {(!isCurrencySupported(parsedData.data.cu) ||
+                                            (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
+                                            (!parsedData.data.am && userAmount && !isAmountValid(userAmount))) && (
+                                                <AlertCircle className="w-4 h-4 text-red-600" />
+                                            )}
+                                    </div>
+                                    {parsedData.data.am ? (
+                                        // Display amount from QR
+                                        <div>
+                                            <p className={`${isCurrencySupported(parsedData.data.cu) && isAmountValid(parsedData.data.am)
+                                                    ? 'text-slate-600'
+                                                    : 'text-red-700'
+                                                }`}>
+                                                {parsedData.data.am} {parsedData.data.cu || 'INR'}
+                                            </p>
+                                            {getCurrencyError(parsedData.data.cu) && (
+                                                <p className="text-xs text-red-600 mt-1">
+                                                    {getCurrencyError(parsedData.data.cu)}
+                                                </p>
+                                            )}
+                                            {parsedData.data.am && !isAmountValid(parsedData.data.am) && (
+                                                <p className="text-xs text-red-600 mt-1">
+                                                    {getAmountError(parsedData.data.am)}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        // Input field for amount when not specified in QR
+                                        <div className="space-y-2">
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">₹</span>
+                                                <input
+                                                    type="number"
+                                                    value={userAmount}
+                                                    onChange={(e) => setUserAmount(e.target.value)}
+                                                    placeholder="Enter amount (max ₹25,000)"
+                                                    className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                    min="1"
+                                                    max="25000"
+                                                    step="0.01"
+                                                    disabled={!isCurrencySupported(parsedData.data.cu)}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-xs text-slate-500">Currency: INR (Indian Rupees)</p>
+                                                <p className="text-xs text-slate-500">Max: ₹25,000</p>
+                                            </div>
+                                            {getCurrencyError(parsedData.data.cu) && (
+                                                <p className="text-xs text-red-600 mt-1">
+                                                    {getCurrencyError(parsedData.data.cu)}
+                                                </p>
+                                            )}
+                                            {userAmount && !isAmountValid(userAmount) && (
+                                                <p className="text-xs text-red-600 mt-1">
+                                                    {getAmountError(userAmount)}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Validation Status */}
+                            <div className={`rounded-lg p-4 ${parsedData && parsedData.isValid &&
+                                    parsedData.data && isCurrencySupported(parsedData.data.cu) &&
+                                    (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
+                                    (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true)
+                                    ? 'bg-green-50 border border-green-200'
+                                    : 'bg-red-50 border border-red-200'
+                                }`}>
+                                <div className="flex items-center gap-2">
+                                    {parsedData && parsedData.isValid &&
+                                        parsedData.data && isCurrencySupported(parsedData.data.cu) &&
+                                        (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
+                                        (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true) ? (
+                                        <CheckCircle className="w-5 h-5 text-green-600" />
+                                    ) : (
+                                        <AlertCircle className="w-5 h-5 text-red-600" />
+                                    )}
+                                    <span className={`font-medium ${parsedData && parsedData.isValid &&
+                                            parsedData.data && isCurrencySupported(parsedData.data.cu) &&
+                                            (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
+                                            (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true)
+                                            ? 'text-green-900'
+                                            : 'text-red-900'
+                                        }`}>
+                                        {parsedData && parsedData.isValid &&
+                                            parsedData.data && isCurrencySupported(parsedData.data.cu) &&
+                                            (parsedData.data.am ? isAmountValid(parsedData.data.am) : true) &&
+                                            (!parsedData.data.am && userAmount ? isAmountValid(userAmount) : true)
+                                            ? 'Valid QR Code'
+                                            : 'Invalid QR Code'}
+                                    </span>
+                                </div>
+                                {/* Show other validation errors */}
+                                {/* {parsedData.errors && parsedData.errors.length > 0 && (
+                                    <ul className="mt-2 text-sm text-red-700 space-y-1">
+                                        {parsedData.errors.map((error, index) => (
+                                            <li key={index}>• {error}</li>
+                                        ))}
+                                    </ul>
+                                )} */}
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="flex gap-3 p-6 border-t border-slate-200">
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                key={`confirm-${parsedData?.data?.cu || 'no-currency'}-${userAmount}`}
+                                onClick={() => {
+                                    setShowModal(false)
+                                    // Here you can add logic to proceed with the payment
+                                    const finalAmount = parsedData.data.am || userAmount
+                                    const finalCurrency = parsedData.data.cu || 'INR'
+                                    console.log('Payment confirmed with data:', {
+                                        ...parsedData,
+                                        finalAmount,
+                                        finalCurrency
+                                    })
+                                }}
+                                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                disabled={
+                                    !parsedData ||
+                                    !parsedData.isValid ||
+                                    !parsedData.data ||
+                                    !isCurrencySupported(parsedData.data.cu) ||
+                                    (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
+                                    (!parsedData.data.am && (!userAmount.trim() || !isAmountValid(userAmount)))
+                                }
+                            >
+                                <Check className="w-4 h-4" />
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

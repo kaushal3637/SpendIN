@@ -22,6 +22,7 @@ export interface ParsedQrResponse {
   isValid: boolean;
   data: UpiQrData;
   errors?: string[];
+  formattedData?: string;
 }
 
 export interface QrValidationResult {
