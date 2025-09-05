@@ -1,0 +1,76 @@
+Test UPI URIs for StableUPI - All Validation Cases
+===================================================
+
+CURRENCY VALIDATION CASES:
+--------------------------
+
+1. ❌ USD with Amount (Currency Error):
+   upi://pay?pa=test@upi&pn=Test Merchant USD&am=50.00&cu=USD
+   Expected: Currency error - "Unsupported currency: USD. This platform only supports INR"
+
+2. ❌ EUR with Amount (Currency Error):
+   upi://pay?pa=euro@upi&pn=Euro Store&am=25.00&cu=EUR
+   Expected: Currency error - "Unsupported currency: EUR. This platform only supports INR"
+
+3. ✅ INR with Amount (Valid):
+   upi://pay?pa=merchant@upi&pn=Test Merchant INR&am=500.00&cu=INR
+   Expected: Shows "₹500.00 INR" with no input field
+
+4. ✅ No Currency Specified (Defaults to INR):
+   upi://pay?pa=default@upi&pn=Default Store&am=100.00
+   Expected: Shows "₹100.00 INR" (defaults to INR)
+
+AMOUNT VALIDATION CASES:
+------------------------
+
+5. ✅ INR with Valid Amount (< ₹25,000):
+   upi://pay?pa=valid@upi&pn=Valid Amount Store&am=15000.00&cu=INR
+   Expected: Shows "₹15,000.00 INR" - Valid
+
+6. ❌ INR with Amount > ₹25,000 (Amount Error):
+   upi://pay?pa=high@upi&pn=High Amount Store&am=30000.00&cu=INR
+   Expected: Amount error - "Amount cannot exceed ₹25,000"
+
+7. ❌ INR with Invalid Amount (Zero/Negative):
+   upi://pay?pa=zero@upi&pn=Zero Amount Store&am=0&cu=INR
+   Expected: Amount error - "Amount must be a positive number"
+
+AMOUNT INPUT CASES (No Amount in QR):
+------------------------------------
+
+8. ✅ INR without Amount (Valid User Input):
+   upi://pay?pa=store@upi&pn=Local Store&cu=INR
+   Expected: Shows input field for entering INR amount (1-25000)
+
+9. ❌ USD without Amount (Currency + No Amount):
+   upi://pay?pa=usdstore@upi&pn=USD Store&cu=USD
+   Expected: Currency error + disabled input field
+
+COMBINED VALIDATION CASES:
+-------------------------
+
+10. ❌ Invalid QR Structure:
+    upi://invalid
+    Expected: QR parsing error
+
+11. ✅ Complete Valid Case:
+    upi://pay?pa=complete@upi&pn=Complete Store&am=5000.00&cu=INR&tn=Test123
+    Expected: All validations pass
+
+VALIDATION RULES SUMMARY:
+-------------------------
+✅ Currency: Only INR supported (case-insensitive)
+✅ Amount: Must be > 0 and ≤ ₹25,000
+✅ QR Format: Must be valid UPI format
+✅ Confirm Button: Disabled when any validation fails
+✅ Amount Input: Only enabled for INR currency
+✅ Default Currency: INR when not specified
+
+Testing Instructions:
+---------------------
+- Use these URIs to generate QR codes or test directly with the /api/scans endpoint
+- Test modal behavior for each case
+- Verify confirm button is disabled for all error cases
+- Check that amount input is disabled for non-INR currencies
+- Validate that amounts > ₹25,000 are rejected
+- Confirm INR is the only accepted currency
