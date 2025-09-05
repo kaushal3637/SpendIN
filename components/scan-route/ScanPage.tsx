@@ -15,6 +15,14 @@ export default function ScanPage() {
     const [showModal, setShowModal] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [userAmount, setUserAmount] = useState<string>('')
+    const [isConverting, setIsConverting] = useState(false)
+    const [conversionResult, setConversionResult] = useState<{
+      usdAmount: number;
+      usdcAmount: number;
+      exchangeRate: number;
+      lastUpdated: string;
+    } | null>(null)
+    const [showConversionModal, setShowConversionModal] = useState(false)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
@@ -213,7 +221,38 @@ export default function ScanPage() {
         setShowModal(false)
         setIsLoading(false)
         setUserAmount('')
+        setConversionResult(null)
+        setShowConversionModal(false)
         stopScanning()
+    }
+
+    const convertInrToUsdc = async (inrAmount: number) => {
+        try {
+            setIsConverting(true)
+            setConversionResult(null)
+
+            const response = await fetch('/api/conversion/inr-to-usd', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ amount: inrAmount }),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to convert currency')
+            }
+
+            const data = await response.json()
+            setConversionResult(data)
+            return data
+        } catch (err) {
+            console.error('Error converting INR to USDC:', err)
+            throw err
+        } finally {
+            setIsConverting(false)
+        }
     }
 
     // Check if currency is supported (only INR allowed)
@@ -248,6 +287,7 @@ export default function ScanPage() {
 
 
     return (
+        <>
         <div className="min-h-screen bg-transparent">
 
             <div className={`relative z-10 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
@@ -601,6 +641,7 @@ export default function ScanPage() {
                                     </ul>
                                 )} */}
                             </div>
+
                         </div>
 
                         {/* Modal Footer */}
@@ -613,16 +654,16 @@ export default function ScanPage() {
                             </button>
                             <button
                                 key={`confirm-${parsedData?.data?.cu || 'no-currency'}-${userAmount}`}
-                                onClick={() => {
-                                    setShowModal(false)
-                                    // Here you can add logic to proceed with the payment
-                                    const finalAmount = parsedData.data.am || userAmount
-                                    const finalCurrency = parsedData.data.cu || 'INR'
-                                    console.log('Payment confirmed with data:', {
-                                        ...parsedData,
-                                        finalAmount,
-                                        finalCurrency
-                                    })
+                                onClick={async () => {
+                                    try {
+                                        const finalAmount = parseFloat(parsedData!.data!.am || userAmount)
+                                        await convertInrToUsdc(finalAmount)
+                                        setShowModal(false)
+                                        setShowConversionModal(true)
+                                    } catch (err) {
+                                        console.error('Conversion failed:', err)
+                                        // Could show error toast here
+                                    }
                                 }}
                                 className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 disabled={
@@ -631,16 +672,126 @@ export default function ScanPage() {
                                     !parsedData.data ||
                                     !isCurrencySupported(parsedData.data.cu) ||
                                     (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
-                                    (!parsedData.data.am && (!userAmount.trim() || !isAmountValid(userAmount)))
+                                    (!parsedData.data.am && (!userAmount.trim() || !isAmountValid(userAmount))) ||
+                                    isConverting
                                 }
                             >
-                                <Check className="w-4 h-4" />
-                                Confirm
+                                {isConverting ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                        Converting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check className="w-4 h-4" />
+                                        Confirm
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
         </div>
+
+        {/* Conversion Modal */}
+        {showConversionModal && parsedData && conversionResult && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                        <h3 className="text-xl font-bold text-slate-900">
+                            Payment Conversion
+                        </h3>
+                        <button
+                            onClick={() => setShowConversionModal(false)}
+                            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                        >
+                            <X className="w-5 h-5 text-slate-500" />
+                        </button>
+                    </div>
+
+                    {/* Modal Content */}
+                    <div className="p-6 space-y-6">
+                        {/* Conversion Result */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                                    <span className="text-white text-sm font-bold">$</span>
+                                </div>
+                                <span className="font-semibold text-blue-900">Currency Conversion Complete</span>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-blue-700 font-medium">INR Amount:</span>
+                                    <span className="font-mono text-blue-900 font-semibold text-lg">₹{parseFloat(parsedData!.data.am || userAmount).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-blue-700 font-medium">USDC Amount:</span>
+                                    <span className="font-mono text-blue-900 font-bold text-xl">{conversionResult!.usdcAmount.toFixed(6)} USDC</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-blue-700 text-sm">Exchange Rate:</span>
+                                    <span className="font-mono text-blue-900 text-sm">1 USD = ₹{(1 / conversionResult!.exchangeRate).toFixed(2)}</span>
+                                </div>
+                                <div className="text-xs text-blue-600 mt-3 pt-3 border-t border-blue-200">
+                                    Last updated: {new Date(conversionResult!.lastUpdated).toLocaleString()}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Payment Summary */}
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Banknote className="w-5 h-5 text-emerald-600" />
+                                <span className="font-medium text-emerald-900">Payment Summary</span>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-emerald-700">Merchant:</span>
+                                    <span className="font-medium text-emerald-900">{parsedData!.data.pn || 'Unknown Merchant'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-emerald-700">UPI ID:</span>
+                                    <span className="font-mono text-emerald-900">{parsedData!.data.pa}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-emerald-700">You Pay:</span>
+                                    <span className="font-bold text-emerald-900">{conversionResult!.usdcAmount.toFixed(6)} USDC</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Modal Footer */}
+                    <div className="flex gap-3 p-6 border-t border-slate-200">
+                        <button
+                            onClick={() => setShowConversionModal(false)}
+                            className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowConversionModal(false)
+                                // Here you can add logic to proceed with the USDC payment
+                                const finalAmount = parsedData!.data.am || userAmount
+                                console.log('Payment confirmed with USDC data:', {
+                                    ...parsedData,
+                                    finalInrAmount: finalAmount,
+                                    usdcAmount: conversionResult!.usdcAmount,
+                                    exchangeRate: conversionResult!.exchangeRate
+                                })
+                            }}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Banknote className="w-4 h-4" />
+                            Proceed with Payment
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     )
 }
