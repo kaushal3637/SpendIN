@@ -19,6 +19,10 @@
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   background-image: linear-gradient(210deg, #dfffe8 1.57%, #fff9f9 50.8%);

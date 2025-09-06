@@ -4,7 +4,7 @@ import { MapPin } from 'lucide-react'
 
 export default function Footer() {
     return (
-        <footer className="relative py-8 sm:py-12 lg:py-20 px-4 sm:px-6 lg:px-8 bg-transparent">
+        <footer className="relative py-8 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8 bg-transparent">
             <div className="relative max-w-7xl mx-auto">
                 {/* Bottom Bar */}
                 <div className="pt-2 sm:pt-3 lg:pt-4 border-t border-emerald-300">

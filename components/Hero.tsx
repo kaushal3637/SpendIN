@@ -12,7 +12,7 @@ export default function Hero() {
   }, [])
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 overflow-hidden py-12 sm:py-16 lg:py-0">
+    <section className="min-h-[80vh] sm:min-h-screen flex items-start sm:items-center justify-center px-4 sm:px-6 lg:px-8 overflow-hidden pt-20 pb-8 sm:py-16 lg:py-20">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-20 sm:-top-40 -right-16 sm:-right-32 w-40 h-40 sm:w-80 sm:h-80 rounded-full bg-gradient-to-r from-emerald-400/10 to-teal-400/10 blur-3xl animate-pulse"></div>

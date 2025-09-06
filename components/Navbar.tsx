@@ -23,9 +23,17 @@ export default function Navbar() {
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId)
     if (element) {
-      element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
+      // Calculate offset for mobile to account for navbar and centering
+      const isMobile = window.innerWidth < 640
+      const navbarHeight = 64 // h-16 = 64px
+      const offset = isMobile ? navbarHeight + 20 : 0 // Extra 20px for mobile spacing
+
+      const elementPosition = element.offsetTop - offset
+      const offsetPosition = elementPosition
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
       })
     }
     setIsOpen(false) // Close mobile menu
@@ -35,13 +43,17 @@ export default function Navbar() {
   useEffect(() => {
     const handleScroll = () => {
       const sections = navigation.map(nav => nav.href.replace('#', ''))
-      const scrollPosition = window.scrollY + 100
+      const scrollPosition = window.scrollY + 150 // Increased threshold for better detection
+      const isMobile = window.innerWidth < 640
+      const navbarOffset = isMobile ? 84 : 100 // Account for navbar height
 
       sections.forEach((section) => {
         const element = document.getElementById(section)
         if (element) {
           const { offsetTop, offsetHeight } = element
-          if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
+          const adjustedOffsetTop = offsetTop - navbarOffset
+
+          if (scrollPosition >= adjustedOffsetTop && scrollPosition < adjustedOffsetTop + offsetHeight) {
             setActiveSection(section)
           }
         }

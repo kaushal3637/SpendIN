@@ -62,7 +62,7 @@ export default function HowItWorks() {
     }, [isVisible])
 
     return (
-        <section ref={sectionRef} className="py-12 sm:py-16 md:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 bg-transparent">
+        <section ref={sectionRef} className="min-h-[70vh] sm:min-h-screen flex items-start sm:items-center pt-20 pb-8 sm:py-12 md:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 bg-transparent">
             <div className="max-w-7xl mx-auto">
                 {/* Section Header */}
                 <div className={`text-center mb-12 sm:mb-16 lg:mb-20 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
