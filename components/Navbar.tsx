@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Menu, X, ChevronDown, Wallet, LogOut } from 'lucide-react'
-import { usePrivy } from '@privy-io/react-auth'
+import { Menu, X, ChevronDown, Wallet, LogOut, Network } from 'lucide-react'
+import { usePrivy, useWallets } from '@privy-io/react-auth'
+import { useWallet } from '@/context/WalletContext'
+import { chains, getChainById } from '@/lib/chains'
 
 const navigation = [
   { name: 'Home', href: '#hero', current: true },
@@ -15,9 +17,15 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('hero')
+  const [showNetworkSelector, setShowNetworkSelector] = useState(false)
 
   // Privy hooks
   const { ready, authenticated, user, login, logout } = usePrivy()
+
+  // Wallet context
+  const { wallets: privyWallets } = useWallets()
+  const { selectedChain, setSelectedChain, connectedChain } = useWallet()
+  const wallet = privyWallets[0]
 
   // Smooth scroll function
   const scrollToSection = (sectionId: string) => {
@@ -64,18 +72,39 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Close wallet dropdown when clicking outside (desktop only)
+  // Close wallet dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
-      if (walletDropdownOpen && !target.closest('[data-wallet-dropdown]')) {
+      if (walletDropdownOpen && !target.closest('[data-wallet-dropdown]') && !target.closest('.mobile-wallet-dropdown')) {
         setWalletDropdownOpen(false)
+        setShowNetworkSelector(false)
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [walletDropdownOpen])
+
+  // Set default chain if none selected
+  useEffect(() => {
+    if (!selectedChain && wallet?.chainId) {
+      const chainId = parseInt(wallet.chainId.split(":")[1])
+      setSelectedChain(chainId)
+    }
+  }, [selectedChain, wallet, setSelectedChain])
+
+  const handleChainSwitch = async (chainId: number) => {
+    try {
+      if (wallet) {
+        await wallet.switchChain(chainId)
+        setSelectedChain(chainId)
+        setShowNetworkSelector(false)
+      }
+    } catch (error) {
+      console.error("Failed to switch chain:", error)
+    }
+  }
 
   const handleNavClick = (href: string) => {
     const sectionId = href.replace('#', '')
@@ -133,17 +162,77 @@ export default function Navbar() {
 
                     {/* Wallet Dropdown */}
                     {walletDropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-emerald-100 py-1 z-50">
+                      <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-emerald-100 py-1 z-50">
                         <div className="px-4 py-2 border-b border-emerald-100">
                           <p className="text-sm text-slate-600">Connected Wallet</p>
                           <p className="text-xs text-slate-500 font-mono">
                             {user?.wallet?.address?.slice(0, 10)}...{user?.wallet?.address?.slice(-8)}
                           </p>
                         </div>
+
+                        {/* Current Network */}
+                        <div className="px-4 py-2 border-b border-emerald-100">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Network className="w-4 h-4 text-emerald-600" />
+                              <span className="text-sm text-slate-600">Network</span>
+                            </div>
+                            <button
+                              onClick={() => setShowNetworkSelector(!showNetworkSelector)}
+                              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                            >
+                              {showNetworkSelector ? 'Cancel' : 'Switch'}
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className={`w-2 h-2 rounded-full ${connectedChain === selectedChain ? 'bg-green-500' : 'bg-gray-400'
+                              }`} />
+                            <span className="text-sm text-slate-900">
+                              {getChainById(selectedChain || 1)?.name || 'Unknown'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Network Selector */}
+                        {showNetworkSelector && (
+                          <div className="border-b border-emerald-100">
+                            <div className="px-4 py-2">
+                              <p className="text-xs text-slate-500 mb-2">Select Network:</p>
+                              <div className="space-y-1">
+                                {chains.map((chain) => {
+                                  const isSelected = selectedChain === chain.id
+                                  const isConnected = connectedChain === chain.id
+
+                                  return (
+                                    <button
+                                      key={chain.id}
+                                      onClick={() => handleChainSwitch(chain.id)}
+                                      className={`w-full flex items-center justify-between p-2 rounded text-left text-sm transition-colors ${isSelected
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'hover:bg-gray-50 text-slate-700'
+                                        }`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'
+                                          }`} />
+                                        <span>{chain.name}</span>
+                                      </div>
+                                      <div className="text-xs text-slate-500">
+                                        {chain.testnet ? 'Testnet' : 'Mainnet'}
+                                      </div>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <button
                           onClick={() => {
                             logout()
                             setWalletDropdownOpen(false)
+                            setShowNetworkSelector(false)
                           }}
                           className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors duration-200"
                         >
@@ -176,14 +265,80 @@ export default function Navbar() {
             <div className="flex-shrink-0">
               {ready ? (
                 authenticated ? (
-                  // Connected - Show logout button
-                  <button
-                    onClick={logout}
-                    className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-full hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg"
-                    title="Disconnect Wallet"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
+                  <div className="relative">
+                    {/* Connected - Show wallet button with network indicator */}
+                    <button
+                      onClick={() => setWalletDropdownOpen(!walletDropdownOpen)}
+                      className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-full hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                      title="Wallet Options"
+                    >
+                      <Wallet className="w-4 h-4" />
+                      <div className={`w-2 h-2 rounded-full ml-1 ${connectedChain === selectedChain ? 'bg-green-400' : 'bg-yellow-400'
+                        }`} />
+                    </button>
+
+                    {/* Mobile Wallet Dropdown */}
+                    {walletDropdownOpen && (
+                      <div className="mobile-wallet-dropdown absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-emerald-100 py-2 z-50">
+                        <div className="px-4 py-2 border-b border-emerald-100">
+                          <p className="text-sm text-slate-600">Connected Wallet</p>
+                          <p className="text-xs text-slate-500 font-mono">
+                            {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}
+                          </p>
+                        </div>
+
+                        {/* Network Section */}
+                        <div className="px-4 py-2 border-b border-emerald-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Network className="w-4 h-4 text-emerald-600" />
+                              <span className="text-sm text-slate-600">Network</span>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            {chains.map((chain) => {
+                              const isSelected = selectedChain === chain.id
+                              const isConnected = connectedChain === chain.id
+
+                              return (
+                                <button
+                                  key={chain.id}
+                                  onClick={() => {
+                                    handleChainSwitch(chain.id)
+                                    setWalletDropdownOpen(false)
+                                  }}
+                                  className={`w-full flex items-center justify-between p-2 rounded text-left text-sm transition-colors ${isSelected
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'hover:bg-gray-50 text-slate-700'
+                                    }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'
+                                      }`} />
+                                    <span className="text-xs">{chain.name}</span>
+                                  </div>
+                                  <div className="text-xs text-slate-500">
+                                    {chain.testnet ? 'Test' : 'Main'}
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            logout()
+                            setWalletDropdownOpen(false)
+                          }}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors duration-200"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Disconnect
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   // Not connected - Show connect button
                   <button
