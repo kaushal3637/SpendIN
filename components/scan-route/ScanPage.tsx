@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSignIcon } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse } from '@/types/upi.types'
-// import SwitchNetwork from '@/components/SwitchNetwork'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
 import { USDC_CONTRACT_ADDRESSES } from '@/config/constant'
 import { ethers } from 'ethers'
@@ -884,16 +883,6 @@ export default function ScanPage() {
                                 </div>
                             </div>
 
-                            {/* Network Selection */}
-                            {/* <div className="mb-6">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                                        <span className="text-white text-sm">🌐</span>
-                                    </div>
-                                    <span className="font-semibold text-slate-900">Select Network</span>
-                                </div>
-                                <SwitchNetwork />
-                            </div> */}
 
                             {/* Unified Payment Details Container */}
                             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
