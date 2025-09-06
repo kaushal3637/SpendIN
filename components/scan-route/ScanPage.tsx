@@ -4,13 +4,15 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSignIcon } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse } from '@/types/upi.types'
-import SwitchNetwork from '@/components/SwitchNetwork'
-import { useLogin, usePrivy } from '@privy-io/react-auth'
+// import SwitchNetwork from '@/components/SwitchNetwork'
+import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
 import { USDC_CONTRACT_ADDRESSES } from '@/config/constant'
 import { ethers } from 'ethers'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
+    const { wallets } = useWallets()
+    const wallet = wallets[0]
     const { login } = useLogin()
     const isWalletConnected = authenticated
 
