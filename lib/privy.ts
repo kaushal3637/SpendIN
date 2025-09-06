@@ -29,6 +29,12 @@ export const privyConfig: PrivyClientConfig = {
           ],
         },
       },
+      blockExplorers: {
+        default: {
+          name: "Arbiscan",
+          url: "https://sepolia.arbiscan.io",
+        },
+      },
     },
     {
       id: 11155111, // Sepolia Testnet
@@ -41,6 +47,12 @@ export const privyConfig: PrivyClientConfig = {
       rpcUrls: {
         default: {
           http: [process.env.SEPOLIA_RPC_URL || "https://1rpc.io/sepolia"],
+        },
+      },
+      blockExplorers: {
+        default: {
+          name: "Etherscan",
+          url: "https://sepolia.etherscan.io",
         },
       },
     },
@@ -59,6 +71,12 @@ export const privyConfig: PrivyClientConfig = {
           process.env.ARBITRUM_SEPOLIA_RPC_URL ||
             "https://sepolia-rollup.arbitrum.io/rpc",
         ],
+      },
+    },
+    blockExplorers: {
+      default: {
+        name: "Arbiscan",
+        url: "https://sepolia.arbiscan.io",
       },
     },
   },

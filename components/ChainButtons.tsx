@@ -81,15 +81,59 @@ export default function ChainButtons({
   const [chainSwitchError, setChainSwitchError] = useState("");
 
   const handleChainSwitch = async (chainId: number) => {
-    if (!wallet) return;
+    if (!wallet) {
+      setChainSwitchError("No wallet available for chain switching");
+      return;
+    }
 
     try {
       setChainSwitchError("");
-      await wallet.switchChain(chainId);
-      setSelectedChain(chainId);
-    } catch (error) {
+
+      // Detect if we're on a mobile device
+      const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      if (isMobile) {
+        try {
+          // Mobile wallets often require user interaction and may take longer
+          // Convert chain ID to hex format as expected by wallets
+          const chainIdHex = `0x${chainId.toString(16)}` as `0x${string}`
+          const switchPromise = wallet.switchChain(chainIdHex);
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Chain switch timeout - please check your wallet app')), 30000);
+          });
+
+          await Promise.race([switchPromise, timeoutPromise]);
+          setSelectedChain(chainId);
+        } catch (mobileError: unknown) {
+          const error = mobileError as Error & { code?: number };
+
+          if (error?.message?.includes('User rejected') || error?.code === 4001) {
+            setChainSwitchError("Chain switch cancelled by user.");
+          } else if (error?.message?.includes('timeout')) {
+            setChainSwitchError("Chain switch timed out. Please check your wallet app and try again.");
+          } else if (error?.message?.includes('Unsupported') || error?.message?.includes('not supported')) {
+            setChainSwitchError(`This network may not be supported by your mobile wallet. Please try a different network.`);
+          } else {
+            setChainSwitchError("Failed to switch network on mobile. Please try again.");
+          }
+          return;
+        }
+      } else {
+        // Desktop switching
+        // Convert chain ID to hex format as expected by wallets
+        const chainIdHex = `0x${chainId.toString(16)}` as `0x${string}`
+        await wallet.switchChain(chainIdHex);
+        setSelectedChain(chainId);
+      }
+    } catch (error: unknown) {
       console.error("Failed to switch chain:", error);
-      setChainSwitchError("Failed to switch chain. Please try again.");
+      const err = error as Error & { code?: number };
+
+      if (err?.message?.includes('User rejected') || err?.code === 4001) {
+        setChainSwitchError("Chain switch cancelled by user.");
+      } else {
+        setChainSwitchError("Failed to switch chain. Please try again.");
+      }
     }
   };
 

@@ -101,13 +101,77 @@ export default function Navbar() {
 
   const handleChainSwitch = async (chainId: number) => {
     try {
-      if (wallet) {
-        await wallet.switchChain(chainId)
+      if (!wallet) {
+        console.error("No wallet available for chain switching")
+        return
+      }
+
+      // Detect if we're on a mobile device
+      const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+      console.log(`Attempting to switch to chain ${chainId} on ${isMobile ? 'mobile' : 'desktop'} device`)
+
+      // For mobile devices, add additional error handling and user feedback
+      if (isMobile) {
+        try {
+          // Mobile wallets often require user interaction and may take longer
+          // Convert chain ID to hex format as expected by wallets
+          const chainIdHex = `0x${chainId.toString(16)}` as `0x${string}`
+          const switchPromise = wallet.switchChain(chainIdHex)
+
+          // Set a timeout for mobile devices (they often take longer)
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Chain switch timeout - please check your wallet app')), 30000)
+          })
+
+          await Promise.race([switchPromise, timeoutPromise])
+
+          setSelectedChain(chainId)
+          setShowNetworkSelector(false)
+          console.log(`Successfully switched to chain ${chainId} on mobile`)
+        } catch (mobileError: unknown) {
+          console.error("Mobile chain switch error:", mobileError)
+
+          const error = mobileError as Error & { code?: number }
+
+          // Handle specific mobile wallet errors
+          if (error?.message?.includes('User rejected') || error?.code === 4001) {
+            console.log("User rejected chain switch on mobile")
+            // Don't show error to user, they cancelled intentionally
+          } else if (error?.message?.includes('timeout') || error?.message?.includes('Chain switch timeout')) {
+            console.error("Chain switch timed out on mobile")
+            alert("Chain switch is taking longer than expected. Please check your wallet app and try again.")
+          } else if (error?.message?.includes('Unsupported') || error?.message?.includes('not supported')) {
+            console.error("Chain not supported on mobile wallet")
+            alert(`This network (${getChainById(chainId)?.name || 'Unknown'}) may not be supported by your mobile wallet. Please try a different network or use a desktop browser.`)
+          } else {
+            console.error("Unknown mobile chain switch error:", error)
+            alert("Failed to switch network on mobile. Please try again or use a desktop browser.")
+          }
+          return
+        }
+      } else {
+        // Desktop switching (existing logic)
+        // Convert chain ID to hex format as expected by wallets
+        const chainIdHex = `0x${chainId.toString(16)}` as `0x${string}`
+        await wallet.switchChain(chainIdHex)
         setSelectedChain(chainId)
         setShowNetworkSelector(false)
+        console.log(`Successfully switched to chain ${chainId} on desktop`)
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to switch chain:", error)
+
+      const err = error as Error & { code?: number }
+
+      // Handle desktop-specific errors
+      if (!window.innerWidth || window.innerWidth >= 768) {
+        if (err?.message?.includes('User rejected') || err?.code === 4001) {
+          console.log("User rejected chain switch on desktop")
+        } else {
+          alert("Failed to switch network. Please try again.")
+        }
+      }
     }
   }
 
@@ -312,7 +376,11 @@ export default function Navbar() {
                                   key={chain.id}
                                   onClick={() => {
                                     handleChainSwitch(chain.id)
-                                    setWalletDropdownOpen(false)
+                                    // Don't close dropdown immediately on mobile - let user see the result
+                                    const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                                    if (!isMobile) {
+                                      setWalletDropdownOpen(false)
+                                    }
                                   }}
                                   className={`w-full flex items-center justify-between p-2 rounded text-left text-sm transition-colors ${isSelected
                                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
