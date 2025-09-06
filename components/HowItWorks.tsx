@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Wallet, IndianRupee, CheckCircle, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 
 const steps = [
     {
@@ -166,10 +167,12 @@ export default function HowItWorks() {
                 {/* Bottom CTA */}
                 <div className={`text-center mt-12 sm:mt-16 transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
                     }`}>
-                    <button className="group inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/25">
-                        <span className="mr-2">Try It Now</span>
-                        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
-                    </button>
+                    <Link href="/scan">
+                        <button className="group inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/25">
+                            <span className="mr-2">Try It Now</span>
+                            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
+                        </button>
+                    </Link>
                 </div>
             </div>
         </section>

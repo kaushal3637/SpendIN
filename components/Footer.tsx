@@ -64,7 +64,7 @@ export default function Footer() {
                     {/* Desktop Layout (Side by Side) */}
                     <div className="hidden lg:flex items-center justify-between gap-4">
                         <div className="text-slate-600 text-sm">
-                            © 2024 StableUPI. All rights reserved.
+                            © 2025 StableUPI. All rights reserved.
                         </div>
 
                         <div className="flex items-center text-sm text-slate-600">

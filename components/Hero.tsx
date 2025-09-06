@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Wallet, QrCode, Banknote } from 'lucide-react'
+import { ChevronRight, Wallet, QrCode, Banknote, InfoIcon } from 'lucide-react'
 
 export default function Hero() {
   const [isVisible, setIsVisible] = useState(false)
@@ -49,18 +49,26 @@ export default function Hero() {
         </p>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 sm:gap-4 justify-center items-center px-4 sm:px-0">
-          <Link href="/scan">
-            <button className="group relative inline-flex items-center justify-center w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/25">
-              <span className="mr-2">Get Started</span>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-700 to-teal-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10"></div>
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center px-4 sm:px-0 max-w-lg mx-auto">
+          {/* Primary CTA Button */}
+          <Link href="/scan" className="w-full sm:w-auto sm:flex-1 max-w-xs">
+            <button className="group relative w-full inline-flex items-center justify-center px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/30 active:scale-95">
+              <span className="mr-3">Get Started</span>
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 transition-transform group-hover:translate-x-1 group-active:translate-x-0" />
+              {/* Enhanced hover overlay */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-700 to-teal-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10"></div>
+              {/* Subtle glow effect */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-400/20 to-teal-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl -z-20"></div>
             </button>
           </Link>
 
-          <Link href="#features">
-            <button className="inline-flex items-center justify-center w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-slate-700 border-2 border-emerald-200 rounded-full transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-lg">
-              Learn More
+          {/* Secondary CTA Button */}
+          <Link href="#features" className="w-full sm:w-auto sm:flex-1 max-w-xs">
+            <button className="group relative w-full inline-flex items-center justify-center px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl font-bold text-slate-700 bg-white border-2 border-emerald-300 rounded-2xl transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-xl hover:shadow-emerald-200/50 active:scale-95">
+              <InfoIcon className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
+              <span>Learn More</span>
+              {/* Subtle hover effect */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-50/0 to-teal-50/0 group-hover:from-emerald-50/50 group-hover:to-teal-50/50 transition-all duration-300"></div>
             </button>
           </Link>
         </div>

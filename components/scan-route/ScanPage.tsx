@@ -311,10 +311,10 @@ export default function ScanPage() {
                                     <QrCode className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                                 </div>
                                 <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-4">
-                                    Scan Merchant QR
+                                    Pay Smarter with QR
                                 </h1>
                                 <p className="text-base sm:text-lg md:text-xl text-slate-600 max-w-xl mx-auto px-4">
-                                    Scan the merchant&apos;s QR to start payment.
+                                    Scan the payer&apos;s QR to start payment.
                                 </p>
                             </div>
 
@@ -324,7 +324,7 @@ export default function ScanPage() {
                                     {/* Scanner Frame */}
                                     <div className="relative bg-white rounded-2xl shadow-lg border-2 border-emerald-200 p-6 sm:p-8 overflow-hidden">
                                         {/* Video Element for Camera Feed */}
-                                        <div className="relative bg-slate-900 rounded-lg overflow-hidden border-2 border-emerald-300">
+                                        <div className={`relative bg-slate-900 rounded-lg overflow-hidden ${isScanning ? 'border-2 border-emerald-300' : 'border-0'}`}>
                                             <video
                                                 ref={videoRef}
                                                 className={`w-full h-64 sm:h-80 object-cover ${!isScanning ? 'hidden' : ''}`}
@@ -358,7 +358,7 @@ export default function ScanPage() {
                                                             </div>
                                                         ) : (
                                                             <div className="text-left text-sm">
-                                                                <p className="font-medium mb-2">Raw QR Data:</p>
+                                                                <p className="font-medium mb-2">QR Data:</p>
                                                                 <p className="text-slate-600 break-all">{scanResult}</p>
                                                             </div>
                                                         )}
@@ -454,16 +454,16 @@ export default function ScanPage() {
                             <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-6 sm:p-8 border border-emerald-100">
                                 {scanResult ? (
                                     <>
-                                        <div className="flex items-center justify-center gap-3 mb-4">
+                                        <div className="flex items-center justify-center gap-3">
                                             <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-green-600" />
                                             <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                                                QR Code Scanned Successfully!
+                                                Payment Done Successfully!
                                             </h3>
                                         </div>
                                     </>
                                 ) : (
                                     <>
-                                        <div className="flex items-center justify-center gap-3 mb-4">
+                                        <div className="flex items-center justify-center gap-3">
                                             <Wallet className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
                                             <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
                                                 Wallet Connection Required
@@ -473,7 +473,7 @@ export default function ScanPage() {
                                             Connect your Web3 wallet & scan the merchant&apos;s QR to proceed with payment.
                                         </p>
                                         <div className="text-center">
-                                            <p className="text-xs sm:text-sm text-slate-500 mb-4">
+                                            <p className="text-xs sm:text-sm text-slate-500">
                                                 Make sure your camera is enabled and pointed at the QR code
                                             </p>
                                         </div>
@@ -584,7 +584,7 @@ export default function ScanPage() {
                                                         value={userAmount}
                                                         onChange={(e) => setUserAmount(e.target.value)}
                                                         placeholder="Enter amount (max ₹25,000)"
-                                                        className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                        className="w-full pl-8 pr-3 py-2 text-slate-500 border border-slate-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                                         min="1"
                                                         max="25000"
                                                         step="0.01"
