@@ -279,7 +279,7 @@ export default function Navbar() {
 
                     {/* Mobile Wallet Dropdown */}
                     {walletDropdownOpen && (
-                      <div className="mobile-wallet-dropdown absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-emerald-100 py-2 z-50">
+                      <div className="mobile-wallet-dropdown absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-emerald-100 py-2 z-[9999] max-h-[80vh] overflow-y-auto">
                         <div className="px-4 py-2 border-b border-emerald-100">
                           <p className="text-sm text-slate-600">Connected Wallet</p>
                           <p className="text-xs text-slate-500 font-mono">

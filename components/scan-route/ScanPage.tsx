@@ -5,13 +5,12 @@ import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Chec
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse } from '@/types/upi.types'
 import SwitchNetwork from '@/components/SwitchNetwork'
-import { useWallets, useLogin } from '@privy-io/react-auth'
+import { useLogin, usePrivy } from '@privy-io/react-auth'
 
 export default function ScanPage() {
-    const { wallets } = useWallets()
+    const { authenticated } = usePrivy()
     const { login } = useLogin()
-    const wallet = wallets[0]
-    const isWalletConnected = !!wallet
+    const isWalletConnected = authenticated
 
     const [isVisible, setIsVisible] = useState(false)
     const [isScanning, setIsScanning] = useState(false)
@@ -362,7 +361,10 @@ export default function ScanPage() {
                                     Pay Smarter with QR
                                 </h1>
                                 <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-xs sm:max-w-sm md:max-w-xl mx-auto px-2 sm:px-4 leading-relaxed">
-                                    Scan the payer&apos;s QR to start payment.
+                                    {isWalletConnected
+                                        ? "Scan the payer's QR to start payment."
+                                        : "Connect your wallet to start scanning QR codes for payment."
+                                    }
                                 </p>
                             </div>
 
@@ -384,13 +386,27 @@ export default function ScanPage() {
                                             {!isScanning && !scanResult && !error && (
                                                 <div className="w-full h-48 sm:h-56 md:h-64 lg:h-80 flex items-center justify-center bg-slate-50">
                                                     <div className="text-center p-4">
-                                                        <Camera className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-slate-400 mx-auto mb-3 sm:mb-4" />
-                                                        <h3 className="text-base sm:text-lg md:text-xl font-semibold text-slate-700 mb-2">
-                                                            Camera Ready
-                                                        </h3>
-                                                        <p className="text-xs sm:text-sm md:text-base text-slate-500 px-2">
-                                                            Click start to begin scanning
-                                                        </p>
+                                                        {!isWalletConnected ? (
+                                                            <>
+                                                                <Wallet className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-blue-500 mx-auto mb-3 sm:mb-4" />
+                                                                <h3 className="text-base sm:text-lg md:text-xl font-semibold text-slate-700 mb-2">
+                                                                    Wallet Required
+                                                                </h3>
+                                                                <p className="text-xs sm:text-sm md:text-base text-slate-500 px-2">
+                                                                    Connect your wallet to start scanning QR codes
+                                                                </p>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Camera className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-slate-400 mx-auto mb-3 sm:mb-4" />
+                                                                <h3 className="text-base sm:text-lg md:text-xl font-semibold text-slate-700 mb-2">
+                                                                    Camera Ready
+                                                                </h3>
+                                                                <p className="text-xs sm:text-sm md:text-base text-slate-500 px-2">
+                                                                    Click start to begin scanning
+                                                                </p>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
@@ -434,19 +450,26 @@ export default function ScanPage() {
                                         <div className="mt-3 sm:mt-4 flex gap-2 sm:gap-3 justify-center px-2">
                                             {!scanResult && !error && (
                                                 <button
-                                                    onClick={toggleScanning}
+                                                    onClick={isWalletConnected ? toggleScanning : login}
                                                     disabled={hasPermission === false}
                                                     className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-2 rounded-full font-medium transition-all duration-200 text-sm sm:text-base touch-manipulation min-h-[44px] ${isScanning
                                                         ? 'bg-red-600 hover:bg-red-700 text-white'
-                                                        : hasPermission === false
-                                                            ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                                                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                                        : !isWalletConnected
+                                                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                            : hasPermission === false
+                                                                ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                                                                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                                                         } disabled:bg-slate-400 disabled:cursor-not-allowed`}
                                                 >
                                                     {isScanning ? (
                                                         <>
                                                             <Square className="w-4 h-4" />
                                                             Stop
+                                                        </>
+                                                    ) : !isWalletConnected ? (
+                                                        <>
+                                                            <Wallet className="w-4 h-4" />
+                                                            Connect Wallet
                                                         </>
                                                     ) : hasPermission === false ? (
                                                         <>
@@ -512,32 +535,23 @@ export default function ScanPage() {
                                 ) : (
                                     <>
                                         <div className="flex items-center justify-center gap-3">
-                                            <Wallet className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
+                                            <Wallet className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 mb-2" />
                                             <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                                                Wallet Connection Required
+                                                Connect Wallet
                                             </h3>
                                         </div>
                                         <p className="text-sm sm:text-base text-slate-600 mb-4 text-center">
-                                            Connect your Web3 wallet & scan the merchant&apos;s QR to proceed with payment.
+                                            Connect your wallet to start scanning QR codes for payment.
                                         </p>
-                                        {!isWalletConnected && (
-                                            <div className="text-center mb-4">
-                                                <button
-                                                    onClick={login}
-                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-                                                >
-                                                    Connect Wallet
-                                                </button>
-                                            </div>
-                                        )}
-                                        {isWalletConnected && (
-                                            <div className="text-center mb-4">
-                                                <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                                    Wallet Connected
-                                                </div>
-                                            </div>
-                                        )}
+                                        <div className="flex items-center justify-center gap-3">
+                                            <QrCode className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 mb-2" />
+                                            <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
+                                                Ready to Scan
+                                            </h3>
+                                        </div>
+                                        <p className="text-sm sm:text-base text-slate-600 mb-1 text-center">
+                                            Position your camera at the QR code to begin payment process.
+                                        </p>
                                         <div className="text-center">
                                             <p className="text-xs sm:text-sm text-slate-500">
                                                 Make sure your camera is enabled and pointed at the QR code
