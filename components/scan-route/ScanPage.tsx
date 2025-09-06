@@ -1,13 +1,28 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSignIcon } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
-import { ParsedQrResponse } from '@/types/upi.types'
+import { ParsedQrResponse, UpiQrData } from '@/types/upi.types'
 // import SwitchNetwork from '@/components/SwitchNetwork'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
-import { USDC_CONTRACT_ADDRESSES } from '@/config/constant'
+import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS, BACKEND_API_URL, BACKEND_API_KEY} from '@/config/constant'
 import { ethers } from 'ethers'
+
+// ERC-7702 User Operation interface
+interface UserOperation {
+  sender: string;
+  nonce: string;
+  initCode: string;
+  callData: string;
+  callGasLimit: string;
+  verificationGasLimit: string;
+  preVerificationGas: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
+  paymasterAndData: string;
+  signature: string;
+}
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -37,10 +52,18 @@ export default function ScanPage() {
     } | null>(null)
     const [showConversionModal, setShowConversionModal] = useState(false)
     const [showReason, setShowReason] = useState(false)
-    const [storedTransactionId, setStoredTransactionId] = useState<string | null>(null)
+    const [storedTransactionId, setStoredTransactionId] = useState<string | null>(null) // eslint-disable-line @typescript-eslint/no-unused-vars
     const [usdcBalance, setUsdcBalance] = useState<string>('0')
     const [isCheckingBalance, setIsCheckingBalance] = useState(false)
     const [balanceError, setBalanceError] = useState<string | null>(null)
+    const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+    const [paymentResult, setPaymentResult] = useState<{ // eslint-disable-line @typescript-eslint/no-unused-vars
+        success: boolean;
+        transactionHash?: string;
+        upiPaymentId?: string;
+        error?: string;
+        status: string;
+    } | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
@@ -320,7 +343,7 @@ export default function ScanPage() {
     }
 
     // Check USDC balance
-    const checkUSDCBalance = useCallback(async (requiredAmount: number) => {
+    const checkUSDCBalance = async (requiredAmount: number) => {
         if (!wallet || !conversionResult) return false
 
         try {
@@ -375,14 +398,101 @@ export default function ScanPage() {
         } finally {
             setIsCheckingBalance(false)
         }
-    }, [wallet, conversionResult])
+    }
 
-    // Check USDC balance when conversion modal opens
-    useEffect(() => {
-        if (showConversionModal && conversionResult && wallet) {
-            checkUSDCBalance(conversionResult.totalUsdcAmount)
+    // Create UserOp for USDC transfer
+    const createUserOp = async (amount: string, chainId: number) => {
+        if (!wallet) throw new Error('Wallet not connected')
+
+        const provider = await wallet.getEthereumProvider()
+        const ethersProvider = new ethers.BrowserProvider(provider)
+        const signer = await ethersProvider.getSigner()
+        const userAddress = await signer.getAddress()
+
+        // Get USDC contract address
+        const usdcAddress = USDC_CONTRACT_ADDRESSES[chainId as keyof typeof USDC_CONTRACT_ADDRESSES]
+        if (!usdcAddress) {
+            throw new Error(`USDC contract not configured for chain ID: ${chainId}`)
         }
-    }, [showConversionModal, conversionResult, wallet, checkUSDCBalance])
+
+        // Create USDC transfer call data
+        const usdcInterface = new ethers.Interface([
+            'function transfer(address to, uint256 amount) external returns (bool)'
+        ])
+
+        const transferAmount = ethers.parseUnits(amount, 6) // USDC has 6 decimals
+        const callData = usdcInterface.encodeFunctionData('transfer', [TREASURY_ADDRESS, transferAmount])
+
+        // Get current gas prices
+        const feeData = await ethersProvider.getFeeData()
+
+        // Create UserOp structure (simplified for this demo)
+        const userOp = {
+            sender: userAddress,
+            nonce: '0x0', // This should be fetched from the account
+            initCode: '0x',
+            callData: callData,
+            callGasLimit: '0x186A0', // 100000
+            verificationGasLimit: '0x186A0', // 100000
+            preVerificationGas: '0x5208', // 21000
+            maxFeePerGas: feeData.maxFeePerGas ? '0x' + feeData.maxFeePerGas.toString(16) : '0x59682F00',
+            maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? '0x' + feeData.maxPriorityFeePerGas.toString(16) : '0x59682F00',
+            paymasterAndData: '0x',
+            signature: '0x' // Will be filled after signing
+        }
+
+        return userOp
+    }
+
+    // Sign UserOp
+    const signUserOp = async (userOp: UserOperation, chainId: number) => {
+        if (!wallet) throw new Error('Wallet not connected')
+
+        const provider = await wallet.getEthereumProvider()
+        const ethersProvider = new ethers.BrowserProvider(provider)
+        const signer = await ethersProvider.getSigner()
+
+        // Create the message to sign (simplified UserOp hash for demo)
+        const message = ethers.keccak256(
+            ethers.AbiCoder.defaultAbiCoder().encode(
+                ['address', 'bytes', 'uint256'],
+                [userOp.sender, userOp.callData, chainId]
+            )
+        )
+
+        // Sign the message
+        const signature = await signer.signMessage(ethers.getBytes(message))
+
+        return {
+            ...userOp,
+            signature: signature
+        }
+    }
+
+    // Call backend API
+    const processPaymentWithBackend = async (signedUserOp: UserOperation, upiDetails: UpiQrData, chainId: number) => {
+        const requestBody = {
+            userOp: signedUserOp,
+            upiMerchantDetails: upiDetails,
+            chainId: chainId
+        }
+
+        const response = await fetch(`${BACKEND_API_URL}/api/payments/process`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': BACKEND_API_KEY
+            },
+            body: JSON.stringify(requestBody)
+        })
+
+        if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Backend API call failed')
+        }
+
+        return await response.json()
+    }
 
     // Check if currency is supported (only INR allowed)
     const isCurrencySupported = (currency?: string): boolean => {
@@ -414,6 +524,12 @@ export default function ScanPage() {
         return null
     }
 
+    // Check USDC balance when conversion modal opens
+    useEffect(() => {
+        if (showConversionModal && conversionResult && wallet) {
+            checkUSDCBalance(conversionResult.totalUsdcAmount)
+        }
+    }, [showConversionModal, conversionResult, wallet, checkUSDCBalance])
 
     return (
         <>
@@ -1031,61 +1147,76 @@ export default function ScanPage() {
                             <button
                                 onClick={async () => {
                                     try {
+                                        setIsProcessingPayment(true)
+                                        setPaymentResult(null)
+
                                         // Check USDC balance before proceeding
                                         const hasSufficientBalance = await checkUSDCBalance(conversionResult!.totalUsdcAmount)
 
                                         if (!hasSufficientBalance) {
-                                            return // Balance check will handle the error state
+                                            setPaymentResult({
+                                                success: false,
+                                                error: 'Insufficient USDC balance',
+                                                status: 'failed'
+                                            })
+                                            return
                                         }
 
-                                        const finalAmount = parsedData!.data.am || userAmount
+                                        // Get current chain ID
+                                        const provider = await wallet!.getEthereumProvider()
+                                        const ethersProvider = new ethers.BrowserProvider(provider)
+                                        const network = await ethersProvider.getNetwork()
+                                        const chainId = Number(network.chainId)
 
-                                        // Store transaction data
-                                        const transactionData = {
-                                            upiId: parsedData!.data.pa,
-                                            merchantName: parsedData!.data.pn || 'Unknown Merchant',
-                                            totalUsdToPay: conversionResult!.totalUsdcAmount,
-                                            inrAmount: finalAmount,
-                                            walletAddress: undefined, // Will be updated when wallet is connected
-                                            txnHash: undefined, // Will be updated after payment
-                                            isSuccess: false // Default to false, will be updated after payment
+                                        // Create UserOp
+                                        const userOp = await createUserOp(conversionResult!.totalUsdcAmount.toString(), chainId)
+                                        console.log('Created UserOp:', userOp)
+
+                                        // Sign UserOp
+                                        const signedUserOp = await signUserOp(userOp, chainId)
+                                        console.log('Signed UserOp:', signedUserOp)
+
+                                        // Prepare UPI details
+                                        const upiDetails = {
+                                            pa: parsedData!.data.pa,
+                                            pn: parsedData!.data.pn,
+                                            am: parsedData!.data.am || userAmount,
+                                            cu: parsedData!.data.cu || 'INR'
                                         }
 
-                                        const response = await fetch('/api/store-upi-transaction', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                            },
-                                            body: JSON.stringify(transactionData),
-                                        })
+                                        // Call backend API
+                                        const backendResult = await processPaymentWithBackend(signedUserOp, upiDetails, chainId)
+                                        console.log('Backend result:', backendResult)
 
-                                        if (!response.ok) {
-                                            const errorData = await response.json()
-                                            throw new Error(errorData.error || 'Failed to store transaction')
+                                        setPaymentResult(backendResult.data || backendResult)
+
+                                        // Update transaction in database
+                                        if (backendResult.success && backendResult.data?.transactionHash) {
+                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                            const finalAmount = parsedData!.data.am || userAmount
+                                            const walletAddress = await ethersProvider.getSigner().then(s => s.getAddress())
+
+                                            await updateTransactionWithPayment(
+                                                backendResult.data.transactionHash,
+                                                true,
+                                                walletAddress
+                                            )
                                         }
-
-                                        const result = await response.json()
-                                        console.log('Transaction stored successfully:', result)
-
-                                        // Store the transaction ID for future updates
-                                        if (result.transactionId) {
-                                            setStoredTransactionId(result.transactionId)
-                                        }
-
-                                        // Close the modal after successful storage
-                                        setShowConversionModal(false)
-
-                                        // Note: When actual payment is processed, call:
-                                        // updateTransactionWithPayment(txnHash, true, walletAddress)
 
                                     } catch (error) {
-                                        console.error('Error storing transaction:', error)
-                                        alert(`Failed to store transaction: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                                        console.error('Payment processing error:', error)
+                                        setPaymentResult({
+                                            success: false,
+                                            error: error instanceof Error ? error.message : 'Payment processing failed',
+                                            status: 'failed'
+                                        })
+                                    } finally {
+                                        setIsProcessingPayment(false)
                                     }
                                 }}
-                                disabled={isCheckingBalance || parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount}
+                                disabled={isCheckingBalance || isProcessingPayment || parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount}
                                 className={`w-full sm:flex-1 px-4 py-3 sm:py-2 rounded-lg transition-colors flex items-center justify-center gap-2 touch-manipulation min-h-[44px] text-sm sm:text-base ${
-                                    isCheckingBalance
+                                    isCheckingBalance || isProcessingPayment
                                         ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                                         : parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount
                                             ? 'bg-red-500 text-white cursor-not-allowed'
