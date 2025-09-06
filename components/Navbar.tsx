@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Menu, X, ChevronDown, Wallet, LogOut, Network } from 'lucide-react'
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { useWallet } from '@/context/WalletContext'
@@ -18,6 +19,10 @@ export default function Navbar() {
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('hero')
   const [showNetworkSelector, setShowNetworkSelector] = useState(false)
+
+  // Get current pathname to conditionally show navigation links
+  const pathname = usePathname()
+  const isLandingPage = pathname === '/'
 
   // Privy hooks
   const { ready, authenticated, user, login, logout } = usePrivy()
@@ -86,13 +91,13 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [walletDropdownOpen])
 
-  // Set default chain if none selected
+  // Set default chain if none selected (Arbitrum Sepolia)
   useEffect(() => {
-    if (!selectedChain && wallet?.chainId) {
-      const chainId = parseInt(wallet.chainId.split(":")[1])
-      setSelectedChain(chainId)
+    if (!selectedChain) {
+      // Default to Arbitrum Sepolia (421614)
+      setSelectedChain(421614)
     }
-  }, [selectedChain, wallet, setSelectedChain])
+  }, [selectedChain, setSelectedChain])
 
   const handleChainSwitch = async (chainId: number) => {
     try {
@@ -122,23 +127,25 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              {navigation.map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => handleNavClick(item.href)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${activeSection === item.href.replace('#', '')
-                    ? 'text-emerald-600 bg-emerald-50'
-                    : 'text-slate-600 hover:text-emerald-600 hover:bg-emerald-50'
-                    }`}
-                >
-                  {item.name}
-                </button>
-              ))}
+          {/* Desktop Navigation - Only show on landing page */}
+          {isLandingPage && (
+            <div className="hidden md:block">
+              <div className="ml-10 flex items-baseline space-x-4">
+                {navigation.map((item) => (
+                  <button
+                    key={item.name}
+                    onClick={() => handleNavClick(item.href)}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${activeSection === item.href.replace('#', '')
+                      ? 'text-emerald-600 bg-emerald-50'
+                      : 'text-slate-600 hover:text-emerald-600 hover:bg-emerald-50'
+                      }`}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Desktop Wallet Connection */}
           <div className="hidden md:block">
@@ -188,7 +195,7 @@ export default function Navbar() {
                             <div className={`w-2 h-2 rounded-full ${connectedChain === selectedChain ? 'bg-green-500' : 'bg-gray-400'
                               }`} />
                             <span className="text-sm text-slate-900">
-                              {getChainById(selectedChain || 1)?.name || 'Unknown'}
+                              {getChainById(selectedChain || 421614)?.name || 'Unknown'}
                             </span>
                           </div>
                         </div>
@@ -218,7 +225,7 @@ export default function Navbar() {
                                         <span>{chain.name}</span>
                                       </div>
                                       <div className="text-xs text-slate-500">
-                                        {chain.testnet ? 'Testnet' : 'Mainnet'}
+                                        Testnet
                                       </div>
                                     </button>
                                   )
@@ -318,7 +325,7 @@ export default function Navbar() {
                                     <span className="text-xs">{chain.name}</span>
                                   </div>
                                   <div className="text-xs text-slate-500">
-                                    {chain.testnet ? 'Test' : 'Main'}
+                                    Test
                                   </div>
                                 </button>
                               )
@@ -356,23 +363,25 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors duration-200"
-            >
-              {isOpen ? (
-                <X className="block h-6 w-6" />
-              ) : (
-                <Menu className="block h-6 w-6" />
-              )}
-            </button>
+            {/* Mobile menu button - Only show on landing page */}
+            {isLandingPage && (
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="inline-flex items-center justify-center p-2 rounded-md text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors duration-200"
+              >
+                {isOpen ? (
+                  <X className="block h-6 w-6" />
+                ) : (
+                  <Menu className="block h-6 w-6" />
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile Navigation Menu */}
-      {isOpen && (
+      {/* Mobile Navigation Menu - Only show on landing page */}
+      {isOpen && isLandingPage && (
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-emerald-100">
             {navigation.map((item) => (

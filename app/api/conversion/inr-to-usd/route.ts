@@ -19,10 +19,6 @@ const getNetworkFee = (chainId: number): number => {
       return 0.5
     case 11155111: // Sepolia Testnet
       return 1.0
-    case 42161: // Arbitrum One Mainnet
-      return 0.5
-    case 1: // Ethereum Mainnet
-      return 1.0
     default:
       return 0.5 // Default to 0.5 USDC for unknown networks
   }

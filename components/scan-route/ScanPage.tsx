@@ -731,6 +731,7 @@ export default function ScanPage() {
                                         <p className="text-sm sm:text-base text-slate-600 mb-4 text-center">
                                             Connect your wallet to start scanning QR codes for payment.
                                         </p>
+                                        <hr className="my-4 text-slate-200" />
                                         <div className="flex items-center justify-center gap-3">
                                             <QrCode className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 mb-2" />
                                             <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
@@ -1000,16 +1001,6 @@ export default function ScanPage() {
                                 </div>
                             </div>
 
-                            {/* Network Selection */}
-                            {/* <div className="mb-6">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                                        <span className="text-white text-sm">🌐</span>
-                                    </div>
-                                    <span className="font-semibold text-slate-900">Select Network</span>
-                                </div>
-                                <SwitchNetwork />
-                            </div> */}
 
                             {/* Unified Payment Details Container */}
                             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">

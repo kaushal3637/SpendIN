@@ -21,4 +21,4 @@ export const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || "";
 
 // Backend API Configuration
 export const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001";
-export const BACKEND_API_KEY = process.env.NEXT_PUBLIC_BACKEND_API_KEY || "";
+export const BACKEND_API_KEY = process.env.BACKEND_API_KEY || "";
