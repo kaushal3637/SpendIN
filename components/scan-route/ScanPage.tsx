@@ -303,44 +303,44 @@ export default function ScanPage() {
                 <div className={`relative z-10 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
 
                     {/* Main Content */}
-                    <div className="flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
-                        <div className="max-w-2xl mx-auto text-center">
+                    <div className="flex items-center justify-center px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 lg:py-12 min-h-[calc(100vh-4rem)]">
+                        <div className="w-full max-w-[90vw] sm:max-w-sm md:max-w-md lg:max-w-2xl mx-auto text-center">
                             {/* Header */}
                             <div className="mb-6 sm:mb-8">
                                 <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 mb-4 sm:mb-6">
                                     <QrCode className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                                 </div>
-                                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-4">
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-slate-900 mb-3 sm:mb-4 leading-tight">
                                     Pay Smarter with QR
                                 </h1>
-                                <p className="text-base sm:text-lg md:text-xl text-slate-600 max-w-xl mx-auto px-4">
+                                <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-xs sm:max-w-sm md:max-w-xl mx-auto px-2 sm:px-4 leading-relaxed">
                                     Scan the payer&apos;s QR to start payment.
                                 </p>
                             </div>
 
                             {/* QR Scanner */}
-                            <div className="mb-8 sm:mb-12">
-                                <div className="relative max-w-md mx-auto">
+                            <div className="mb-4 sm:mb-6 md:mb-8 lg:mb-12">
+                                <div className="relative w-full max-w-[85vw] sm:max-w-sm md:max-w-md mx-auto">
                                     {/* Scanner Frame */}
-                                    <div className="relative bg-white rounded-2xl shadow-lg border-2 border-emerald-200 p-6 sm:p-8 overflow-hidden">
+                                    <div className="relative bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-lg border-2 border-emerald-200 p-3 sm:p-4 md:p-6 lg:p-8 overflow-hidden">
                                         {/* Video Element for Camera Feed */}
                                         <div className={`relative bg-slate-900 rounded-lg overflow-hidden ${isScanning ? 'border-2 border-emerald-300' : 'border-0'}`}>
                                             <video
                                                 ref={videoRef}
-                                                className={`w-full h-64 sm:h-80 object-cover ${!isScanning ? 'hidden' : ''}`}
+                                                className={`w-full h-48 sm:h-56 md:h-64 lg:h-80 object-cover ${!isScanning ? 'hidden' : ''}`}
                                                 playsInline
                                                 muted
                                             />
 
                                             {/* Placeholder when not scanning */}
                                             {!isScanning && !scanResult && !error && (
-                                                <div className="w-full h-64 sm:h-80 flex items-center justify-center bg-slate-50">
-                                                    <div className="text-center">
-                                                        <Camera className="w-12 h-12 sm:w-16 sm:h-16 text-slate-400 mx-auto mb-4" />
-                                                        <h3 className="text-lg sm:text-xl font-semibold text-slate-700 mb-2">
+                                                <div className="w-full h-48 sm:h-56 md:h-64 lg:h-80 flex items-center justify-center bg-slate-50">
+                                                    <div className="text-center p-4">
+                                                        <Camera className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-slate-400 mx-auto mb-3 sm:mb-4" />
+                                                        <h3 className="text-base sm:text-lg md:text-xl font-semibold text-slate-700 mb-2">
                                                             Camera Ready
                                                         </h3>
-                                                        <p className="text-sm sm:text-base text-slate-500">
+                                                        <p className="text-xs sm:text-sm md:text-base text-slate-500 px-2">
                                                             Click start to begin scanning
                                                         </p>
                                                     </div>
@@ -383,12 +383,12 @@ export default function ScanPage() {
                                         </div>
 
                                         {/* Control Buttons */}
-                                        <div className="mt-4 flex gap-3 justify-center">
+                                        <div className="mt-3 sm:mt-4 flex gap-2 sm:gap-3 justify-center px-2">
                                             {!scanResult && !error && (
                                                 <button
                                                     onClick={toggleScanning}
                                                     disabled={hasPermission === false}
-                                                    className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 ${isScanning
+                                                    className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-2 rounded-full font-medium transition-all duration-200 text-sm sm:text-base touch-manipulation min-h-[44px] ${isScanning
                                                         ? 'bg-red-600 hover:bg-red-700 text-white'
                                                         : hasPermission === false
                                                             ? 'bg-orange-600 hover:bg-orange-700 text-white'
@@ -417,7 +417,7 @@ export default function ScanPage() {
                                             {(scanResult || error) && (
                                                 <button
                                                     onClick={resetScan}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-full font-medium transition-all duration-200"
+                                                    className="flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-full font-medium transition-all duration-200 text-sm sm:text-base touch-manipulation min-h-[44px]"
                                                 >
                                                     <QrCode className="w-4 h-4" />
                                                     Scan Again
@@ -451,7 +451,7 @@ export default function ScanPage() {
                             </div>
 
                             {/* Next Steps */}
-                            <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-6 sm:p-8 border border-emerald-100">
+                            <div className="bg-white/50 backdrop-blur-sm rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 lg:p-8 border border-emerald-100 mx-2 sm:mx-0">
                                 {scanResult ? (
                                     <>
                                         <div className="flex items-center justify-center gap-3">
@@ -486,23 +486,23 @@ export default function ScanPage() {
 
                 {/* Confirmation Modal */}
                 {showModal && parsedData && parsedData.data && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-3 md:p-4">
+                        <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-sm md:max-w-md lg:max-w-lg max-h-[96vh] sm:max-h-[92vh] md:max-h-[90vh] overflow-y-auto">
                             {/* Modal Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                                <h3 className="text-xl font-bold text-slate-900">
+                            <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-slate-200">
+                                <h3 className="text-base sm:text-lg md:text-xl font-bold text-slate-900">
                                     Confirm Payment Details
                                 </h3>
                                 <button
                                     onClick={() => setShowModal(false)}
-                                    className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                                    className="p-2 hover:bg-slate-100 rounded-full transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                                 >
-                                    <X className="w-5 h-5 text-slate-500" />
+                                    <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
                                 </button>
                             </div>
 
                             {/* Modal Content */}
-                            <div className="p-6 space-y-4">
+                            <div className="p-3 sm:p-4 md:p-6 space-y-2 sm:space-y-3 md:space-y-4">
                                 {/* QR Type */}
                                 <div className="bg-slate-50 rounded-lg p-4">
                                     <div className="flex items-center gap-2 mb-2">
@@ -584,7 +584,7 @@ export default function ScanPage() {
                                                         value={userAmount}
                                                         onChange={(e) => setUserAmount(e.target.value)}
                                                         placeholder="Enter amount (max ₹25,000)"
-                                                        className="w-full pl-8 pr-3 py-2 text-slate-500 border border-slate-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                        className="w-full pl-8 pr-3 py-3 sm:py-2 text-base sm:text-sm text-slate-500 border border-slate-300 rounded-lg sm:rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 touch-manipulation"
                                                         min="1"
                                                         max="25000"
                                                         step="0.01"
@@ -655,10 +655,10 @@ export default function ScanPage() {
                             </div>
 
                             {/* Modal Footer */}
-                            <div className="flex gap-3 p-6 border-t border-slate-200">
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 border-t border-slate-200">
                                 <button
                                     onClick={() => setShowModal(false)}
-                                    className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                                    className="w-full sm:flex-1 px-4 py-3 sm:py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors touch-manipulation min-h-[44px] text-sm sm:text-base"
                                 >
                                     Cancel
                                 </button>
@@ -676,7 +676,7 @@ export default function ScanPage() {
                                             // Could show error toast here
                                         }
                                     }}
-                                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                    className="w-full sm:flex-1 px-4 py-3 sm:py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed touch-manipulation min-h-[44px] text-sm sm:text-base"
                                     disabled={
                                         !parsedData ||
                                         !parsedData.isValid ||
@@ -707,23 +707,23 @@ export default function ScanPage() {
 
             {/* Conversion Modal */}
             {showConversionModal && parsedData && conversionResult && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-3 md:p-4">
+                    <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-sm md:max-w-md lg:max-w-lg max-h-[96vh] sm:max-h-[92vh] md:max-h-[90vh] overflow-y-auto">
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                            <h3 className="text-xl font-bold text-slate-900">
+                        <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-slate-200">
+                            <h3 className="text-base sm:text-lg md:text-xl font-bold text-slate-900">
                                 Payment Conversion
                             </h3>
                             <button
                                 onClick={() => setShowConversionModal(false)}
-                                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                                className="p-2 hover:bg-slate-100 rounded-full transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                             >
-                                <X className="w-5 h-5 text-slate-500" />
+                                <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
                             </button>
                         </div>
 
                         {/* Modal Content */}
-                        <div className="p-6">
+                        <div className="p-3 sm:p-4 md:p-6">
                             {/* Payment Flow Info */}
                             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-6">
                                 <div className="flex items-center gap-2 text-sm text-emerald-800">
@@ -847,10 +847,10 @@ export default function ScanPage() {
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="flex gap-3 p-6 border-t border-slate-200">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 border-t border-slate-200">
                             <button
                                 onClick={() => setShowConversionModal(false)}
-                                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                                className="w-full sm:flex-1 px-4 py-3 sm:py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors touch-manipulation min-h-[44px] text-sm sm:text-base"
                             >
                                 Cancel
                             </button>
@@ -869,7 +869,7 @@ export default function ScanPage() {
                                         exchangeRate: conversionResult!.exchangeRate
                                     })
                                 }}
-                                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                                className="w-full sm:flex-1 px-4 py-3 sm:py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 touch-manipulation min-h-[44px] text-sm sm:text-base"
                             >
                                 <DollarSignIcon className="w-4 h-4" />
                                 Pay Now
