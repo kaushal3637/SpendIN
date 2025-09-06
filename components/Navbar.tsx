@@ -91,13 +91,13 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [walletDropdownOpen])
 
-  // Set default chain if none selected
+  // Set default chain if none selected (Arbitrum Sepolia)
   useEffect(() => {
-    if (!selectedChain && wallet?.chainId) {
-      const chainId = parseInt(wallet.chainId.split(":")[1])
-      setSelectedChain(chainId)
+    if (!selectedChain) {
+      // Default to Arbitrum Sepolia (421614)
+      setSelectedChain(421614)
     }
-  }, [selectedChain, wallet, setSelectedChain])
+  }, [selectedChain, setSelectedChain])
 
   const handleChainSwitch = async (chainId: number) => {
     try {
@@ -195,7 +195,7 @@ export default function Navbar() {
                             <div className={`w-2 h-2 rounded-full ${connectedChain === selectedChain ? 'bg-green-500' : 'bg-gray-400'
                               }`} />
                             <span className="text-sm text-slate-900">
-                              {getChainById(selectedChain || 1)?.name || 'Unknown'}
+                              {getChainById(selectedChain || 421614)?.name || 'Unknown'}
                             </span>
                           </div>
                         </div>
@@ -225,7 +225,7 @@ export default function Navbar() {
                                         <span>{chain.name}</span>
                                       </div>
                                       <div className="text-xs text-slate-500">
-                                        {chain.testnet ? 'Testnet' : 'Mainnet'}
+                                        Testnet
                                       </div>
                                     </button>
                                   )
@@ -325,7 +325,7 @@ export default function Navbar() {
                                     <span className="text-xs">{chain.name}</span>
                                   </div>
                                   <div className="text-xs text-slate-500">
-                                    {chain.testnet ? 'Test' : 'Main'}
+                                    Test
                                   </div>
                                 </button>
                               )

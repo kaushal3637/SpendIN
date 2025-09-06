@@ -14,34 +14,6 @@ export const privyConfig: PrivyClientConfig = {
   // Configure the chains you want to support
   supportedChains: [
     {
-      id: 1, // Ethereum Mainnet
-      name: "Ethereum",
-      nativeCurrency: {
-        name: "Ether",
-        symbol: "ETH",
-        decimals: 18,
-      },
-      rpcUrls: {
-        default: {
-          http: [process.env.ETHEREUM_RPC_URL || "https://1rpc.io/eth"],
-        },
-      },
-    },
-    {
-      id: 42161, // Arbitrum One
-      name: "Arbitrum One",
-      nativeCurrency: {
-        name: "Ether",
-        symbol: "ETH",
-        decimals: 18,
-      },
-      rpcUrls: {
-        default: {
-          http: [process.env.ARBITRUM_RPC_URL || "https://1rpc.io/arb"],
-        },
-      },
-    },
-    {
       id: 421614, // Arbitrum Sepolia Testnet
       name: "Arbitrum Sepolia",
       nativeCurrency: {

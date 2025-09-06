@@ -614,6 +614,7 @@ export default function ScanPage() {
                                         <p className="text-sm sm:text-base text-slate-600 mb-4 text-center">
                                             Connect your wallet to start scanning QR codes for payment.
                                         </p>
+                                        <hr className="my-4 text-slate-200" />
                                         <div className="flex items-center justify-center gap-3">
                                             <QrCode className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 mb-2" />
                                             <h3 className="text-lg sm:text-xl font-semibold text-slate-900">

@@ -44,9 +44,8 @@ export function ChainButton({
           }`}>
           {chain.name}
         </div>
-        <div className={`text-xs mt-1 ${chain.testnet ? 'text-orange-600' : 'text-green-600'
-          }`}>
-          {chain.testnet ? 'Testnet' : 'Mainnet'}
+        <div className="text-xs mt-1 text-blue-600">
+          Testnet
         </div>
       </div>
 
@@ -141,9 +140,8 @@ function SwitchNetwork() {
                   }`}>
                   {chain.name}
                 </div>
-                <div className={`text-xs mt-1 ${chain.testnet ? 'text-orange-600' : 'text-green-600'
-                  }`}>
-                  {chain.testnet ? 'Testnet' : 'Mainnet'}
+                <div className="text-xs mt-1 text-blue-600">
+                  Testnet
                 </div>
               </div>
 
