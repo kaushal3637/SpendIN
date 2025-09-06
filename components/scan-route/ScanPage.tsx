@@ -27,6 +27,7 @@ export default function ScanPage() {
     } | null>(null)
     const [showConversionModal, setShowConversionModal] = useState(false)
     const [showReason, setShowReason] = useState(false)
+    const [storedTransactionId, setStoredTransactionId] = useState<string | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
@@ -229,6 +230,46 @@ export default function ScanPage() {
         setShowConversionModal(false)
         setShowReason(false)
         stopScanning()
+    }
+
+    // Function to update transaction with payment details
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const updateTransactionWithPayment = async (
+        txnHash: string,
+        isSuccess: boolean,
+        walletAddress?: string
+    ) => {
+        if (!storedTransactionId) {
+            console.error('No transaction ID available for update')
+            return false
+        }
+
+        try {
+            const response = await fetch('/api/update-upi-transaction', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    transactionId: storedTransactionId,
+                    txnHash,
+                    isSuccess,
+                    walletAddress
+                }),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to update transaction')
+            }
+
+            const result = await response.json()
+            console.log('Transaction updated successfully:', result)
+            return true
+        } catch (error) {
+            console.error('Error updating transaction:', error)
+            return false
+        }
     }
 
 
@@ -855,19 +896,52 @@ export default function ScanPage() {
                                 Cancel
                             </button>
                             <button
-                                onClick={() => {
-                                    setShowConversionModal(false)
-                                    // Here you can add logic to proceed with the USDC payment
-                                    const finalAmount = parsedData!.data.am || userAmount
-                                    console.log('Payment confirmed with USDC data:', {
-                                        ...parsedData,
-                                        finalInrAmount: finalAmount,
-                                        paymentAmount: conversionResult!.usdcAmount,
-                                        networkFee: conversionResult!.networkFee,
-                                        totalAmount: conversionResult!.totalUsdcAmount,
-                                        network: conversionResult!.networkName,
-                                        exchangeRate: conversionResult!.exchangeRate
-                                    })
+                                onClick={async () => {
+                                    try {
+                                        const finalAmount = parsedData!.data.am || userAmount
+
+                                        // Store transaction data
+                                        const transactionData = {
+                                            upiId: parsedData!.data.pa,
+                                            merchantName: parsedData!.data.pn || 'Unknown Merchant',
+                                            totalUsdToPay: conversionResult!.totalUsdcAmount,
+                                            inrAmount: finalAmount,
+                                            walletAddress: undefined, // Will be updated when wallet is connected
+                                            txnHash: undefined, // Will be updated after payment
+                                            isSuccess: false // Default to false, will be updated after payment
+                                        }
+
+                                        const response = await fetch('/api/store-upi-transaction', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify(transactionData),
+                                        })
+
+                                        if (!response.ok) {
+                                            const errorData = await response.json()
+                                            throw new Error(errorData.error || 'Failed to store transaction')
+                                        }
+
+                                        const result = await response.json()
+                                        console.log('Transaction stored successfully:', result)
+
+                                        // Store the transaction ID for future updates
+                                        if (result.transactionId) {
+                                            setStoredTransactionId(result.transactionId)
+                                        }
+
+                                        // Close the modal after successful storage
+                                        setShowConversionModal(false)
+
+                                        // Note: When actual payment is processed, call:
+                                        // updateTransactionWithPayment(txnHash, true, walletAddress)
+
+                                    } catch (error) {
+                                        console.error('Error storing transaction:', error)
+                                        alert(`Failed to store transaction: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                                    }
                                 }}
                                 className="w-full sm:flex-1 px-4 py-3 sm:py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 touch-manipulation min-h-[44px] text-sm sm:text-base"
                             >
