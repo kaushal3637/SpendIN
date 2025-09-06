@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getChainById } from "@/lib/chains";
 
 interface ConversionResponse {
   inrAmount: number;
@@ -28,18 +29,8 @@ const getNetworkFee = (chainId: number): number => {
 }
 
 const getNetworkName = (chainId: number): string => {
-  switch (chainId) {
-    case 421614:
-      return "Arbitrum Sepolia"
-    case 11155111:
-      return "Sepolia"
-    case 42161:
-      return "Arbitrum"
-    case 1:
-      return "Ethereum"
-    default:
-      return "Unknown Network"
-  }
+  const chain = getChainById(chainId);
+  return chain?.name || "Unknown Network";
 }
 
 /**

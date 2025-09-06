@@ -2,6 +2,7 @@
 
 import { PrivyProvider } from '@privy-io/react-auth'
 import { privyConfig, PRIVY_APP_ID } from '@/lib/privy'
+import { WalletProvider } from '@/context/WalletContext'
 
 interface PrivyProviderWrapperProps {
   children: React.ReactNode
@@ -13,7 +14,9 @@ export default function PrivyProviderWrapper({ children }: PrivyProviderWrapperP
       appId={PRIVY_APP_ID}
       config={privyConfig}
     >
-      {children}
+      <WalletProvider>
+        {children}
+      </WalletProvider>
     </PrivyProvider>
   )
 }

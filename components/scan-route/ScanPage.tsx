@@ -4,8 +4,15 @@ import { useState, useEffect, useRef } from 'react'
 import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSignIcon } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse } from '@/types/upi.types'
+import SwitchNetwork from '@/components/SwitchNetwork'
+import { useWallets, useLogin } from '@privy-io/react-auth'
 
 export default function ScanPage() {
+    const { wallets } = useWallets()
+    const { login } = useLogin()
+    const wallet = wallets[0]
+    const isWalletConnected = !!wallet
+
     const [isVisible, setIsVisible] = useState(false)
     const [isScanning, setIsScanning] = useState(false)
     const [scanResult, setScanResult] = useState<string | null>(null)
@@ -510,9 +517,27 @@ export default function ScanPage() {
                                                 Wallet Connection Required
                                             </h3>
                                         </div>
-                                        <p className="text-sm sm:text-base text-slate-600 mb-6 text-center">
+                                        <p className="text-sm sm:text-base text-slate-600 mb-4 text-center">
                                             Connect your Web3 wallet & scan the merchant&apos;s QR to proceed with payment.
                                         </p>
+                                        {!isWalletConnected && (
+                                            <div className="text-center mb-4">
+                                                <button
+                                                    onClick={login}
+                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                                                >
+                                                    Connect Wallet
+                                                </button>
+                                            </div>
+                                        )}
+                                        {isWalletConnected && (
+                                            <div className="text-center mb-4">
+                                                <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                                    Wallet Connected
+                                                </div>
+                                            </div>
+                                        )}
                                         <div className="text-center">
                                             <p className="text-xs sm:text-sm text-slate-500">
                                                 Make sure your camera is enabled and pointed at the QR code
@@ -771,6 +796,17 @@ export default function ScanPage() {
                                     <span className="text-emerald-600">💱</span>
                                     <span className="font-medium">You pay in USDC • Merchant receives in INR</span>
                                 </div>
+                            </div>
+
+                            {/* Network Selection */}
+                            <div className="mb-6">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-sm">🌐</span>
+                                    </div>
+                                    <span className="font-semibold text-slate-900">Select Network</span>
+                                </div>
+                                <SwitchNetwork />
                             </div>
 
                             {/* Unified Payment Details Container */}
