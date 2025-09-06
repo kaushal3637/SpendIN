@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSignIcon } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse } from '@/types/upi.types'
 import SwitchNetwork from '@/components/SwitchNetwork'
 import { useLogin, usePrivy } from '@privy-io/react-auth'
+import { USDC_CONTRACT_ADDRESSES } from '@/config/constant'
+import { ethers } from 'ethers'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -34,6 +36,9 @@ export default function ScanPage() {
     const [showConversionModal, setShowConversionModal] = useState(false)
     const [showReason, setShowReason] = useState(false)
     const [storedTransactionId, setStoredTransactionId] = useState<string | null>(null)
+    const [usdcBalance, setUsdcBalance] = useState<string>('0')
+    const [isCheckingBalance, setIsCheckingBalance] = useState(false)
+    const [balanceError, setBalanceError] = useState<string | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
@@ -311,6 +316,71 @@ export default function ScanPage() {
             setIsConverting(false)
         }
     }
+
+    // Check USDC balance
+    const checkUSDCBalance = useCallback(async (requiredAmount: number) => {
+        if (!wallet || !conversionResult) return false
+
+        try {
+            setIsCheckingBalance(true)
+            setBalanceError(null)
+
+            // Get the wallet provider and signer
+            const provider = await wallet.getEthereumProvider()
+            const ethersProvider = new ethers.BrowserProvider(provider)
+            const signer = await ethersProvider.getSigner()
+
+            // Get current chain ID
+            const network = await ethersProvider.getNetwork()
+            const chainId = Number(network.chainId)
+
+            // Get USDC contract address for current network
+            const usdcAddress = USDC_CONTRACT_ADDRESSES[chainId as keyof typeof USDC_CONTRACT_ADDRESSES]
+            if (!usdcAddress) {
+                throw new Error(`USDC contract not configured for chain ID: ${chainId}`)
+            }
+
+            // USDC Contract ABI (minimal)
+            const usdcAbi = [
+                'function balanceOf(address account) external view returns (uint256)',
+                'function decimals() external view returns (uint8)'
+            ]
+
+            // Create contract instance
+            const usdcContract = new ethers.Contract(usdcAddress, usdcAbi, ethersProvider)
+
+            // Get user's wallet address
+            const userAddress = await signer.getAddress()
+
+            // Get USDC balance
+            const balance = await usdcContract.balanceOf(userAddress)
+            const decimals = await usdcContract.decimals()
+
+            // Convert to readable format
+            const formattedBalance = ethers.formatUnits(balance, decimals)
+            setUsdcBalance(formattedBalance)
+
+            // Check if user has sufficient balance
+            const requiredAmountFloat = parseFloat(requiredAmount.toString())
+            const currentBalanceFloat = parseFloat(formattedBalance)
+
+            return currentBalanceFloat >= requiredAmountFloat
+
+        } catch (error) {
+            console.error('Error checking USDC balance:', error)
+            setBalanceError(error instanceof Error ? error.message : 'Failed to check USDC balance')
+            return false
+        } finally {
+            setIsCheckingBalance(false)
+        }
+    }, [wallet, conversionResult])
+
+    // Check USDC balance when conversion modal opens
+    useEffect(() => {
+        if (showConversionModal && conversionResult && wallet) {
+            checkUSDCBalance(conversionResult.totalUsdcAmount)
+        }
+    }, [showConversionModal, conversionResult, wallet, checkUSDCBalance])
 
     // Check if currency is supported (only INR allowed)
     const isCurrencySupported = (currency?: string): boolean => {
@@ -813,7 +883,7 @@ export default function ScanPage() {
                             </div>
 
                             {/* Network Selection */}
-                            <div className="mb-6">
+                            {/* <div className="mb-6">
                                 <div className="flex items-center gap-2 mb-3">
                                     <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
                                         <span className="text-white text-sm">🌐</span>
@@ -821,7 +891,7 @@ export default function ScanPage() {
                                     <span className="font-semibold text-slate-900">Select Network</span>
                                 </div>
                                 <SwitchNetwork />
-                            </div>
+                            </div> */}
 
                             {/* Unified Payment Details Container */}
                             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
@@ -901,7 +971,7 @@ export default function ScanPage() {
                                 {/* Horizontal Separator */}
                                 <div className="h-px bg-gradient-to-r from-transparent via-teal-200 to-transparent"></div>
 
-                                {/* Payment Summary Section */}
+                                    {/* Payment Summary Section */}
                                 <div className="p-4">
                                     <div className="flex items-center gap-2 mb-3">
                                         <Banknote className="w-5 h-5 text-emerald-600" />
@@ -915,6 +985,12 @@ export default function ScanPage() {
                                         <div className="flex justify-between">
                                             <span className="text-emerald-700">UPI ID:</span>
                                             <span className="font-mono text-emerald-900">{parsedData!.data.pa}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-emerald-700">Your USDC Balance:</span>
+                                            <span className={`font-medium ${parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ? 'text-red-600' : 'text-emerald-900'}`}>
+                                                {isCheckingBalance ? 'Checking...' : `${parseFloat(usdcBalance).toFixed(2)} USDC`}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-emerald-700">Payment Amount:</span>
@@ -932,6 +1008,11 @@ export default function ScanPage() {
                                             <span className="text-emerald-700 font-semibold">Merchant Receives:</span>
                                             <span className="font-bold text-emerald-900 text-lg">₹{parseFloat(parsedData!.data.am || userAmount).toFixed(2)}</span>
                                         </div>
+                                        {balanceError && (
+                                            <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                                <p className="text-red-700 text-xs">{balanceError}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -948,6 +1029,13 @@ export default function ScanPage() {
                             <button
                                 onClick={async () => {
                                     try {
+                                        // Check USDC balance before proceeding
+                                        const hasSufficientBalance = await checkUSDCBalance(conversionResult!.totalUsdcAmount)
+
+                                        if (!hasSufficientBalance) {
+                                            return // Balance check will handle the error state
+                                        }
+
                                         const finalAmount = parsedData!.data.am || userAmount
 
                                         // Store transaction data
@@ -993,10 +1081,31 @@ export default function ScanPage() {
                                         alert(`Failed to store transaction: ${error instanceof Error ? error.message : 'Unknown error'}`)
                                     }
                                 }}
-                                className="w-full sm:flex-1 px-4 py-3 sm:py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 touch-manipulation min-h-[44px] text-sm sm:text-base"
+                                disabled={isCheckingBalance || parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount}
+                                className={`w-full sm:flex-1 px-4 py-3 sm:py-2 rounded-lg transition-colors flex items-center justify-center gap-2 touch-manipulation min-h-[44px] text-sm sm:text-base ${
+                                    isCheckingBalance
+                                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                        : parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount
+                                            ? 'bg-red-500 text-white cursor-not-allowed'
+                                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                }`}
                             >
-                                <DollarSignIcon className="w-4 h-4" />
-                                Pay Now
+                                {isCheckingBalance ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                        Checking Balance...
+                                    </>
+                                ) : parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ? (
+                                    <>
+                                        <AlertCircle className="w-4 h-4" />
+                                        Insufficient USDC
+                                    </>
+                                ) : (
+                                    <>
+                                        <DollarSignIcon className="w-4 h-4" />
+                                        Pay Now
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

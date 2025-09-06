@@ -1,10 +1,6 @@
 import mongoose from "mongoose";
 import { MONGODB_URI } from "@/config/constant";
 
-if (!MONGODB_URI) {
-  throw new Error("Please add your Mongo URI to .env.local");
-}
-
 interface MongooseCache {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
@@ -19,13 +15,18 @@ const cached: MongooseCache = global.mongoose ?? { conn: null, promise: null };
 global.mongoose = cached;
 
 async function dbConnect() {
+  // Check for MongoDB URI only when actually connecting
+  if (!MONGODB_URI) {
+    throw new Error("Please add your Mongo URI to .env.local");
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
 
   if (!cached.promise) {
     const opts = { bufferCommands: false };
-    cached.promise = mongoose.connect(MONGODB_URI!, opts);
+    cached.promise = mongoose.connect(MONGODB_URI, opts);
   }
 
   try {
