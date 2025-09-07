@@ -19,12 +19,50 @@ export const USDC_CONTRACT_ADDRESSES = {
 // Treasury Address
 export const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || "";
 
-// Delegation Contract Address for EIP-7702
-export const DELEGATION_CONTRACT_ADDRESS = "0x00000000000000447e69651d841bD8D104Bed493";
+// Delegation Contract Address for EIP-7702 (Custom Contract - Fixes Silent Failures)
+export const DELEGATION_CONTRACT_ADDRESS = "0x744e2450Be26E2CF390Acc8baA87Ab99DF4C3746";
 
-// Backend API Configuration
-export const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001";
-export const BACKEND_API_KEY = process.env.NEXT_PUBLIC_BACKEND_API_KEY || "";
+// Candide service endpoints (static, keyed by network)
+export const CANDIDE_BUNDLER_URLS = {
+  sepolia: "https://api.candide.dev/bundler/v3/sepolia",
+  arbitrumSepolia: "https://api.candide.dev/bundler/v3/arbitrum-sepolia",
+} as const;
+
+export const CANDIDE_PAYMASTER_URLS = {
+  sepolia: "https://api.candide.dev/paymaster/v3/sepolia",
+  arbitrumSepolia: "https://api.candide.dev/paymaster/v3/arbitrum-sepolia",
+} as const;
+
+// Default selections
+export const DEFAULT_NETWORK = "sepolia" as const; // change if needed
+export const DEFAULT_BUNDLER_URL = CANDIDE_BUNDLER_URLS[DEFAULT_NETWORK];
+export const DEFAULT_PAYMASTER_URL = CANDIDE_PAYMASTER_URLS[DEFAULT_NETWORK];
+
+// Public RPCs (non-secret)
+export const DEFAULT_JSON_RPC_NODE_PROVIDER = "https://ethereum-sepolia-rpc.publicnode.com";
+
+// Chain-specific configuration
+export const CHAIN_CONFIG: Record<number, { bundler: string; paymaster: string; rpc: string }> = {
+  11155111: {
+    bundler: CANDIDE_BUNDLER_URLS.sepolia,
+    paymaster: CANDIDE_PAYMASTER_URLS.sepolia,
+    rpc: "https://ethereum-sepolia-rpc.publicnode.com",
+  },
+  421614: {
+    bundler: CANDIDE_BUNDLER_URLS.arbitrumSepolia,
+    paymaster: CANDIDE_PAYMASTER_URLS.arbitrumSepolia,
+    rpc: "https://sepolia-rollup.arbitrum.io/rpc",
+  },
+};
+
+export const getBundlerUrlForChain = (chainId: number): string =>
+  CHAIN_CONFIG[chainId]?.bundler || DEFAULT_BUNDLER_URL;
+
+export const getPaymasterUrlForChain = (chainId: number): string =>
+  CHAIN_CONFIG[chainId]?.paymaster || DEFAULT_PAYMASTER_URL;
+
+export const getRpcUrlForChain = (chainId: number): string =>
+  CHAIN_CONFIG[chainId]?.rpc || DEFAULT_JSON_RPC_NODE_PROVIDER;
 
 // Cashfree Payout API Configuration
 export const CASHFREE_CONFIG = {

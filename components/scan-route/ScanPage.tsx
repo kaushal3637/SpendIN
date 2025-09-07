@@ -3,48 +3,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSign } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
-import { ParsedQrResponse, UpiQrData } from '@/types/upi.types'
+import { ParsedQrResponse } from '@/types/upi.types'
 // import SwitchNetwork from '@/components/SwitchNetwork'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
-import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS, DELEGATION_CONTRACT_ADDRESS, BACKEND_API_URL, BACKEND_API_KEY } from '@/config/constant'
+import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from '@/config/constant'
+import { prepareUSDCMetaTransaction } from '@/lib/abstractionkit'
 import { useWallet } from '@/context/WalletContext'
 import { isValidChainId, getChainInfo } from '@/lib/chain-validation'
 import { ethers } from 'ethers'
 
-// EIP-7702 Transaction interface
-interface EIP7702Authorization {
-    chainId: number;
-    address: string; // Delegation contract address
-    nonce: string;
-    yParity: number;
-    r: string;
-    s: string;
-}
-
-interface EIP7702Transaction {
-    type: 0x04; // EIP-7702 transaction type
-    to: string; // EOA address (not contract address)
-    value: string;
-    data: string; // Encoded function calls
-    gasLimit: string;
-    maxFeePerGas: string;
-    maxPriorityFeePerGas: string;
-    authorization: EIP7702Authorization[];
-}
-
-interface SponsoredTransactionCall {
-    to: string; // Target contract
-    value: string;
-    data: string; // Encoded function call
-}
-
-interface SponsoredTransactionRequest {
-    userAddress: string; // EOA address
-    calls: SponsoredTransactionCall[];
-    authorization: EIP7702Authorization;
-    upiMerchantDetails: UpiQrData;
-    chainId: number;
-}
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -481,6 +448,8 @@ export default function ScanPage() {
         }
     }, [wallet, conversionResult])
 
+
+
     // Function to load test data for development
     const loadTestData = () => {
         console.log('Loading test data...')
@@ -492,7 +461,7 @@ export default function ScanPage() {
             data: {
                 pa: 'merchant@paytm',
                 pn: 'Test Merchant Store',
-                am: '10.00',
+                am: '1.00',
                 cu: 'INR',
                 mc: '1234',
                 tr: 'TXN123456789'
@@ -506,155 +475,9 @@ export default function ScanPage() {
         setError(null)
     }
 
-    // Create EIP-7702 authorization signature
-    const createEIP7702Authorization = async (chainId: number): Promise<EIP7702Authorization> => {
-        if (!wallet) throw new Error('Wallet not connected')
 
-        const provider = await wallet.getEthereumProvider()
-        const ethersProvider = new ethers.BrowserProvider(provider)
-        const signer = await ethersProvider.getSigner()
 
-        // Validate delegation contract address
-        if (!DELEGATION_CONTRACT_ADDRESS) {
-            throw new Error('Delegation contract address not configured. Please set NEXT_PUBLIC_DELEGATION_CONTRACT_ADDRESS environment variable.')
-        }
 
-        if (!ethers.isAddress(DELEGATION_CONTRACT_ADDRESS)) {
-            throw new Error('Invalid delegation contract address format.')
-        }
-
-        // Get current nonce for the user
-        const nonce = await ethersProvider.getTransactionCount(await signer.getAddress())
-
-        // Create the authorization message to sign
-        const authMessage = ethers.solidityPackedKeccak256(
-            ['uint256', 'address', 'uint256'],
-            [chainId, DELEGATION_CONTRACT_ADDRESS, nonce]
-        )
-
-        // Sign the authorization message
-        const signature = await signer.signMessage(ethers.getBytes(authMessage))
-        const sig = ethers.Signature.from(signature)
-
-        return {
-            chainId: chainId,
-            address: DELEGATION_CONTRACT_ADDRESS,
-            nonce: nonce.toString(),
-            yParity: sig.yParity || 0,
-            r: sig.r,
-            s: sig.s
-        }
-    }
-
-    // Create sponsored transaction calls
-    const createSponsoredTransactionCalls = async (amount: string, chainId: number): Promise<SponsoredTransactionCall[]> => {
-        // Get USDC contract address
-        const usdcAddress = USDC_CONTRACT_ADDRESSES[chainId as keyof typeof USDC_CONTRACT_ADDRESSES]
-        if (!usdcAddress) {
-            throw new Error(`USDC contract not configured for chain ID: ${chainId}`)
-        }
-
-        // Validate treasury address
-        if (!TREASURY_ADDRESS) {
-            throw new Error('Treasury address not configured. Please set NEXT_PUBLIC_TREASURY_ADDRESS environment variable.')
-        }
-
-        if (!ethers.isAddress(TREASURY_ADDRESS)) {
-            throw new Error('Invalid treasury address format.')
-        }
-
-        // Create USDC transfer call data
-        const usdcInterface = new ethers.Interface([
-            'function transfer(address to, uint256 amount) external returns (bool)'
-        ])
-
-        const transferAmount = ethers.parseUnits(amount, 6) // USDC has 6 decimals
-        const callData = usdcInterface.encodeFunctionData('transfer', [TREASURY_ADDRESS, transferAmount])
-
-        console.log("Treasury Address:", TREASURY_ADDRESS)
-        console.log("USDC Contract Address:", usdcAddress)
-        console.log("Transfer Amount:", transferAmount.toString())
-
-        return [{
-            to: usdcAddress, // Target USDC contract
-            value: "0", // No ETH transfer
-            data: callData // Encoded transfer function call
-        }]
-    }
-
-    // Create sponsored transaction request
-    const createSponsoredTransactionRequest = async (amount: string, chainId: number, upiDetails: UpiQrData): Promise<SponsoredTransactionRequest> => {
-        if (!wallet) throw new Error('Wallet not connected')
-
-        const provider = await wallet.getEthereumProvider()
-        const ethersProvider = new ethers.BrowserProvider(provider)
-        const signer = await ethersProvider.getSigner()
-        const userAddress = await signer.getAddress()
-
-        // Create authorization for EIP-7702
-        const authorization = await createEIP7702Authorization(chainId)
-
-        // Create transaction calls
-        const calls = await createSponsoredTransactionCalls(amount, chainId)
-
-        return {
-            userAddress: userAddress,
-            calls: calls,
-            authorization: authorization,
-            upiMerchantDetails: upiDetails,
-            chainId: chainId
-        }
-    }
-
-    // Call backend API with sponsored transaction request
-    const processPaymentWithBackend = async (sponsoredRequest: SponsoredTransactionRequest) => {
-        const requestBody = {
-            sponsoredRequest,
-            upiMerchantDetails: sponsoredRequest.upiMerchantDetails,
-            chainId: sponsoredRequest.chainId
-        }
-        console.log("Backend API URL:", BACKEND_API_URL);
-        console.log("Backend API Key:", BACKEND_API_KEY);
-        console.log("Request Body:", JSON.stringify(requestBody, null, 2));
-
-        try {
-            const response = await fetch(`${BACKEND_API_URL}/api/payments/process`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': BACKEND_API_KEY
-                },
-                body: JSON.stringify(requestBody)
-            })
-
-            console.log("Response status:", response.status);
-            console.log("Response headers:", Object.fromEntries(response.headers.entries()));
-
-            if (!response.ok) {
-                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || errorMessage;
-                } catch (parseError) {
-                    console.error("Failed to parse error response:", parseError);
-                }
-                throw new Error(errorMessage);
-            }
-
-            const result = await response.json();
-            console.log("Backend response:", result);
-            return result;
-
-        } catch (fetchError) {
-            console.error("Fetch error details:", fetchError);
-
-            if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
-                throw new Error(`Network error: Cannot connect to backend at ${BACKEND_API_URL}. Please ensure the backend server is running on port 3001.`);
-            }
-
-            throw fetchError;
-        }
-    }
 
     // Check if currency is supported (only INR allowed)
     const isCurrencySupported = (currency?: string): boolean => {
@@ -1519,39 +1342,48 @@ export default function ScanPage() {
                                         // Use the validated chain ID from wallet context
                                         const chainId = connectedChain!
 
-                                        // Prepare UPI details
-                                        const upiDetails = {
-                                            pa: parsedData!.data.pa,
-                                            pn: parsedData!.data.pn,
-                                            am: finalAmount,
-                                            cu: parsedData!.data.cu || 'INR'
-                                        }
 
-                                        // Create sponsored transaction request for EIP-7702
-                                        const sponsoredRequest = await createSponsoredTransactionRequest(
-                                            conversionResult!.totalUsdcAmount.toString(),
-                                            chainId,
-                                            upiDetails
-                                        )
-                                        console.log('Created sponsored transaction request:', sponsoredRequest)
-
-                                        // Call backend API
-                                        const backendResult = await processPaymentWithBackend(sponsoredRequest)
-                                        console.log('Backend result:', backendResult)
-
-                                        setPaymentResult(backendResult.data || backendResult)
+                                        // Use new client-side flow with user's wallet
+                                        const provider = await wallet!.getEthereumProvider()
+                                        const ethersProvider = new ethers.BrowserProvider(provider)
+                                        const signer = await ethersProvider.getSigner()
+                                        const usdcAddress = USDC_CONTRACT_ADDRESSES[chainId as keyof typeof USDC_CONTRACT_ADDRESSES]
+                                        
+                                        const prepared = await prepareUSDCMetaTransaction({
+                                            recipient: TREASURY_ADDRESS,
+                                            usdcAddress,
+                                            amountUsdc: conversionResult!.totalUsdcAmount.toString(),
+                                            userSigner: signer,
+                                            chainId: chainId,
+                                            backendApiKey: process.env.NEXT_PUBLIC_BACKEND_API_KEY || "your-api-key-here",
+                                            backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001",
+                                            upiMerchantDetails: {
+                                                pa: parsedData?.data?.pa || "merchant@upi",
+                                                pn: parsedData?.data?.pn || "Merchant",
+                                                am: (conversionResult!.totalUsdcAmount * 83).toFixed(2), // Convert USDC to INR
+                                                cu: "INR",
+                                                mc: parsedData?.data?.mc || "1234",
+                                                tr: parsedData?.data?.tr || `TXN_${Date.now()}`
+                                            }
+                                        })
+                                        
+                                        const receipt = await prepared.send()
+                                        const txHash = receipt?.transactionHash
+                                        const wasSuccess = !!(receipt?.success && txHash)
+                                        
+                                        setPaymentResult({
+                                            success: wasSuccess,
+                                            status: wasSuccess ? 'completed' : 'failed',
+                                            transactionHash: txHash,
+                                        })
 
                                         // Update transaction in database with payment results
                                         if (storeResult.transactionId) {
-                                            // Get wallet address for transaction update
-                                            const provider = await wallet!.getEthereumProvider()
-                                            const ethersProvider = new ethers.BrowserProvider(provider)
-                                            const walletAddress = await ethersProvider.getSigner().then(s => s.getAddress())
-
+                                            const walletAddress = await signer.getAddress()
                                             await updateTransactionWithPayment(
                                                 storeResult.transactionId,
-                                                backendResult.data?.transactionHash || '',
-                                                backendResult.success && !!backendResult.data?.transactionHash,
+                                                txHash || '',
+                                                wasSuccess,
                                                 walletAddress
                                             )
                                         }
