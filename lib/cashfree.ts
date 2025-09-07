@@ -171,25 +171,34 @@ class CashfreeService {
   }
 
   /**
-   * Initiate a payout transfer
+   * Initiate a payout transfer using the exact API format
+   * UPI is the default and only supported transfer method
    */
   async initiateTransfer(
     transferRequest: CashfreeTransferRequest
   ): Promise<CashfreeTransferResponse> {
     try {
-      console.log("💸 Initiating transfer via Cashfree V2 API...");
+      console.log("💸 Initiating UPI transfer via Cashfree API...");
 
+      // Use the exact format from the working curl command
       const requestBody = {
-        beneficiary_id: transferRequest.beneId,
-        amount: transferRequest.amount.toFixed(2),
         transfer_id: transferRequest.transferId,
-        transfer_mode: transferRequest.transferMode || "upi", // Default to UPI
-        remarks: transferRequest.remarks || "UPI Payout",
+        transfer_amount: transferRequest.transferAmount,
+        beneficiary_details: {
+          beneficiary_id: transferRequest.beneficiaryId,
+          beneficiary_name: transferRequest.beneficiaryName,
+          beneficiary_instrument_details: {
+            vpa: transferRequest.beneficiaryVpa
+          }
+        },
+        transfer_mode: "upi", // UPI is the only supported method
+        transfer_remarks: transferRequest.transferRemarks || "UPI Payment",
+        fundsource_id: transferRequest.fundsourceId || this.config.FUNDSOURCE_ID
       };
 
       console.log("📤 Transfer request:", JSON.stringify(requestBody, null, 2));
 
-      const response = await fetch(`${this.config.BASE_URL}/payout/transfers`, {
+      const response = await fetch("https://sandbox.cashfree.com/payout/transfers", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -201,8 +210,16 @@ class CashfreeService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("❌ Transfer failed:", errorData);
+        const errorText = await response.text();
+        console.error("❌ Transfer failed:", errorText);
+
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+
         throw new Error(
           `Transfer failed: ${errorData.message || response.statusText}`
         );
@@ -210,11 +227,13 @@ class CashfreeService {
 
       const data = await response.json();
       console.log("✅ Transfer initiated successfully:", data);
+      console.log("📊 Transfer status received:", data.status);
+      console.log("📊 Transfer status code:", data.status_code);
 
       return {
-        status: "SUCCESS",
-        message: "Transfer initiated successfully",
-        data: data,
+        status: data.status || "SUCCESS",
+        message: data.message || "Transfer initiated successfully",
+        data: data.data || data,
       };
     } catch (error) {
       console.error("Transfer error:", error);

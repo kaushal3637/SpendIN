@@ -16,11 +16,13 @@ export interface CashfreeBeneficiary {
 }
 
 export interface CashfreeTransferRequest {
-  beneId: string; // Internal format, converted to beneficiary_id for V2 API
-  amount: number;
-  transferId: string; // Internal format, converted to transfer_id for V2 API
-  remarks?: string;
-  transferMode?: "banktransfer" | "upi" | "paytm" | "amazonpay" | "card";
+  transferId: string;
+  transferAmount: number;
+  beneficiaryId: string;
+  beneficiaryName: string;
+  beneficiaryVpa: string;
+  transferRemarks?: string;
+  fundsourceId?: string;
 }
 
 export interface CashfreeTransferResponse {

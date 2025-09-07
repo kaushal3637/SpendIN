@@ -38,6 +38,7 @@ export const CASHFREE_CONFIG = {
     CLIENT_ID: process.env.CASHFREE_CLIENT_ID || "TEST_CLIENT_ID",
     CLIENT_SECRET: process.env.CASHFREE_CLIENT_SECRET || "TEST_CLIENT_SECRET",
     TOKEN: process.env.CASHFREE_TOKEN || "",
+    FUNDSOURCE_ID: process.env.CASHFREE_FUNDSOURCE_ID || "CASHFREE_DEFAULT",
   },
   // Production configuration
   PRODUCTION: {
@@ -47,6 +48,7 @@ export const CASHFREE_CONFIG = {
     CLIENT_ID: process.env.CASHFREE_CLIENT_ID_PROD || "",
     CLIENT_SECRET: process.env.CASHFREE_CLIENT_SECRET_PROD || "",
     TOKEN: process.env.CASHFREE_TOKEN_PROD || "",
+    FUNDSOURCE_ID: process.env.CASHFREE_FUNDSOURCE_ID_PROD || "",
   },
 };
 

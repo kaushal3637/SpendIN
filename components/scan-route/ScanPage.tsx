@@ -257,6 +257,10 @@ export default function ScanPage() {
                 if (parsed) {
                     setParsedData(parsed)
 
+                    // Log current beneficiary details state
+                    console.log('Current beneficiaryDetails state:', beneficiaryDetails)
+                    console.log('Parsed QR data UPI ID:', parsed.data?.pa)
+
                     // Check if this is a customer QR and auto-payout is enabled
                     if (parsed.data && enableAutoPayout && payoutAmount) {
                         await handleCustomerPayout(parsed.data.pa)
@@ -1630,13 +1634,37 @@ export default function ScanPage() {
                                         console.log('Step 1: Initiating Cashfree payout to beneficiary...')
                                         setPaymentStep('Sending INR to beneficiary via Cashfree...')
 
-                                        const payoutData = {
-                                            customerId: beneficiaryDetails?.beneficiary_id || 'success@upi',
-                                            amount: parseFloat(finalAmount),
-                                            remarks: `Payment for ${parsedData!.data.pn || 'Merchant'} - Transaction ID: ${storeResult.transactionId}`,
+                                        // Create clean, short remarks for Cashfree (max ~50 chars, no special chars)
+                                        const merchantName = parsedData!.data.pn || 'Merchant';
+                                        const cleanRemarks = `Pay ${merchantName.substring(0, 20)}`.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+
+                                        // Determine the customer identifier to use
+                                        let customerIdentifier = beneficiaryDetails?.beneficiary_id
+
+                                        if (!customerIdentifier) {
+                                            // If we don't have beneficiary details, use the UPI ID from parsed QR data
+                                            // The payout API will handle the lookup
+                                            customerIdentifier = parsedData?.data?.pa || 'success@upi'
+                                            console.log('No beneficiary details found, using UPI ID:', customerIdentifier)
                                         }
 
+                                        const payoutData = {
+                                            customerId: customerIdentifier,
+                                            amount: parseFloat(finalAmount),
+                                            remarks: cleanRemarks,
+                                            fundsourceId: undefined, // Optional - will use default from config
+                                        }
+
+                                        console.log('🚀 Payout data being sent:')
+                                        console.log('- beneficiaryDetails:', beneficiaryDetails)
+                                        console.log('- beneficiary_id:', beneficiaryDetails?.beneficiary_id)
+                                        console.log('- final customerId:', payoutData.customerId)
+
+                                        console.log('Original merchant name:', merchantName)
+                                        console.log('Clean remarks:', cleanRemarks)
                                         console.log('Payout data:', payoutData)
+                                        console.log('Beneficiary details:', beneficiaryDetails)
+                                        console.log('Final amount:', finalAmount)
 
                                         const payoutResponse = await fetch('/api/payouts/initiate', {
                                             method: 'POST',
@@ -1647,9 +1675,16 @@ export default function ScanPage() {
                                         })
 
                                         if (!payoutResponse.ok) {
-                                            const payoutError = await payoutResponse.json()
+                                            let payoutError = { error: 'Unknown error', details: '' }
+                                            try {
+                                                payoutError = await payoutResponse.json()
+                                            } catch (parseError) {
+                                                console.error('Failed to parse payout error response:', parseError)
+                                            }
                                             console.error('Cashfree payout failed:', payoutError)
-                                            throw new Error(payoutError.error || 'Failed to initiate payout')
+                                            console.error('Response status:', payoutResponse.status)
+                                            console.error('Response statusText:', payoutResponse.statusText)
+                                            throw new Error(payoutError.error || payoutError.details || 'Failed to initiate payout')
                                         }
 
                                         const payoutResult = await payoutResponse.json()
