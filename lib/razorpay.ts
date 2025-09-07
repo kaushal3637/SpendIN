@@ -71,6 +71,54 @@ export interface CreatePayoutRequest {
   notes?: Record<string, string>;
 }
 
+export interface CreateCustomerRequest {
+  name: string;
+  email?: string;
+  contact?: string;
+  fail_existing?: boolean;
+  notes?: Record<string, string>;
+}
+
+export interface RazorpayCustomer {
+  id: string;
+  entity: string;
+  name: string;
+  email?: string;
+  contact?: string;
+  notes?: Record<string, string>;
+  created_at: number;
+}
+
+export interface CreateQrCodeRequest {
+  type: 'upi_qr' | 'bharat_qr';
+  name: string;
+  usage: 'single_use' | 'multiple_use';
+  fixed_amount?: boolean;
+  payment_amount?: number;
+  description?: string;
+  customer_id?: string;
+  close_by?: number;
+  notes?: Record<string, string>;
+}
+
+export interface RazorpayQrCode {
+  id: string;
+  entity: string;
+  type: string;
+  name: string;
+  description?: string;
+  image_url: string;
+  payment_amount?: number;
+  status: string;
+  usage: string;
+  fixed_amount: boolean;
+  customer_id?: string;
+  notes?: Record<string, string>;
+  created_at: number;
+  upi_uri?: string; // For mock QR codes
+  test_upi_id?: string; // For mock QR codes
+}
+
 class RazorpayClient {
   private apiKey: string;
   private apiSecret: string;
@@ -128,10 +176,17 @@ class RazorpayClient {
     try {
       const response = await fetch(url, config);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Razorpay API error: ${response.status} - ${errorData.error?.description || response.statusText}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+
+      // Handle rate limiting
+      if (response.status === 429) {
+        console.log('⚠️ Rate limit hit, waiting before retry...');
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
       }
+
+      throw new Error(`Razorpay API error: ${response.status} - ${errorData.error?.description || response.statusText}`);
+    }
 
       return await response.json();
     } catch (error) {
@@ -193,6 +248,36 @@ class RazorpayClient {
   // Public method for searching contacts by reference_id
   async searchContactsByReferenceId(referenceId: string): Promise<{ items: RazorpayContact[] }> {
     return this.makeRequest(`/contacts?reference_id=${referenceId}`) as Promise<{ items: RazorpayContact[] }>;
+  }
+
+  // Customer Management
+  async createCustomer(customerData: CreateCustomerRequest): Promise<RazorpayCustomer> {
+    return this.makeRequest('/customers', 'POST', customerData) as Promise<RazorpayCustomer>;
+  }
+
+  async getCustomer(customerId: string): Promise<RazorpayCustomer> {
+    return this.makeRequest(`/customers/${customerId}`) as Promise<RazorpayCustomer>;
+  }
+
+  async getCustomers(): Promise<{ items: RazorpayCustomer[] }> {
+    return this.makeRequest('/customers') as Promise<{ items: RazorpayCustomer[] }>;
+  }
+
+  // QR Code Management
+  async createQrCode(qrData: CreateQrCodeRequest): Promise<RazorpayQrCode> {
+    return this.makeRequest('/payments/qr_codes', 'POST', qrData) as Promise<RazorpayQrCode>;
+  }
+
+  async getQrCode(qrId: string): Promise<RazorpayQrCode> {
+    return this.makeRequest(`/payments/qr_codes/${qrId}`) as Promise<RazorpayQrCode>;
+  }
+
+  async getQrCodes(): Promise<{ items: RazorpayQrCode[] }> {
+    return this.makeRequest('/payments/qr_codes') as Promise<{ items: RazorpayQrCode[] }>;
+  }
+
+  async closeQrCode(qrId: string): Promise<RazorpayQrCode> {
+    return this.makeRequest(`/payments/qr_codes/${qrId}/close`, 'POST') as Promise<RazorpayQrCode>;
   }
 }
 

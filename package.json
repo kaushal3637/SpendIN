@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:setup": "node scripts/setup-test-data.js setup",
+    "test:cleanup": "node scripts/setup-test-data.js cleanup",
+    "test:status": "node scripts/setup-test-data.js status"
   },
   "dependencies": {
     "@privy-io/react-auth": "^2.24.0",
