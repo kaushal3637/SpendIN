@@ -1,6 +1,22 @@
 import { ethers } from "ethers";
 import { getRpcUrlForChain } from "@/config/constant";
 
+// Type for USDC meta transaction request
+interface USDCMetaTransactionRequest {
+  from: string;
+  to: string;
+  value: string;
+  validAfter: number;
+  validBefore: number;
+  nonce: string;
+  signature: {
+    v: number;
+    r: string;
+    s: string;
+  };
+  chainId: number;
+}
+
 export type CreateUSDCMetaTxInput = {
   recipient: string;
   usdcAddress: string;
@@ -20,7 +36,7 @@ export type CreateUSDCMetaTxInput = {
 };
 
 export type CreateUSDCMetaTxResult = {
-  metaTransaction: any;
+  metaTransaction: USDCMetaTransactionRequest;
   send: () => Promise<{ success?: boolean; transactionHash?: string; receipt?: unknown }>;
 };
 
@@ -92,7 +108,7 @@ export async function prepareUSDCMetaTransaction({
   let signature: string;
   try {
     if ('signTypedData' in userSigner) {
-      signature = await (userSigner as any).signTypedData(
+      signature = await (userSigner as ethers.Signer & { signTypedData: (domain: unknown, types: unknown, message: unknown) => Promise<string> }).signTypedData(
         typedData.domain,
         typedData.types,
         typedData.message
@@ -104,7 +120,7 @@ export async function prepareUSDCMetaTransaction({
         typedData.types,
         typedData.message
       );
-      signature = await userSigner.signMessage(ethers.getBytes(digest));
+      signature = await (userSigner as ethers.Signer).signMessage(ethers.getBytes(digest));
     }
   } catch (error) {
     console.error('Failed to sign meta transaction:', error);
@@ -185,7 +201,7 @@ export type Create7702TxInput = {
 };
 
 export type Create7702TxResult = {
-  userOperation: any;
+  userOperation: unknown;
   send: () => Promise<{ success?: boolean; transactionHash?: string; receipt?: unknown; userOpHash?: string }>;
 };
 
@@ -201,7 +217,7 @@ export async function prepare7702UserOp(input: Create7702TxInput): Promise<Creat
   const metaResult = await prepareUSDCMetaTransaction(metaInput);
   
   return {
-    userOperation: metaResult.metaTransaction,
+    userOperation: metaResult.metaTransaction as unknown,
     send: async () => {
       const result = await metaResult.send();
       return {
