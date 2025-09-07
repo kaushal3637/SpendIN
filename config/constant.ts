@@ -70,18 +70,22 @@ export const CASHFREE_CONFIG = {
   TEST: {
     APP_ID: process.env.CASHFREE_APP_ID || "TEST_APP_ID",
     SECRET_KEY: process.env.CASHFREE_SECRET_KEY || "TEST_SECRET_KEY",
-    BASE_URL: "https://sandbox.cashfree.com/payout",
+    BASE_URL: "https://sandbox.cashfree.com",
     CLIENT_ID: process.env.CASHFREE_CLIENT_ID || "TEST_CLIENT_ID",
     CLIENT_SECRET: process.env.CASHFREE_CLIENT_SECRET || "TEST_CLIENT_SECRET",
+    TOKEN: process.env.CASHFREE_TOKEN || "",
+    FUNDSOURCE_ID: process.env.CASHFREE_FUNDSOURCE_ID || "CASHFREE_DEFAULT",
   },
   // Production configuration
   PRODUCTION: {
     APP_ID: process.env.CASHFREE_APP_ID_PROD || "",
     SECRET_KEY: process.env.CASHFREE_SECRET_KEY_PROD || "",
-    BASE_URL: "https://api.cashfree.com/payout",
+    BASE_URL: "https://api.cashfree.com",
     CLIENT_ID: process.env.CASHFREE_CLIENT_ID_PROD || "",
     CLIENT_SECRET: process.env.CASHFREE_CLIENT_SECRET_PROD || "",
-  }
+    TOKEN: process.env.CASHFREE_TOKEN_PROD || "",
+    FUNDSOURCE_ID: process.env.CASHFREE_FUNDSOURCE_ID_PROD || "",
+  },
 };
 
 // Get current Cashfree configuration based on environment

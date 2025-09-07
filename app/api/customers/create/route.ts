@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/dbConnect";
 import Customer from "@/models/Customer";
-import CashfreeService, { CashfreeBeneficiary } from "@/lib/cashfree";
+import CashfreeService from "@/lib/cashfree";
+import { CashfreeBeneficiary } from "@/types/cashfree.types";
 
 interface CreateCustomerRequest {
   name: string;
@@ -122,9 +123,9 @@ export async function POST(request: NextRequest) {
       // Add beneficiary to Cashfree
       beneficiaryResponse = await cashfreeService.addBeneficiary(beneficiaryDetails);
 
-      // Update customer with beneficiary ID if successful
+      // Update customer with beneficiary ID if successful (V2 API format)
       if (beneficiaryResponse.status === 'SUCCESS' && beneficiaryResponse.data) {
-        customer.cashfreeBeneficiaryId = beneficiaryResponse.data.beneId;
+        customer.cashfreeBeneficiaryId = beneficiaryResponse.data.beneficiary_id || beneficiaryResponse.data.beneId;
         customer.isBeneficiaryAdded = true;
         await customer.save();
       }

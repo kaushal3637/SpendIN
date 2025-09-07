@@ -47,6 +47,7 @@ export default function ScanPage() {
     const [isCheckingBalance, setIsCheckingBalance] = useState(false)
     const [balanceError, setBalanceError] = useState<string | null>(null)
     const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+    const [paymentStep, setPaymentStep] = useState<string>('')
     const [isTestMode, setIsTestMode] = useState(false)
     const [paymentResult, setPaymentResult] = useState<{ // eslint-disable-line @typescript-eslint/no-unused-vars
         success: boolean;
@@ -66,6 +67,21 @@ export default function ScanPage() {
             message: string;
         };
         error?: string;
+    } | null>(null)
+    const [beneficiaryDetails, setBeneficiaryDetails] = useState<{
+        beneficiary_id?: string;
+        beneficiary_name?: string;
+        beneficiary_email?: string;
+        beneficiary_phone?: string;
+        beneficiary_instrument_details?: {
+            vpa?: string;
+            bank_account_number?: string;
+            bank_ifsc?: string;
+        };
+        beneficiary_contact_details?: {
+            beneficiary_email?: string;
+            beneficiary_phone?: string;
+        };
     } | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
@@ -208,6 +224,10 @@ export default function ScanPage() {
                 if (parsed) {
                     setParsedData(parsed)
 
+                    // Log current beneficiary details state
+                    console.log('Current beneficiaryDetails state:', beneficiaryDetails)
+                    console.log('Parsed QR data UPI ID:', parsed.data?.pa)
+
                     // Check if this is a customer QR and auto-payout is enabled
                     if (parsed.data && enableAutoPayout && payoutAmount) {
                         await handleCustomerPayout(parsed.data.pa)
@@ -275,6 +295,7 @@ export default function ScanPage() {
         setShowConversionModal(false)
         setShowReason(false)
         setPayoutResult(null)
+        setBeneficiaryDetails(null)
         stopScanning()
     }
 
@@ -448,25 +469,44 @@ export default function ScanPage() {
         }
     }, [wallet, conversionResult])
 
-
-
     // Function to load test data for development
-    const loadTestData = () => {
+    const loadTestData = async () => {
         console.log('Loading test data...')
 
-        // Simulate parsed QR data
-        const testParsedData: ParsedQrResponse = {
-            qrType: 'dynamic_merchant',
-            isValid: true,
-            data: {
-                pa: 'merchant@paytm',
-                pn: 'Test Merchant Store',
-                am: '1.00',
-                cu: 'INR',
-                mc: '1234',
-                tr: 'TXN123456789'
+            // Use the beneficiary with UPI ID from your dashboard
+            const beneficiaryId = '1492218328b3o0m39jsCfkjeyFVBKdreP1'
+
+            // Fetch beneficiary details from Cashfree
+            const response = await fetch(`/api/cashfree-beneficiary/${beneficiaryId}`)
+            if (!response.ok) {
+                throw new Error('Failed to fetch beneficiary details')
             }
-        }
+
+            const beneficiaryData = await response.json()
+            const beneficiary = beneficiaryData.beneficiary
+
+            // Store beneficiary details for display
+            setBeneficiaryDetails(beneficiary)
+
+            // Get UPI ID from beneficiary instrument details
+            const upiId = beneficiary?.beneficiary_instrument_details?.vpa || 'success@upi'
+
+            // Create test QR data using the beneficiary's UPI ID
+            const testParsedData: ParsedQrResponse = {
+                qrType: 'dynamic_merchant',
+                isValid: true,
+                data: {
+                    pa: upiId,
+                    pn: beneficiary?.beneficiary_name || 'Test Bene',
+                    am: '10.00', // Test amount
+                    cu: 'INR',
+                    mc: '1234',
+                    tr: `TXN${Date.now()}`
+                }
+            }
+
+            // Generate QR string
+            const qrString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(testParsedData.data.pn || 'Test Bene')}&am=${testParsedData.data.am}&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${testParsedData.data.tr}`
 
         setParsedData(testParsedData)
         setScanResult('upi://pay?pa=merchant@paytm&pn=Test%20Merchant%20Store&am=850.00&cu=INR&mc=1234&tr=TXN123456789')
@@ -769,10 +809,10 @@ export default function ScanPage() {
                                                 disabled={!isWalletConnected}
                                             >
                                                 <QrCode className="w-4 h-4" />
-                                                Load Test Data
+                                                Load Cashfree Beneficiary
                                             </button>
                                             <p className="text-xs text-slate-500 mt-2">
-                                                For development: Skip QR scanning and load test UPI data
+                                                For development: Load verified Cashfree beneficiary with UPI ID
                                             </p>
                                         </div>
                                     </div>
@@ -908,6 +948,49 @@ export default function ScanPage() {
                                         )}
                                     </p>
                                 </div>
+
+                                {/* Cashfree Beneficiary Details (only shown in test mode) */}
+                                {isTestMode && beneficiaryDetails && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                                                <span className="text-white text-xs font-bold">💰</span>
+                                            </div>
+                                            <span className="font-medium text-blue-900">Cashfree Beneficiary Details</span>
+                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                                                VERIFIED
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-blue-700">Beneficiary ID:</span>
+                                                <span className="font-mono text-blue-900 text-xs">{beneficiaryDetails.beneficiary_id}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-blue-700">Name:</span>
+                                                <span className="font-medium text-blue-900">{beneficiaryDetails.beneficiary_name}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-blue-700">Email:</span>
+                                                <span className="text-blue-900">{beneficiaryDetails.beneficiary_email}</span>
+                                            </div>
+                                            {beneficiaryDetails.beneficiary_instrument_details?.vpa && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-blue-700">UPI ID:</span>
+                                                    <span className="font-mono text-blue-900">{beneficiaryDetails.beneficiary_instrument_details.vpa}</span>
+                                                </div>
+                                            )}
+                                            {beneficiaryDetails.beneficiary_instrument_details?.bank_account_number && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-blue-700">Bank Account:</span>
+                                                    <span className="font-mono text-blue-900 text-xs">
+                                                        {beneficiaryDetails.beneficiary_instrument_details.bank_account_number} / {beneficiaryDetails.beneficiary_instrument_details.bank_ifsc}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Account Details */}
                                 <div className="space-y-3">
@@ -1112,7 +1195,10 @@ export default function ScanPage() {
                                 Payment Conversion
                             </h3>
                             <button
-                                onClick={() => setShowConversionModal(false)}
+                                onClick={() => {
+                                    setShowConversionModal(false)
+                                    setPaymentStep('')
+                                }}
                                 className="p-2 hover:bg-slate-100 rounded-full transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                             >
                                 <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
@@ -1223,6 +1309,18 @@ export default function ScanPage() {
                                             <span className="text-emerald-700">UPI ID:</span>
                                             <span className="font-mono text-emerald-900">{parsedData!.data.pa}</span>
                                         </div>
+                                        {isTestMode && beneficiaryDetails && (
+                                            <>
+                                                <div className="flex justify-between">
+                                                    <span className="text-emerald-700">Beneficiary ID:</span>
+                                                    <span className="font-mono text-emerald-900 text-xs">{beneficiaryDetails.beneficiary_id}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-emerald-700">Beneficiary Email:</span>
+                                                    <span className="text-emerald-900 text-xs">{beneficiaryDetails.beneficiary_email}</span>
+                                                </div>
+                                            </>
+                                        )}
                                         <div className="flex justify-between">
                                             <span className="text-emerald-700">Your USDC Balance:</span>
                                             <span className={`font-medium ${parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ? 'text-red-600' : 'text-emerald-900'}`}>
@@ -1258,7 +1356,10 @@ export default function ScanPage() {
                         {/* Modal Footer */}
                         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 border-t border-slate-200">
                             <button
-                                onClick={() => setShowConversionModal(false)}
+                                onClick={() => {
+                                    setShowConversionModal(false)
+                                    setPaymentStep('')
+                                }}
                                 className="w-full sm:flex-1 px-4 py-3 sm:py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors touch-manipulation min-h-[44px] text-sm sm:text-base"
                             >
                                 Cancel
@@ -1267,6 +1368,7 @@ export default function ScanPage() {
                                 onClick={async () => {
                                     try {
                                         setIsProcessingPayment(true)
+                                        setPaymentStep('Initiating payment...')
                                         setPaymentResult(null)
 
                                         // Check USDC balance before proceeding
@@ -1342,7 +1444,12 @@ export default function ScanPage() {
                                         // Use the validated chain ID from wallet context
                                         const chainId = connectedChain!
 
-
+                                        
+                                        // Step 1: Now proceed with EIP-7702 transaction
+                                        console.log('Step 1: Proceeding with EIP-7702 transaction...')
+                                        setPaymentStep('Processing blockchain transaction...')
+                                        
+                                        
                                         // Use new client-side flow with user's wallet
                                         const provider = await wallet!.getEthereumProvider()
                                         const ethersProvider = new ethers.BrowserProvider(provider)
@@ -1388,6 +1495,86 @@ export default function ScanPage() {
                                             )
                                         }
 
+                                        // Step 2: Initiate Cashfree payout to beneficiary first
+                                        console.log('Step 2: Initiating Cashfree payout to beneficiary...')
+                                        setPaymentStep('Sending INR to beneficiary via Cashfree...')
+
+                                        // Create clean, short remarks for Cashfree (max ~50 chars, no special chars)
+                                        const merchantName = parsedData!.data.pn || 'Merchant';
+                                        const cleanRemarks = `Pay ${merchantName.substring(0, 20)}`.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+
+                                        // Determine the customer identifier to use
+                                        let customerIdentifier = beneficiaryDetails?.beneficiary_id
+
+                                        if (!customerIdentifier) {
+                                            // If we don't have beneficiary details, use the UPI ID from parsed QR data
+                                            // The payout API will handle the lookup
+                                            customerIdentifier = parsedData?.data?.pa || 'success@upi'
+                                            console.log('No beneficiary details found, using UPI ID:', customerIdentifier)
+                                        }
+
+                                        const payoutData = {
+                                            customerId: customerIdentifier,
+                                            amount: parseFloat(finalAmount),
+                                            remarks: cleanRemarks,
+                                            fundsourceId: undefined, // Optional - will use default from config
+                                        }
+
+                                        console.log('🚀 Payout data being sent:')
+                                        console.log('- beneficiaryDetails:', beneficiaryDetails)
+                                        console.log('- beneficiary_id:', beneficiaryDetails?.beneficiary_id)
+                                        console.log('- final customerId:', payoutData.customerId)
+
+                                        console.log('Original merchant name:', merchantName)
+                                        console.log('Clean remarks:', cleanRemarks)
+                                        console.log('Payout data:', payoutData)
+                                        console.log('Beneficiary details:', beneficiaryDetails)
+                                        console.log('Final amount:', finalAmount)
+
+                                        const payoutResponse = await fetch('/api/payouts/initiate', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify(payoutData),
+                                        })
+
+                                        if (!payoutResponse.ok) {
+                                            let payoutError = { error: 'Unknown error', details: '' }
+                                            try {
+                                                payoutError = await payoutResponse.json()
+                                            } catch (parseError) {
+                                                console.error('Failed to parse payout error response:', parseError)
+                                            }
+                                            console.error('Cashfree payout failed:', payoutError)
+                                            console.error('Response status:', payoutResponse.status)
+                                            console.error('Response statusText:', payoutResponse.statusText)
+                                            throw new Error(payoutError.error || payoutError.details || 'Failed to initiate payout')
+                                        }
+
+                                        const payoutResult = await payoutResponse.json()
+                                        console.log('Cashfree payout initiated:', payoutResult)
+
+                                        if (!payoutResult.success) {
+                                            throw new Error(payoutResult.error || 'Payout initiation failed')
+                                        }
+
+                                        // Update transaction with payout details
+                                        if (storeResult.transactionId) {
+                                            await fetch('/api/update-upi-transaction', {
+                                                method: 'PUT',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                },
+                                                body: JSON.stringify({
+                                                    transactionId: storeResult.transactionId,
+                                                    payoutTransferId: payoutResult.payout?.transferId,
+                                                    payoutStatus: payoutResult.payout?.status,
+                                                    isSuccess: false // Will be updated after EIP-7702 transaction
+                                                }),
+                                            })
+                                        }
+
                                     } catch (error) {
                                         console.error('Payment processing error:', error)
                                         setPaymentResult({
@@ -1395,6 +1582,7 @@ export default function ScanPage() {
                                             error: error instanceof Error ? error.message : 'Payment processing failed',
                                             status: 'failed'
                                         })
+                                        setPaymentStep('')
                                     } finally {
                                         setIsProcessingPayment(false)
                                     }
@@ -1433,7 +1621,7 @@ export default function ScanPage() {
                                 ) : (
                                     <>
                                         <DollarSign className="w-4 h-4" />
-                                        Pay Now
+                                        {paymentStep || 'Pay Now'}
                                     </>
                                 )}
                             </button>
