@@ -10,6 +10,15 @@ const TransactionSchema = new mongoose.Schema({
   inrAmount: String, // INR amount
   walletAddress: String, // Connected wallet address (optional)
   txnHash: String, // Transaction hash (optional, updated later)
+
+  // Cashfree Payout Details
+  payoutTransferId: String, // Cashfree transfer ID
+  payoutStatus: String, // Cashfree transfer status (SUCCESS, FAILED, PENDING)
+  payoutAmount: Number, // Amount transferred via Cashfree
+  payoutRemarks: String, // Remarks for the payout
+  payoutInitiatedAt: Date, // When payout was initiated
+  payoutProcessedAt: Date, // When payout was processed
+
   chainId: {
     type: Number,
     required: true,

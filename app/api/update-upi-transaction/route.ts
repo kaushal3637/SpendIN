@@ -8,7 +8,12 @@ export async function PUT(request: NextRequest) {
       transactionId,
       txnHash,
       isSuccess,
-      walletAddress
+      walletAddress,
+      // Payout fields
+      payoutTransferId,
+      payoutStatus,
+      payoutAmount,
+      payoutRemarks
     } = body;
 
     // Validate required fields
@@ -22,13 +27,22 @@ export async function PUT(request: NextRequest) {
 
     // Find and update the transaction
     const updateData: {
-      paidAt: Date;
+      paidAt?: Date;
       txnHash?: string;
       isSuccess?: boolean;
       walletAddress?: string;
-    } = {
-      paidAt: new Date()
-    };
+      // Payout fields
+      payoutTransferId?: string;
+      payoutStatus?: string;
+      payoutAmount?: number;
+      payoutRemarks?: string;
+      payoutInitiatedAt?: Date;
+    } = {};
+
+    // Only set paidAt if we have transaction hash or isSuccess
+    if (txnHash !== undefined || isSuccess !== undefined) {
+      updateData.paidAt = new Date();
+    }
 
     if (txnHash !== undefined) {
       updateData.txnHash = txnHash;
@@ -40,6 +54,28 @@ export async function PUT(request: NextRequest) {
 
     if (walletAddress !== undefined) {
       updateData.walletAddress = walletAddress;
+    }
+
+    // Payout fields
+    if (payoutTransferId !== undefined) {
+      updateData.payoutTransferId = payoutTransferId;
+    }
+
+    if (payoutStatus !== undefined) {
+      updateData.payoutStatus = payoutStatus;
+    }
+
+    if (payoutAmount !== undefined) {
+      updateData.payoutAmount = payoutAmount;
+    }
+
+    if (payoutRemarks !== undefined) {
+      updateData.payoutRemarks = payoutRemarks;
+    }
+
+    // Set payout initiated timestamp if we have payout details
+    if (payoutTransferId || payoutStatus || payoutAmount) {
+      updateData.payoutInitiatedAt = new Date();
     }
 
     const updatedTransaction = await TransactionModel.findByIdAndUpdate(

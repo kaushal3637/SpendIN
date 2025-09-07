@@ -80,6 +80,7 @@ export default function ScanPage() {
     const [isCheckingBalance, setIsCheckingBalance] = useState(false)
     const [balanceError, setBalanceError] = useState<string | null>(null)
     const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+    const [paymentStep, setPaymentStep] = useState<string>('')
     const [isTestMode, setIsTestMode] = useState(false)
     const [paymentResult, setPaymentResult] = useState<{ // eslint-disable-line @typescript-eslint/no-unused-vars
         success: boolean;
@@ -99,6 +100,21 @@ export default function ScanPage() {
             message: string;
         };
         error?: string;
+    } | null>(null)
+    const [beneficiaryDetails, setBeneficiaryDetails] = useState<{
+        beneficiary_id?: string;
+        beneficiary_name?: string;
+        beneficiary_email?: string;
+        beneficiary_phone?: string;
+        beneficiary_instrument_details?: {
+            vpa?: string;
+            bank_account_number?: string;
+            bank_ifsc?: string;
+        };
+        beneficiary_contact_details?: {
+            beneficiary_email?: string;
+            beneficiary_phone?: string;
+        };
     } | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
@@ -308,6 +324,7 @@ export default function ScanPage() {
         setShowConversionModal(false)
         setShowReason(false)
         setPayoutResult(null)
+        setBeneficiaryDetails(null)
         stopScanning()
     }
 
@@ -481,29 +498,57 @@ export default function ScanPage() {
         }
     }, [wallet, conversionResult])
 
-    // Function to load test data for development
-    const loadTestData = () => {
-        console.log('Loading test data...')
+    // Function to load test data with Cashfree beneficiary
+    const loadTestData = async () => {
+        try {
+            console.log('Loading test data with Cashfree beneficiary...')
 
-        // Simulate parsed QR data
-        const testParsedData: ParsedQrResponse = {
-            qrType: 'dynamic_merchant',
-            isValid: true,
-            data: {
-                pa: 'merchant@paytm',
-                pn: 'Test Merchant Store',
-                am: '10.00',
-                cu: 'INR',
-                mc: '1234',
-                tr: 'TXN123456789'
+            // Use the beneficiary with UPI ID from your dashboard
+            const beneficiaryId = '1492218328b3o0m39jsCfkjeyFVBKdreP1'
+
+            // Fetch beneficiary details from Cashfree
+            const response = await fetch(`/api/cashfree-beneficiary/${beneficiaryId}`)
+            if (!response.ok) {
+                throw new Error('Failed to fetch beneficiary details')
             }
-        }
 
-        setParsedData(testParsedData)
-        setScanResult('upi://pay?pa=merchant@paytm&pn=Test%20Merchant%20Store&am=850.00&cu=INR&mc=1234&tr=TXN123456789')
-        setIsTestMode(true)
-        setShowModal(true)
-        setError(null)
+            const beneficiaryData = await response.json()
+            const beneficiary = beneficiaryData.beneficiary
+
+            // Store beneficiary details for display
+            setBeneficiaryDetails(beneficiary)
+
+            // Get UPI ID from beneficiary instrument details
+            const upiId = beneficiary?.beneficiary_instrument_details?.vpa || 'success@upi'
+
+            // Create test QR data using the beneficiary's UPI ID
+            const testParsedData: ParsedQrResponse = {
+                qrType: 'dynamic_merchant',
+                isValid: true,
+                data: {
+                    pa: upiId,
+                    pn: beneficiary?.beneficiary_name || 'Test Bene',
+                    am: '1000.00', // Test amount
+                    cu: 'INR',
+                    mc: '1234',
+                    tr: `TXN${Date.now()}`
+                }
+            }
+
+            // Generate QR string
+            const qrString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(testParsedData.data.pn || 'Test Bene')}&am=${testParsedData.data.am}&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${testParsedData.data.tr}`
+
+            setParsedData(testParsedData)
+            setScanResult(qrString)
+            setIsTestMode(true)
+            setShowModal(true)
+            setError(null)
+
+            console.log('Test data loaded successfully with beneficiary:', beneficiary)
+        } catch (error) {
+            console.error('Error loading test data:', error)
+            setError(`Failed to load test data: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        }
     }
 
     // Create EIP-7702 authorization signature
@@ -946,10 +991,10 @@ export default function ScanPage() {
                                                 disabled={!isWalletConnected}
                                             >
                                                 <QrCode className="w-4 h-4" />
-                                                Load Test Data
+                                                Load Cashfree Beneficiary
                                             </button>
                                             <p className="text-xs text-slate-500 mt-2">
-                                                For development: Skip QR scanning and load test UPI data
+                                                For development: Load verified Cashfree beneficiary with UPI ID
                                             </p>
                                         </div>
                                     </div>
@@ -1085,6 +1130,49 @@ export default function ScanPage() {
                                         )}
                                     </p>
                                 </div>
+
+                                {/* Cashfree Beneficiary Details (only shown in test mode) */}
+                                {isTestMode && beneficiaryDetails && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                                                <span className="text-white text-xs font-bold">💰</span>
+                                            </div>
+                                            <span className="font-medium text-blue-900">Cashfree Beneficiary Details</span>
+                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                                                VERIFIED
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-blue-700">Beneficiary ID:</span>
+                                                <span className="font-mono text-blue-900 text-xs">{beneficiaryDetails.beneficiary_id}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-blue-700">Name:</span>
+                                                <span className="font-medium text-blue-900">{beneficiaryDetails.beneficiary_name}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-blue-700">Email:</span>
+                                                <span className="text-blue-900">{beneficiaryDetails.beneficiary_email}</span>
+                                            </div>
+                                            {beneficiaryDetails.beneficiary_instrument_details?.vpa && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-blue-700">UPI ID:</span>
+                                                    <span className="font-mono text-blue-900">{beneficiaryDetails.beneficiary_instrument_details.vpa}</span>
+                                                </div>
+                                            )}
+                                            {beneficiaryDetails.beneficiary_instrument_details?.bank_account_number && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-blue-700">Bank Account:</span>
+                                                    <span className="font-mono text-blue-900 text-xs">
+                                                        {beneficiaryDetails.beneficiary_instrument_details.bank_account_number} / {beneficiaryDetails.beneficiary_instrument_details.bank_ifsc}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Account Details */}
                                 <div className="space-y-3">
@@ -1289,7 +1377,10 @@ export default function ScanPage() {
                                 Payment Conversion
                             </h3>
                             <button
-                                onClick={() => setShowConversionModal(false)}
+                                onClick={() => {
+                                    setShowConversionModal(false)
+                                    setPaymentStep('')
+                                }}
                                 className="p-2 hover:bg-slate-100 rounded-full transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                             >
                                 <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
@@ -1400,6 +1491,18 @@ export default function ScanPage() {
                                             <span className="text-emerald-700">UPI ID:</span>
                                             <span className="font-mono text-emerald-900">{parsedData!.data.pa}</span>
                                         </div>
+                                        {isTestMode && beneficiaryDetails && (
+                                            <>
+                                                <div className="flex justify-between">
+                                                    <span className="text-emerald-700">Beneficiary ID:</span>
+                                                    <span className="font-mono text-emerald-900 text-xs">{beneficiaryDetails.beneficiary_id}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-emerald-700">Beneficiary Email:</span>
+                                                    <span className="text-emerald-900 text-xs">{beneficiaryDetails.beneficiary_email}</span>
+                                                </div>
+                                            </>
+                                        )}
                                         <div className="flex justify-between">
                                             <span className="text-emerald-700">Your USDC Balance:</span>
                                             <span className={`font-medium ${parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ? 'text-red-600' : 'text-emerald-900'}`}>
@@ -1435,7 +1538,10 @@ export default function ScanPage() {
                         {/* Modal Footer */}
                         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 border-t border-slate-200">
                             <button
-                                onClick={() => setShowConversionModal(false)}
+                                onClick={() => {
+                                    setShowConversionModal(false)
+                                    setPaymentStep('')
+                                }}
                                 className="w-full sm:flex-1 px-4 py-3 sm:py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors touch-manipulation min-h-[44px] text-sm sm:text-base"
                             >
                                 Cancel
@@ -1444,6 +1550,7 @@ export default function ScanPage() {
                                 onClick={async () => {
                                     try {
                                         setIsProcessingPayment(true)
+                                        setPaymentStep('Initiating payment...')
                                         setPaymentResult(null)
 
                                         // Check USDC balance before proceeding
@@ -1519,6 +1626,59 @@ export default function ScanPage() {
                                         // Use the validated chain ID from wallet context
                                         const chainId = connectedChain!
 
+                                        // Step 1: Initiate Cashfree payout to beneficiary first
+                                        console.log('Step 1: Initiating Cashfree payout to beneficiary...')
+                                        setPaymentStep('Sending INR to beneficiary via Cashfree...')
+
+                                        const payoutData = {
+                                            customerId: beneficiaryDetails?.beneficiary_id || 'success@upi',
+                                            amount: parseFloat(finalAmount),
+                                            remarks: `Payment for ${parsedData!.data.pn || 'Merchant'} - Transaction ID: ${storeResult.transactionId}`,
+                                        }
+
+                                        console.log('Payout data:', payoutData)
+
+                                        const payoutResponse = await fetch('/api/payouts/initiate', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify(payoutData),
+                                        })
+
+                                        if (!payoutResponse.ok) {
+                                            const payoutError = await payoutResponse.json()
+                                            console.error('Cashfree payout failed:', payoutError)
+                                            throw new Error(payoutError.error || 'Failed to initiate payout')
+                                        }
+
+                                        const payoutResult = await payoutResponse.json()
+                                        console.log('Cashfree payout initiated:', payoutResult)
+
+                                        if (!payoutResult.success) {
+                                            throw new Error(payoutResult.error || 'Payout initiation failed')
+                                        }
+
+                                        // Update transaction with payout details
+                                        if (storeResult.transactionId) {
+                                            await fetch('/api/update-upi-transaction', {
+                                                method: 'PUT',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                },
+                                                body: JSON.stringify({
+                                                    transactionId: storeResult.transactionId,
+                                                    payoutTransferId: payoutResult.payout?.transferId,
+                                                    payoutStatus: payoutResult.payout?.status,
+                                                    isSuccess: false // Will be updated after EIP-7702 transaction
+                                                }),
+                                            })
+                                        }
+
+                                        // Step 2: Now proceed with EIP-7702 transaction
+                                        console.log('Step 2: Proceeding with EIP-7702 transaction...')
+                                        setPaymentStep('Processing blockchain transaction...')
+
                                         // Prepare UPI details
                                         const upiDetails = {
                                             pa: parsedData!.data.pa,
@@ -1539,7 +1699,34 @@ export default function ScanPage() {
                                         const backendResult = await processPaymentWithBackend(sponsoredRequest)
                                         console.log('Backend result:', backendResult)
 
-                                        setPaymentResult(backendResult.data || backendResult)
+                                        // Update transaction with final status
+                                        if (storeResult.transactionId) {
+                                            await fetch('/api/update-upi-transaction', {
+                                                method: 'PUT',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                },
+                                                body: JSON.stringify({
+                                                    transactionId: storeResult.transactionId,
+                                                    txnHash: backendResult.data?.transactionHash || '',
+                                                    isSuccess: backendResult.success,
+                                                }),
+                                            })
+                                        }
+
+                                        // Create combined result with both payout and EIP-7702 details
+                                        const combinedResult = {
+                                            ...backendResult.data,
+                                            payoutDetails: {
+                                                transferId: payoutResult.payout?.transferId,
+                                                amount: payoutResult.payout?.amount,
+                                                status: payoutResult.payout?.status,
+                                                message: payoutResult.payout?.message
+                                            },
+                                            message: `Payment completed successfully! ₹${finalAmount} has been sent to the beneficiary via Cashfree, and ${conversionResult!.totalUsdcAmount.toFixed(2)} USDC has been processed via blockchain.`
+                                        }
+
+                                        setPaymentResult(combinedResult)
 
                                         // Update transaction in database with payment results
                                         if (storeResult.transactionId) {
@@ -1563,6 +1750,7 @@ export default function ScanPage() {
                                             error: error instanceof Error ? error.message : 'Payment processing failed',
                                             status: 'failed'
                                         })
+                                        setPaymentStep('')
                                     } finally {
                                         setIsProcessingPayment(false)
                                     }
@@ -1601,7 +1789,7 @@ export default function ScanPage() {
                                 ) : (
                                     <>
                                         <DollarSign className="w-4 h-4" />
-                                        Pay Now
+                                        {paymentStep || 'Pay Now'}
                                     </>
                                 )}
                             </button>
