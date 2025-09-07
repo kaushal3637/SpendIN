@@ -19,6 +19,9 @@ export const USDC_CONTRACT_ADDRESSES = {
 // Treasury Address
 export const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || "";
 
+// Delegation Contract Address for EIP-7702
+export const DELEGATION_CONTRACT_ADDRESS = "0x00000000000000447e69651d841bD8D104Bed493";
+
 // Backend API Configuration
 export const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001";
-export const BACKEND_API_KEY = process.env.BACKEND_API_KEY || "";
+export const BACKEND_API_KEY = process.env.NEXT_PUBLIC_BACKEND_API_KEY || "";
