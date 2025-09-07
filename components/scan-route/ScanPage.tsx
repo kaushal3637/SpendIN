@@ -1,27 +1,47 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSign } from 'lucide-react'
+import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSignIcon } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse, UpiQrData } from '@/types/upi.types'
 // import SwitchNetwork from '@/components/SwitchNetwork'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
-import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS, BACKEND_API_URL, BACKEND_API_KEY} from '@/config/constant'
+import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS, DELEGATION_CONTRACT_ADDRESS, BACKEND_API_URL, BACKEND_API_KEY} from '@/config/constant'
 import { ethers } from 'ethers'
 
-// ERC-7702 User Operation interface
-interface UserOperation {
-  sender: string;
+// EIP-7702 Transaction interface
+interface EIP7702Authorization {
+  chainId: number;
+  address: string; // Delegation contract address
   nonce: string;
-  initCode: string;
-  callData: string;
-  callGasLimit: string;
-  verificationGasLimit: string;
-  preVerificationGas: string;
+  yParity: number;
+  r: string;
+  s: string;
+}
+
+interface EIP7702Transaction {
+  type: 0x04; // EIP-7702 transaction type
+  to: string; // EOA address (not contract address)
+  value: string;
+  data: string; // Encoded function calls
+  gasLimit: string;
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
-  paymasterAndData: string;
-  signature: string;
+  authorization: EIP7702Authorization[];
+}
+
+interface SponsoredTransactionCall {
+  to: string; // Target contract
+  value: string;
+  data: string; // Encoded function call
+}
+
+interface SponsoredTransactionRequest {
+  userAddress: string; // EOA address
+  calls: SponsoredTransactionCall[];
+  authorization: EIP7702Authorization;
+  upiMerchantDetails: UpiQrData;
+  chainId: number;
 }
 
 export default function ScanPage() {
@@ -57,6 +77,7 @@ export default function ScanPage() {
     const [isCheckingBalance, setIsCheckingBalance] = useState(false)
     const [balanceError, setBalanceError] = useState<string | null>(null)
     const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+    const [isTestMode, setIsTestMode] = useState(false)
     const [paymentResult, setPaymentResult] = useState<{ // eslint-disable-line @typescript-eslint/no-unused-vars
         success: boolean;
         transactionHash?: string;
@@ -331,15 +352,11 @@ export default function ScanPage() {
 
     // Function to update transaction with payment details
     const updateTransactionWithPayment = async (
+        transactionId: string,
         txnHash: string,
         isSuccess: boolean,
         walletAddress?: string
     ) => {
-        if (!storedTransactionId) {
-            console.error('No transaction ID available for update')
-            return false
-        }
-
         try {
             const response = await fetch('/api/update-upi-transaction', {
                 method: 'PUT',
@@ -347,7 +364,7 @@ export default function ScanPage() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    transactionId: storedTransactionId,
+                    transactionId,
                     txnHash,
                     isSuccess,
                     walletAddress
@@ -460,19 +477,86 @@ export default function ScanPage() {
         }
     }, [wallet, conversionResult])
 
-    // Create UserOp for USDC transfer
-    const createUserOp = async (amount: string, chainId: number) => {
+    // Function to load test data for development
+    const loadTestData = () => {
+        console.log('Loading test data...')
+
+        // Simulate parsed QR data
+        const testParsedData: ParsedQrResponse = {
+            qrType: 'dynamic_merchant',
+            isValid: true,
+            data: {
+                pa: 'merchant@paytm',
+                pn: 'Test Merchant Store',
+                am: '10.00',
+                cu: 'INR',
+                mc: '1234',
+                tr: 'TXN123456789'
+            }
+        }
+
+        setParsedData(testParsedData)
+        setScanResult('upi://pay?pa=merchant@paytm&pn=Test%20Merchant%20Store&am=850.00&cu=INR&mc=1234&tr=TXN123456789')
+        setIsTestMode(true)
+        setShowModal(true)
+        setError(null)
+    }
+
+    // Create EIP-7702 authorization signature
+    const createEIP7702Authorization = async (chainId: number): Promise<EIP7702Authorization> => {
         if (!wallet) throw new Error('Wallet not connected')
 
         const provider = await wallet.getEthereumProvider()
         const ethersProvider = new ethers.BrowserProvider(provider)
         const signer = await ethersProvider.getSigner()
-        const userAddress = await signer.getAddress()
 
+        // Validate delegation contract address
+        if (!DELEGATION_CONTRACT_ADDRESS) {
+            throw new Error('Delegation contract address not configured. Please set NEXT_PUBLIC_DELEGATION_CONTRACT_ADDRESS environment variable.')
+        }
+
+        if (!ethers.isAddress(DELEGATION_CONTRACT_ADDRESS)) {
+            throw new Error('Invalid delegation contract address format.')
+        }
+
+        // Get current nonce for the user
+        const nonce = await ethersProvider.getTransactionCount(await signer.getAddress())
+
+        // Create the authorization message to sign
+        const authMessage = ethers.solidityPackedKeccak256(
+            ['uint256', 'address', 'uint256'],
+            [chainId, DELEGATION_CONTRACT_ADDRESS, nonce]
+        )
+
+        // Sign the authorization message
+        const signature = await signer.signMessage(ethers.getBytes(authMessage))
+        const sig = ethers.Signature.from(signature)
+
+        return {
+            chainId: chainId,
+            address: DELEGATION_CONTRACT_ADDRESS,
+            nonce: nonce.toString(),
+            yParity: sig.yParity || 0,
+            r: sig.r,
+            s: sig.s
+        }
+    }
+
+    // Create sponsored transaction calls
+    const createSponsoredTransactionCalls = async (amount: string, chainId: number): Promise<SponsoredTransactionCall[]> => {
         // Get USDC contract address
         const usdcAddress = USDC_CONTRACT_ADDRESSES[chainId as keyof typeof USDC_CONTRACT_ADDRESSES]
         if (!usdcAddress) {
             throw new Error(`USDC contract not configured for chain ID: ${chainId}`)
+        }
+
+        // Validate treasury address
+        if (!TREASURY_ADDRESS) {
+            throw new Error('Treasury address not configured. Please set NEXT_PUBLIC_TREASURY_ADDRESS environment variable.')
+        }
+
+        if (!ethers.isAddress(TREASURY_ADDRESS)) {
+            throw new Error('Invalid treasury address format.')
         }
 
         // Create USDC transfer call data
@@ -483,75 +567,89 @@ export default function ScanPage() {
         const transferAmount = ethers.parseUnits(amount, 6) // USDC has 6 decimals
         const callData = usdcInterface.encodeFunctionData('transfer', [TREASURY_ADDRESS, transferAmount])
 
-        // Get current gas prices
-        const feeData = await ethersProvider.getFeeData()
+        console.log("Treasury Address:", TREASURY_ADDRESS)
+        console.log("USDC Contract Address:", usdcAddress)
+        console.log("Transfer Amount:", transferAmount.toString())
 
-        // Create UserOp structure (simplified for this demo)
-        const userOp = {
-            sender: userAddress,
-            nonce: '0x0', // This should be fetched from the account
-            initCode: '0x',
-            callData: callData,
-            callGasLimit: '0x186A0', // 100000
-            verificationGasLimit: '0x186A0', // 100000
-            preVerificationGas: '0x5208', // 21000
-            maxFeePerGas: feeData.maxFeePerGas ? '0x' + feeData.maxFeePerGas.toString(16) : '0x59682F00',
-            maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? '0x' + feeData.maxPriorityFeePerGas.toString(16) : '0x59682F00',
-            paymasterAndData: '0x',
-            signature: '0x' // Will be filled after signing
-        }
-
-        return userOp
+        return [{
+            to: usdcAddress, // Target USDC contract
+            value: "0", // No ETH transfer
+            data: callData // Encoded transfer function call
+        }]
     }
 
-    // Sign UserOp
-    const signUserOp = async (userOp: UserOperation, chainId: number) => {
+    // Create sponsored transaction request
+    const createSponsoredTransactionRequest = async (amount: string, chainId: number, upiDetails: UpiQrData): Promise<SponsoredTransactionRequest> => {
         if (!wallet) throw new Error('Wallet not connected')
 
         const provider = await wallet.getEthereumProvider()
         const ethersProvider = new ethers.BrowserProvider(provider)
         const signer = await ethersProvider.getSigner()
+        const userAddress = await signer.getAddress()
 
-        // Create the message to sign (simplified UserOp hash for demo)
-        const message = ethers.keccak256(
-            ethers.AbiCoder.defaultAbiCoder().encode(
-                ['address', 'bytes', 'uint256'],
-                [userOp.sender, userOp.callData, chainId]
-            )
-        )
+        // Create authorization for EIP-7702
+        const authorization = await createEIP7702Authorization(chainId)
 
-        // Sign the message
-        const signature = await signer.signMessage(ethers.getBytes(message))
+        // Create transaction calls
+        const calls = await createSponsoredTransactionCalls(amount, chainId)
 
         return {
-            ...userOp,
-            signature: signature
-        }
-    }
-
-    // Call backend API
-    const processPaymentWithBackend = async (signedUserOp: UserOperation, upiDetails: UpiQrData, chainId: number) => {
-        const requestBody = {
-            userOp: signedUserOp,
+            userAddress: userAddress,
+            calls: calls,
+            authorization: authorization,
             upiMerchantDetails: upiDetails,
             chainId: chainId
         }
+    }
 
-        const response = await fetch(`${BACKEND_API_URL}/api/payments/process`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': BACKEND_API_KEY
-            },
-            body: JSON.stringify(requestBody)
-        })
-
-        if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || 'Backend API call failed')
+    // Call backend API with sponsored transaction request
+    const processPaymentWithBackend = async (sponsoredRequest: SponsoredTransactionRequest) => {
+        const requestBody = {
+            sponsoredRequest,
+            upiMerchantDetails: sponsoredRequest.upiMerchantDetails,
+            chainId: sponsoredRequest.chainId
         }
+        console.log("Backend API URL:", BACKEND_API_URL);
+        console.log("Backend API Key:", BACKEND_API_KEY);
+        console.log("Request Body:", JSON.stringify(requestBody, null, 2));
 
-        return await response.json()
+        try {
+            const response = await fetch(`${BACKEND_API_URL}/api/payments/process`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': BACKEND_API_KEY
+                },
+                body: JSON.stringify(requestBody)
+            })
+
+            console.log("Response status:", response.status);
+            console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+
+            if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch (parseError) {
+                    console.error("Failed to parse error response:", parseError);
+                }
+                throw new Error(errorMessage);
+            }
+
+            const result = await response.json();
+            console.log("Backend response:", result);
+            return result;
+
+        } catch (fetchError) {
+            console.error("Fetch error details:", fetchError);
+
+            if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+                throw new Error(`Network error: Cannot connect to backend at ${BACKEND_API_URL}. Please ensure the backend server is running on port 3001.`);
+            }
+
+            throw fetchError;
+        }
     }
 
     // Check if currency is supported (only INR allowed)
@@ -810,6 +908,21 @@ export default function ScanPage() {
                                                 </p>
                                             )}
                                         </div>
+
+                                        {/* Test Button for Development */}
+                                        <div className="mt-4 text-center">
+                                            <button
+                                                onClick={loadTestData}
+                                                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors text-sm mx-auto"
+                                                disabled={!isWalletConnected}
+                                            >
+                                                <QrCode className="w-4 h-4" />
+                                                Load Test Data
+                                            </button>
+                                            <p className="text-xs text-slate-500 mt-2">
+                                                For development: Skip QR scanning and load test UPI data
+                                            </p>
+                                        </div>
                                     </div>
 
                                 </div>
@@ -932,9 +1045,17 @@ export default function ScanPage() {
                                     <div className="flex items-center gap-2 mb-2">
                                         <QrCode className="w-5 h-5 text-emerald-600" />
                                         <span className="font-medium text-slate-900">QR Type</span>
+                                        {isTestMode && (
+                                            <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
+                                                TEST MODE
+                                            </span>
+                                        )}
                                     </div>
                                     <p className="text-slate-600 capitalize">
                                         {parsedData.qrType.replace('_', ' ')}
+                                        {isTestMode && (
+                                            <span className="text-orange-600 text-sm ml-2">(Test Data)</span>
+                                        )}
                                     </p>
                                 </div>
 
@@ -1308,43 +1429,76 @@ export default function ScanPage() {
                                             return
                                         }
 
+                                        // Store transaction in database first
+                                        const finalAmount = parsedData!.data.am || userAmount
+                                        const storeTransactionData = {
+                                            upiId: parsedData!.data.pa,
+                                            merchantName: parsedData!.data.pn || 'Unknown Merchant',
+                                            totalUsdToPay: conversionResult!.totalUsdcAmount,
+                                            inrAmount: finalAmount,
+                                            walletAddress: undefined, // Will be updated after payment
+                                            txnHash: undefined, // Will be updated after payment
+                                            isSuccess: false // Default to false, will be updated after payment
+                                        }
+
+                                        console.log('Storing transaction in database...')
+                                        const storeResponse = await fetch('/api/store-upi-transaction', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify(storeTransactionData),
+                                        })
+
+                                        if (!storeResponse.ok) {
+                                            const errorData = await storeResponse.json()
+                                            throw new Error(errorData.error || 'Failed to store transaction')
+                                        }
+
+                                        const storeResult = await storeResponse.json()
+                                        console.log('Transaction stored successfully:', storeResult)
+
+                                        // Store the transaction ID for future updates
+                                        if (storeResult.transactionId) {
+                                            setStoredTransactionId(storeResult.transactionId)
+                                        }
+
                                         // Get current chain ID
                                         const provider = await wallet!.getEthereumProvider()
                                         const ethersProvider = new ethers.BrowserProvider(provider)
                                         const network = await ethersProvider.getNetwork()
                                         const chainId = Number(network.chainId)
 
-                                        // Create UserOp
-                                        const userOp = await createUserOp(conversionResult!.totalUsdcAmount.toString(), chainId)
-                                        console.log('Created UserOp:', userOp)
-
-                                        // Sign UserOp
-                                        const signedUserOp = await signUserOp(userOp, chainId)
-                                        console.log('Signed UserOp:', signedUserOp)
-
                                         // Prepare UPI details
                                         const upiDetails = {
                                             pa: parsedData!.data.pa,
                                             pn: parsedData!.data.pn,
-                                            am: parsedData!.data.am || userAmount,
+                                            am: finalAmount,
                                             cu: parsedData!.data.cu || 'INR'
                                         }
 
+                                        // Create sponsored transaction request for EIP-7702
+                                        const sponsoredRequest = await createSponsoredTransactionRequest(
+                                            conversionResult!.totalUsdcAmount.toString(), 
+                                            chainId, 
+                                            upiDetails
+                                        )
+                                        console.log('Created sponsored transaction request:', sponsoredRequest)
+
                                         // Call backend API
-                                        const backendResult = await processPaymentWithBackend(signedUserOp, upiDetails, chainId)
+                                        const backendResult = await processPaymentWithBackend(sponsoredRequest)
                                         console.log('Backend result:', backendResult)
 
                                         setPaymentResult(backendResult.data || backendResult)
 
-                                        // Update transaction in database
-                                        if (backendResult.success && backendResult.data?.transactionHash) {
-                                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                            const finalAmount = parsedData!.data.am || userAmount
+                                        // Update transaction in database with payment results
+                                        if (storeResult.transactionId) {
                                             const walletAddress = await ethersProvider.getSigner().then(s => s.getAddress())
 
                                             await updateTransactionWithPayment(
-                                                backendResult.data.transactionHash,
-                                                true,
+                                                storeResult.transactionId,
+                                                backendResult.data?.transactionHash || '',
+                                                backendResult.success && !!backendResult.data?.transactionHash,
                                                 walletAddress
                                             )
                                         }
