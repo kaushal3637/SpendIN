@@ -8,8 +8,8 @@ import React, {
 import { useWallets } from "@privy-io/react-auth";
 
 interface WalletContextType {
-  walletData: any;
-  setWalletData: React.Dispatch<React.SetStateAction<any>>;
+  walletData: Record<string, unknown> | null;
+  setWalletData: React.Dispatch<React.SetStateAction<Record<string, unknown> | null>>;
   selectedChain: number | null;
   setSelectedChain: React.Dispatch<React.SetStateAction<number | null>>;
   connectedChain: number | null;
@@ -21,7 +21,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 export const WalletProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [walletData, setWalletData] = useState<any>(null);
+  const [walletData, setWalletData] = useState<Record<string, unknown> | null>(null);
   const [selectedChain, setSelectedChain] = useState<number | null>(null);
   const [connectedChain, setConnectedChain] = useState<number | null>(null);
   const { wallets } = useWallets();

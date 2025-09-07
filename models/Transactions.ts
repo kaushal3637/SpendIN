@@ -16,6 +16,29 @@ const TransactionSchema = new mongoose.Schema({
     default: Date.now
   },
   paidAt: Date,
+
+  // Razorpay Payout Integration
+  razorpayPayout: {
+    payout_id: String, // Razorpay payout ID
+    status: {
+      type: String,
+      enum: ['pending', 'processing', 'processed', 'cancelled', 'rejected', 'failed'],
+      default: null
+    },
+    amount: Number, // Amount in INR (in paisa)
+    currency: {
+      type: String,
+      default: 'INR'
+    },
+    failure_reason: String,
+    payout_created_at: Date,
+    payout_processed_at: Date,
+    reference_id: String, // Unique reference for this payout
+  },
+  payoutTriggered: {
+    type: Boolean,
+    default: false
+  },
 }, {
   timestamps: true
 });

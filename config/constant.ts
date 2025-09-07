@@ -15,3 +15,13 @@ export const USDC_CONTRACT_ADDRESSES = {
   // Arbitrum Sepolia Testnet
   421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 } as const;
+
+// Razorpay Configuration
+export const RAZORPAY_CONFIG = {
+  API_KEY: process.env.RAZORPAY_API_KEY || '',
+  API_SECRET: process.env.RAZORPAY_API_SECRET || '',
+  BASE_URL: process.env.NODE_ENV === 'production'
+    ? 'https://api.razorpay.com/v1'
+    : 'https://api.razorpay.com/v1', // Same for sandbox
+  X_ACCOUNT: process.env.RAZORPAY_X_ACCOUNT || '',
+} as const;
