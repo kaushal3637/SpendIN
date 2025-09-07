@@ -15,3 +15,10 @@ export const USDC_CONTRACT_ADDRESSES = {
   // Arbitrum Sepolia Testnet
   421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 } as const;
+
+// Treasury Address
+export const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || "";
+
+// Backend API Configuration
+export const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001";
+export const BACKEND_API_KEY = process.env.BACKEND_API_KEY || "";
