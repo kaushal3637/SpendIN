@@ -20,10 +20,12 @@ export const USDC_CONTRACT_ADDRESSES = {
 export const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || "";
 
 // Delegation Contract Address for EIP-7702
-export const DELEGATION_CONTRACT_ADDRESS = "0x00000000000000447e69651d841bD8D104Bed493";
+export const DELEGATION_CONTRACT_ADDRESS =
+  "0x00000000000000447e69651d841bD8D104Bed493";
 
 // Backend API Configuration
-export const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001";
+export const BACKEND_API_URL =
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001";
 export const BACKEND_API_KEY = process.env.NEXT_PUBLIC_BACKEND_API_KEY || "";
 
 // Cashfree Payout API Configuration
@@ -32,18 +34,20 @@ export const CASHFREE_CONFIG = {
   TEST: {
     APP_ID: process.env.CASHFREE_APP_ID || "TEST_APP_ID",
     SECRET_KEY: process.env.CASHFREE_SECRET_KEY || "TEST_SECRET_KEY",
-    BASE_URL: "https://sandbox.cashfree.com/payout",
+    BASE_URL: "https://sandbox.cashfree.com",
     CLIENT_ID: process.env.CASHFREE_CLIENT_ID || "TEST_CLIENT_ID",
     CLIENT_SECRET: process.env.CASHFREE_CLIENT_SECRET || "TEST_CLIENT_SECRET",
+    TOKEN: process.env.CASHFREE_TOKEN || "",
   },
   // Production configuration
   PRODUCTION: {
     APP_ID: process.env.CASHFREE_APP_ID_PROD || "",
     SECRET_KEY: process.env.CASHFREE_SECRET_KEY_PROD || "",
-    BASE_URL: "https://api.cashfree.com/payout",
+    BASE_URL: "https://api.cashfree.com",
     CLIENT_ID: process.env.CASHFREE_CLIENT_ID_PROD || "",
     CLIENT_SECRET: process.env.CASHFREE_CLIENT_SECRET_PROD || "",
-  }
+    TOKEN: process.env.CASHFREE_TOKEN_PROD || "",
+  },
 };
 
 // Get current Cashfree configuration based on environment

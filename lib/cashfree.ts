@@ -30,6 +30,7 @@ class CashfreeService {
           headers: {
             "Content-Type": "application/json",
             "x-api-version": "2024-01-01", // Updated to latest API version
+
             "x-client-id": this.config.CLIENT_ID,
             "x-client-secret": this.config.CLIENT_SECRET,
           },
@@ -116,15 +117,6 @@ class CashfreeService {
           bank_ifsc: beneficiary.bankAccount?.ifsc || "HDFC0000001",
           ...(beneficiary.vpa && { vpa: beneficiary.vpa }),
         },
-        beneficiary_contact_details: {
-          beneficiary_email: beneficiary.email,
-          beneficiary_phone: beneficiary.phone || "9999999999",
-          beneficiary_country_code: "+91",
-          beneficiary_address: beneficiary.address1 || "Test Address",
-          beneficiary_city: beneficiary.city || "Test City",
-          beneficiary_state: beneficiary.state || "Test State",
-          beneficiary_postal_code: beneficiary.pincode || "110001",
-        },
       };
 
       console.log(
@@ -133,7 +125,7 @@ class CashfreeService {
       );
 
       const response = await fetch(
-        `${this.config.BASE_URL}/payout/beneficiary`,
+        "https://sandbox.cashfree.com/payout/beneficiary",
         {
           method: "POST",
           headers: {

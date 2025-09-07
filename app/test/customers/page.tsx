@@ -1,447 +1,415 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Image from 'next/image'
-import { QrCode, User, Plus, Download, X } from 'lucide-react'
-import { Customer, CreateCustomerRequest } from '@/types/customer.types'
+import { useState } from 'react'
+import { Plus, CheckCircle, AlertCircle, X } from 'lucide-react'
 
-export default function TestCustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
+export default function BeneficiaryManagementPage() {
   const [isLoading, setIsLoading] = useState(false)
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('')
 
-  // Form state for creating customers
-  const [formData, setFormData] = useState<CreateCustomerRequest>({
-    name: '',
-    email: '',
-    phone: '',
-    upiId: '',
-    upiName: ''
+  // Form state for beneficiary addition
+  const [beneficiaryData, setBeneficiaryData] = useState({
+    beneficiary_id: '',
+    beneficiary_name: '',
+    vpa: '',
+    bank_account_number: '',
+    bank_ifsc: ''
   })
 
-  // Load customers on component mount
-  useEffect(() => {
-    loadCustomers()
-  }, [])
+  const [addResult, setAddResult] = useState<{
+    success: boolean;
+    message: string;
+    beneficiary?: { beneficiary_id: string; beneficiary_status?: string };
+    error?: string;
+  } | null>(null)
 
-  const loadCustomers = async () => {
-    setIsLoading(true)
-    try {
-      // In a real app, you'd have an API to list customers
-      // For now, we'll just show an empty list or load from localStorage for demo
-      const savedCustomers = localStorage.getItem('testCustomers')
-      if (savedCustomers) {
-        setCustomers(JSON.parse(savedCustomers))
-      }
-    } catch (error) {
-      console.error('Error loading customers:', error)
-    } finally {
-      setIsLoading(false)
+  const addBeneficiary = async () => {
+    // Reset previous result
+    setAddResult(null)
+
+    // Validate required fields
+    if (!beneficiaryData.beneficiary_id || !beneficiaryData.beneficiary_name) {
+      setAddResult({
+        success: false,
+        message: 'Beneficiary ID and Name are required',
+        error: 'Missing required fields'
+      })
+      return
     }
-  }
 
-  const createCustomer = async () => {
-    if (!formData.name || !formData.email) {
-      alert('Name and email are required')
+    // Validate that at least one payment method is provided
+    if (!beneficiaryData.vpa && (!beneficiaryData.bank_account_number || !beneficiaryData.bank_ifsc)) {
+      setAddResult({
+        success: false,
+        message: 'Either UPI ID (VPA) or Bank Account + IFSC must be provided',
+        error: 'Missing payment method'
+      })
       return
     }
 
     setIsLoading(true)
     try {
-      const response = await fetch('/api/customers/create', {
+      const requestBody = {
+        beneficiary_id: beneficiaryData.beneficiary_id,
+        beneficiary_name: beneficiaryData.beneficiary_name,
+        beneficiary_instrument_details: {
+          ...(beneficiaryData.vpa && { vpa: beneficiaryData.vpa }),
+          ...(beneficiaryData.bank_account_number && {
+            bank_account_number: beneficiaryData.bank_account_number
+          }),
+          ...(beneficiaryData.bank_ifsc && {
+            bank_ifsc: beneficiaryData.bank_ifsc
+          })
+        }
+      }
+
+      console.log('Adding beneficiary:', requestBody)
+
+      const response = await fetch('/api/cashfree-beneficiary/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...formData,
-          isTestMode: true
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create customer')
+        throw new Error(errorData.error || 'Failed to add beneficiary')
       }
 
       const data = await response.json()
-      const newCustomer = data.customer
 
-      // Add to customers list
-      const updatedCustomers = [...customers, newCustomer]
-      setCustomers(updatedCustomers)
-      localStorage.setItem('testCustomers', JSON.stringify(updatedCustomers))
-
-      // Reset form
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        upiId: '',
-        upiName: ''
+      setAddResult({
+        success: true,
+        message: `Beneficiary added successfully!\nBeneficiary ID: ${data.beneficiary?.beneficiary_id}\nStatus: ${data.beneficiary?.beneficiary_status || 'Success'}`,
+        beneficiary: data.beneficiary
       })
-      setShowCreateForm(false)
 
-      alert(`Customer created successfully! Customer ID: ${newCustomer.customerId}`)
+      // Reset form on success
+      setBeneficiaryData({
+        beneficiary_id: '',
+        beneficiary_name: '',
+        vpa: '',
+        bank_account_number: '',
+        bank_ifsc: ''
+      })
 
     } catch (error) {
-      console.error('Error creating customer:', error)
-      alert(`Failed to create customer: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Error adding beneficiary:', error)
+      setAddResult({
+        success: false,
+        message: `Failed to add beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const generateQRCode = async (customer: Customer, amount?: number) => {
-    setIsLoading(true)
-    setSelectedCustomer(customer)
-
-    try {
-      const amountParam = amount ? `?amount=${amount}` : ''
-      const response = await fetch(`/api/customers/${customer.customerId}/qrcode${amountParam}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to generate QR code')
-      }
-
-      const data = await response.json()
-      setQrCodeUrl(data.qrCodeDataURL)
-
-    } catch (error) {
-      console.error('Error generating QR code:', error)
-      alert(`Failed to generate QR code: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const downloadQRCode = () => {
-    if (!qrCodeUrl) return
-
-    const link = document.createElement('a')
-    link.href = qrCodeUrl
-    link.download = `qr-${selectedCustomer?.customerId || 'customer'}.png`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 py-6 sm:py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8 sm:mb-12">
-          <div className="text-center">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">
-              Test Accounts
-            </h1>
-            <p className="text-base sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed">
-              Create test customers, generate QR codes, and test automated payout functionality
-            </p>
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-4">
+            <h1 className="text-4xl font-bold text-slate-900">Add Beneficiary</h1>
           </div>
+          <p className="text-lg text-slate-600 max-w-3xl mx-auto">
+            Add beneficiaries to your Cashfree Payments account for seamless payout testing.
+          </p>
         </div>
 
-        {/* Create Customer Button */}
-        <div className="mb-6 sm:mb-8 text-center">
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transform hover:scale-105 transition-all duration-200 shadow-lg"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            {showCreateForm ? 'Cancel Creation' : 'Create Test Customer'}
-          </button>
-        </div>
-
-        {/* Create Customer Form */}
-        {showCreateForm && (
-          <div className="bg-white/80 backdrop-blur-sm shadow-xl rounded-xl p-6 sm:p-8 mb-8 border border-emerald-100">
-            <div className="flex items-center mb-6">
-              <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mr-4">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Create New Customer</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Beneficiary Form */}
+          <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4">
+              <h2 className="text-xl font-bold text-white flex items-center">
+                Add New Beneficiary
+              </h2>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="name" className="block text-sm font-semibold text-slate-700">
-                  Full Name *
-                </label>
+            <div className="p-6 space-y-6">
+              {/* Beneficiary ID */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Beneficiary ID <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">Required</span>
+                </div>
                 <input
                   type="text"
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="block w-full px-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 text-slate-900 placeholder-slate-400"
-                  placeholder="Enter customer's full name"
+                  placeholder="ABCDEFG12345"
+                  value={beneficiaryData.beneficiary_id}
+                  onChange={(e) => setBeneficiaryData({ ...beneficiaryData, beneficiary_id: e.target.value })}
+                  className="w-full px-4 py-3 border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  disabled={isLoading}
+                  maxLength={50}
                 />
+                <p className="mt-1 text-xs text-slate-500">
+                  Unique identifier for this beneficiary. Use alphanumeric characters only.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="email" className="block text-sm font-semibold text-slate-700">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="block w-full px-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 text-slate-900 placeholder-slate-400"
-                  placeholder="customer@example.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="phone" className="block text-sm font-semibold text-slate-700">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="block w-full px-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 text-slate-900 placeholder-slate-400"
-                  placeholder="+91 9876543210"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="upiId" className="block text-sm font-semibold text-slate-700">
-                  UPI ID <span className="text-xs text-slate-500">(leave empty for auto-generation)</span>
-                </label>
+              {/* Beneficiary Name */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Beneficiary Name <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">Required</span>
+                </div>
                 <input
                   type="text"
-                  id="upiId"
-                  value={formData.upiId}
-                  onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
-                  className="block w-full px-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 text-slate-900 placeholder-slate-400"
-                  placeholder="john@paytm"
+                  placeholder="Test Beneficiary"
+                  value={beneficiaryData.beneficiary_name}
+                  onChange={(e) => setBeneficiaryData({ ...beneficiaryData, beneficiary_name: e.target.value })}
+                  className="w-full px-4 py-3 border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  disabled={isLoading}
+                  maxLength={100}
                 />
+                <p className="mt-1 text-xs text-slate-500">
+                  Full name of the beneficiary. Maximum 25 characters, alphabets and spaces only.
+                </p>
               </div>
 
-              <div className="sm:col-span-2 space-y-2">
-                <label htmlFor="upiName" className="block text-sm font-semibold text-slate-700">
-                  UPI Display Name <span className="text-xs text-slate-500">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  id="upiName"
-                  value={formData.upiName}
-                  onChange={(e) => setFormData({ ...formData, upiName: e.target.value })}
-                  className="block w-full px-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 text-slate-900 placeholder-slate-400"
-                  placeholder="Display name for UPI transactions"
-                />
-              </div>
-            </div>
+              {/* Payment Methods */}
+              <div className="space-y-6">
+                {/* UPI Section */}
+                <div className="border border-slate-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold text-slate-700 flex items-center">
+                      UPI ID <span className="text-red-500 ml-1">*</span>
+                    </h4>
+                    <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">Required</span>
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      placeholder="testbeneficiary@icici"
+                      value={beneficiaryData.vpa}
+                      onChange={(e) => setBeneficiaryData({ ...beneficiaryData, vpa: e.target.value })}
+                      className="w-full px-3 py-2 border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                      disabled={isLoading}
+                      maxLength={50}
+                    />
+                    <p className="text-xs text-slate-500">
+                      Valid characters: alphanumeric, period (.), hyphen (-), underscore (_), at (@).
+                    </p>
+                  </div>
+                </div>
 
-            <div className="mt-8 flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4">
+                {/* Bank Transfer Section */}
+                <div className="border border-slate-200 rounded-lg p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-slate-700 flex items-center">
+                      Bank Transfer <span className="text-red-500 ml-1">*</span>
+                    </h4>
+                    <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">Required</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Bank Account Number
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="1234567890"
+                        value={beneficiaryData.bank_account_number}
+                        onChange={(e) => setBeneficiaryData({ ...beneficiaryData, bank_account_number: e.target.value })}
+                        className="w-full px-3 py-2 border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                        disabled={isLoading}
+                        maxLength={18}
+                        minLength={9}
+                      />
+                      <p className="mt-1 text-xs text-slate-500">
+                        9-18 digit account number
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Bank IFSC Code
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="ICIC0000001"
+                        value={beneficiaryData.bank_ifsc}
+                        onChange={(e) => setBeneficiaryData({ ...beneficiaryData, bank_ifsc: e.target.value })}
+                        className="w-full px-3 py-2 border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                        disabled={isLoading}
+                        maxLength={11}
+                        minLength={11}
+                      />
+                      <p className="mt-1 text-xs text-slate-500">
+                        11-character IFSC code
+                      </p>
+                    </div>
+                  </div>
+
+                  {(beneficiaryData.bank_account_number || beneficiaryData.bank_ifsc) && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <div className="flex items-start">
+                        <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 mr-2 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs text-amber-800">
+                            <strong>Note:</strong> Both Bank Account Number and IFSC are required if you provide either one.
+                            The IFSC must be in the standard format (first 4 alphabets, 5th character &apos;0&apos;, last 6 numerals).
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Add Beneficiary Button */}
               <button
-                onClick={() => setShowCreateForm(false)}
-                className="px-6 py-3 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={createCustomer}
+                onClick={addBeneficiary}
                 disabled={isLoading}
-                className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-4 rounded-lg font-semibold hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Creating Customer...
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Adding Beneficiary...
                   </div>
                 ) : (
-                  'Create Customer'
+                  <>
+                    <Plus className="w-5 h-5 inline mr-2" />
+                    Add Beneficiary
+                  </>
                 )}
               </button>
             </div>
           </div>
-        )}
 
-        {/* QR Code Modal */}
-        {selectedCustomer && qrCodeUrl && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative w-full max-w-sm sm:max-w-md bg-white rounded-2xl shadow-2xl border border-emerald-100">
-              <div className="p-6 sm:p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mr-3">
-                      <QrCode className="w-5 h-5 text-white" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-slate-800">
-                      QR Code
+          {/* Instructions & Results */}
+          <div className="space-y-6">
+            {/* Results Display */}
+            {addResult && (
+              <div className={`rounded-xl shadow-lg border p-6 ${addResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="flex items-start">
+                  {addResult.success ? (
+                    <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <h3 className={`text-lg font-semibold mb-2 ${addResult.success ? 'text-green-900' : 'text-red-900'}`}>
+                      {addResult.success ? 'Beneficiary Added Successfully!' : 'Error Adding Beneficiary'}
                     </h3>
                   </div>
                   <button
-                    onClick={() => {
-                      setSelectedCustomer(null)
-                      setQrCodeUrl('')
-                    }}
-                    className="p-2 hover:bg-slate-100 rounded-full transition-colors duration-200"
+                    onClick={() => setAddResult(null)}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
                   >
-                    <X className="w-5 h-5 text-slate-500" />
-                  </button>
-                </div>
-
-                <div className="text-center mb-6">
-                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 mb-4">
-                    <Image
-                      src={qrCodeUrl}
-                      alt="QR Code"
-                      width={200}
-                      height={200}
-                      className="mx-auto rounded-lg shadow-sm"
-                      unoptimized
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <div className="bg-slate-50 rounded-lg p-4">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                        UPI ID
-                      </p>
-                      <p className="text-sm font-mono text-slate-800 break-all">
-                        {selectedCustomer.upiId}
-                      </p>
-                    </div>
-                    <div className="bg-slate-50 rounded-lg p-4">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                        Customer ID
-                      </p>
-                      <p className="text-sm font-mono text-slate-800 break-all">
-                        {selectedCustomer.customerId}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={downloadQRCode}
-                    className="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download QR
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Customers List */}
-        <div className="bg-white/80 backdrop-blur-sm shadow-xl rounded-xl overflow-hidden border border-emerald-100">
-          <div className="px-6 py-8 sm:px-8">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mr-4">
-                  <User className="w-5 h-5 text-white" />
+            {/* Instructions */}
+            <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+                <AlertCircle className="w-5 h-5 mr-2 text-blue-600" />
+                Complete Setup Guide
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-start">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center mr-4 mt-0.5 flex-shrink-0">
+                    <span className="text-emerald-700 font-bold text-sm">1</span>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-1">Enter Beneficiary Details</h4>
+                    <p className="text-sm text-slate-600">
+                      Provide a unique Beneficiary ID and the full name. The ID should contain only alphanumeric characters,
+                      underscore (_), pipe (|), or dot (.) and will be used to identify this beneficiary in future transactions.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Test Customers</h2>
-                  <p className="text-sm text-slate-600 mt-1">
-                    {customers.length} customer{customers.length !== 1 ? 's' : ''} registered
+
+                <div className="flex items-start">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center mr-4 mt-0.5 flex-shrink-0">
+                    <span className="text-emerald-700 font-bold text-sm">2</span>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-1">Choose Payment Method</h4>
+                    <p className="text-sm text-slate-600">
+                      Select one payment method: Either provide a UPI VPA address or complete both Bank Account Number and IFSC code.
+                      At least one payment method is required for beneficiary creation.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center mr-4 mt-0.5 flex-shrink-0">
+                    <span className="text-emerald-700 font-bold text-sm">3</span>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-1">Validate & Submit</h4>
+                    <p className="text-sm text-slate-600">
+                      Review all entered information, then click &quot;Add Beneficiary&quot; to register with Cashfree.
+                      The system will validate the data and provide feedback on the registration status.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center mr-4 mt-0.5 flex-shrink-0">
+                    <span className="text-emerald-700 font-bold text-sm">4</span>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-1">Use in Payouts</h4>
+                    <p className="text-sm text-slate-600">
+                      Once successfully registered, use the Beneficiary ID in your payout API calls.
+                      The beneficiary will be available for instant transfers through Cashfree&apos;s network.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Important Notes */}
+            <div className="bg-amber-50 rounded-xl shadow-lg border border-amber-200 p-6">
+              <h3 className="text-lg font-semibold text-amber-900 mb-4 flex items-center">
+                <AlertCircle className="w-5 h-5 mr-2" />
+                Important Notes
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-start">
+                  <div className="w-5 h-5 bg-amber-200 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
+                    <span className="text-amber-800 font-bold text-xs">!</span>
+                  </div>
+                  <p className="text-sm text-amber-800">
+                    <strong>Beneficiary ID Uniqueness:</strong> Each beneficiary ID must be unique across your Cashfree account.
+                    Use descriptive IDs for better organization.
+                  </p>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="w-5 h-5 bg-amber-200 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
+                    <span className="text-amber-800 font-bold text-xs">!</span>
+                  </div>
+                  <p className="text-sm text-amber-800">
+                    <strong>Bank Details Validation:</strong> Ensure bank account numbers and IFSC codes are accurate.
+                    Incorrect details may cause payout failures.
+                  </p>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="w-5 h-5 bg-amber-200 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
+                    <span className="text-amber-800 font-bold text-xs">!</span>
+                  </div>
+                  <p className="text-sm text-amber-800">
+                    <strong>Test Environment:</strong> This interface uses Cashfree&apos;s sandbox environment.
+                    Switch to production credentials for live transactions.
                   </p>
                 </div>
               </div>
             </div>
-
-            {customers.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <User className="w-8 h-8 text-emerald-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">No customers yet</h3>
-                <p className="text-slate-600 mb-6 max-w-sm mx-auto">
-                  Get started by creating your test customer to begin testing QR codes and payouts.
-                </p>
-                <div className="text-sm text-slate-500">
-                  <p className="mb-1">Generate QR codes for testing</p>
-                  <p className="mb-1">Test automated payouts</p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:gap-6">
-                {customers.map((customer) => (
-                  <div
-                    key={customer.customerId}
-                    className="bg-gradient-to-r from-white to-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 hover:shadow-lg transition-all duration-200"
-                  >
-                    {/* Header with Avatar and Basic Info */}
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
-                      <div className="flex items-start space-x-4 flex-1 min-w-0">
-                        <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-semibold text-lg">
-                            {customer.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-lg font-bold text-slate-800 truncate">
-                            {customer.name}
-                          </h3>
-                          <p className="text-sm text-slate-600 truncate mb-1">
-                            {customer.email}
-                          </p>
-                          {customer.phone && (
-                            <p className="text-xs text-slate-500 truncate">
-                              {customer.phone}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex flex-row gap-2 sm:ml-4">
-                        <button
-                          onClick={() => generateQRCode(customer)}
-                          className="inline-flex justify-center px-3 sm:px-4 py-2 border border-transparent text-xs sm:text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 transform hover:scale-105 flex-1 sm:flex-initial"
-                        >
-                          <QrCode className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                          <span className="hidden xs:inline sm:inline">Generate QR</span>
-                          <span className="xs:hidden sm:hidden">QR</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Detailed Information Grid */}
-                    <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6">
-                      {/* UPI ID Card */}
-                      <div className="bg-white rounded-lg p-3 sm:p-4 border border-slate-200">
-                        <div className="flex items-center mb-2">
-                          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-100 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
-                            <span className="text-blue-600 text-xs font-bold">₹</span>
-                          </div>
-                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide truncate">
-                            UPI ID
-                          </span>
-                        </div>
-                        <p className="text-xs sm:text-sm font-mono text-slate-800 break-all leading-tight min-h-[1rem] sm:min-h-[1.5rem]">
-                          {customer.upiId}
-                        </p>
-                      </div>
-
-                      {/* Status Card */}
-                      <div className="bg-white rounded-lg p-3 sm:p-4 border border-slate-200">
-                        <div className="flex items-center mb-2">
-                          <div className={`w-3 h-3 rounded-full mr-2 flex-shrink-0 ${customer.isBeneficiaryAdded ? 'bg-green-500' : 'bg-yellow-500'
-                            }`}></div>
-                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide truncate">
-                            Customer ID:
-                          </span>
-                        </div>
-                        <p className={`text-xs sm:text-sm font-medium leading-tight ${customer.isBeneficiaryAdded ? 'text-green-700' : 'text-yellow-700'
-                          }`}>
-                          {customer.customerId}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
