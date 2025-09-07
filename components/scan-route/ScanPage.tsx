@@ -11,6 +11,7 @@ import { prepareUSDCMetaTransaction } from '@/lib/abstractionkit'
 import { useWallet } from '@/context/WalletContext'
 import { isValidChainId, getChainInfo } from '@/lib/chain-validation'
 import { ethers } from 'ethers'
+import Confetti from 'react-confetti'
 
 
 export default function ScanPage() {
@@ -83,6 +84,7 @@ export default function ScanPage() {
             beneficiary_phone?: string;
         };
     } | null>(null)
+    const [showConfetti, setShowConfetti] = useState(false)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
@@ -296,6 +298,9 @@ export default function ScanPage() {
         setShowReason(false)
         setPayoutResult(null)
         setBeneficiaryDetails(null)
+        setShowConfetti(false)
+        setPaymentResult(null)
+        setStoredTransactionId(null)
         stopScanning()
     }
 
@@ -558,6 +563,17 @@ export default function ScanPage() {
 
     return (
         <>
+            {/* Confetti Animation */}
+            {showConfetti && (
+                <Confetti
+                    width={window.innerWidth}
+                    height={window.innerHeight}
+                    recycle={false}
+                    numberOfPieces={500}
+                    gravity={0.3}
+                />
+            )}
+
             <div className="min-h-screen bg-transparent">
 
                 <div className={`relative z-10 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
@@ -858,6 +874,34 @@ export default function ScanPage() {
                                                 {payoutResult.error}
                                             </p>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Payment Success Message */}
+                            {paymentResult?.success && !showConversionModal && (
+                                <div className="mb-4 sm:mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg sm:rounded-xl p-4 mx-2 sm:mx-0 shadow-lg">
+                                    <div className="flex items-center justify-center gap-3 mb-2">
+                                        <CheckCircle className="w-8 h-8 text-green-600 animate-pulse" />
+                                        <h3 className="text-xl sm:text-2xl font-bold text-green-900">
+                                            Payment Completed Successfully! 🎉
+                                        </h3>
+                                    </div>
+                                    <div className="text-center space-y-2">
+                                        <p className="text-green-800 font-medium">
+                                            Your payment has been processed and INR has been sent to the merchant.
+                                        </p>
+                                        {paymentResult.transactionHash && (
+                                            <p className="text-xs text-green-700 font-mono bg-green-100 px-2 py-1 rounded">
+                                                TX: {paymentResult.transactionHash.substring(0, 10)}...{paymentResult.transactionHash.substring(paymentResult.transactionHash.length - 8)}
+                                            </p>
+                                        )}
+                                        <button
+                                            onClick={resetScan}
+                                            className="mt-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                                        >
+                                            Scan Another QR
+                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -1570,10 +1614,20 @@ export default function ScanPage() {
                                                     transactionId: storeResult.transactionId,
                                                     payoutTransferId: payoutResult.payout?.transferId,
                                                     payoutStatus: payoutResult.payout?.status,
-                                                    isSuccess: false // Will be updated after EIP-7702 transaction
+                                                    isSuccess: true // Both EIP-7702 and payout completed successfully
                                                 }),
                                             })
                                         }
+
+                                        // Payment completed successfully - close modal and show confetti
+                                        setShowConversionModal(false)
+                                        setShowConfetti(true)
+                                        setPaymentStep('')
+
+                                        // Hide confetti after 5 seconds
+                                        setTimeout(() => {
+                                            setShowConfetti(false)
+                                        }, 5000)
 
                                     } catch (error) {
                                         console.error('Payment processing error:', error)
