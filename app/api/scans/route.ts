@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseAndValidateQr, formatQrDataForDisplay } from "@/lib/upi";
-import { qrStorage } from "@/lib/qr-storage";
 
 /**
  * POST /api/scans
@@ -40,9 +39,6 @@ export async function POST(request: NextRequest) {
 
     // Parse and validate the QR data
     const parsedResponse = parseAndValidateQr(trimmedQrData);
-
-    // Store the parsed data in shared storage
-    qrStorage.storeQrData(trimmedQrData, parsedResponse);
 
     // Format the data for human-readable display
     const formattedData = formatQrDataForDisplay(parsedResponse);
