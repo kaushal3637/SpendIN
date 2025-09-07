@@ -1,47 +1,49 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSignIcon, DollarSign } from 'lucide-react'
+import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSign } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse, UpiQrData } from '@/types/upi.types'
 // import SwitchNetwork from '@/components/SwitchNetwork'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
-import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS, DELEGATION_CONTRACT_ADDRESS, BACKEND_API_URL, BACKEND_API_KEY} from '@/config/constant'
+import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS, DELEGATION_CONTRACT_ADDRESS, BACKEND_API_URL, BACKEND_API_KEY } from '@/config/constant'
+import { useWallet } from '@/context/WalletContext'
+import { isValidChainId, getChainInfo } from '@/lib/chain-validation'
 import { ethers } from 'ethers'
 
 // EIP-7702 Transaction interface
 interface EIP7702Authorization {
-  chainId: number;
-  address: string; // Delegation contract address
-  nonce: string;
-  yParity: number;
-  r: string;
-  s: string;
+    chainId: number;
+    address: string; // Delegation contract address
+    nonce: string;
+    yParity: number;
+    r: string;
+    s: string;
 }
 
 interface EIP7702Transaction {
-  type: 0x04; // EIP-7702 transaction type
-  to: string; // EOA address (not contract address)
-  value: string;
-  data: string; // Encoded function calls
-  gasLimit: string;
-  maxFeePerGas: string;
-  maxPriorityFeePerGas: string;
-  authorization: EIP7702Authorization[];
+    type: 0x04; // EIP-7702 transaction type
+    to: string; // EOA address (not contract address)
+    value: string;
+    data: string; // Encoded function calls
+    gasLimit: string;
+    maxFeePerGas: string;
+    maxPriorityFeePerGas: string;
+    authorization: EIP7702Authorization[];
 }
 
 interface SponsoredTransactionCall {
-  to: string; // Target contract
-  value: string;
-  data: string; // Encoded function call
+    to: string; // Target contract
+    value: string;
+    data: string; // Encoded function call
 }
 
 interface SponsoredTransactionRequest {
-  userAddress: string; // EOA address
-  calls: SponsoredTransactionCall[];
-  authorization: EIP7702Authorization;
-  upiMerchantDetails: UpiQrData;
-  chainId: number;
+    userAddress: string; // EOA address
+    calls: SponsoredTransactionCall[];
+    authorization: EIP7702Authorization;
+    upiMerchantDetails: UpiQrData;
+    chainId: number;
 }
 
 export default function ScanPage() {
@@ -50,6 +52,7 @@ export default function ScanPage() {
     const wallet = wallets[0]
     const { login } = useLogin()
     const isWalletConnected = authenticated
+    const { connectedChain } = useWallet()
 
     const [isVisible, setIsVisible] = useState(false)
     const [isScanning, setIsScanning] = useState(false)
@@ -351,6 +354,7 @@ export default function ScanPage() {
     }
 
     // Function to update transaction with payment details
+    // Updated to include chain validation and use chain ID from WalletContext
     const updateTransactionWithPayment = async (
         transactionId: string,
         txnHash: string,
@@ -712,6 +716,33 @@ export default function ScanPage() {
                                         : "Connect your wallet to start scanning QR codes for payment."
                                     }
                                 </p>
+
+                                {/* Chain Status Indicator */}
+                                {isWalletConnected && connectedChain && (
+                                    <div className="mt-4 text-center">
+                                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${isValidChainId(connectedChain)
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-red-100 text-red-800'
+                                            }`}>
+                                            {isValidChainId(connectedChain) ? (
+                                                <>
+                                                    <CheckCircle className="w-4 h-4" />
+                                                    <span>{getChainInfo(connectedChain)?.name} Network</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <AlertCircle className="w-4 h-4" />
+                                                    <span>Unsupported Network (ID: {connectedChain})</span>
+                                                </>
+                                            )}
+                                        </div>
+                                        {!isValidChainId(connectedChain) && (
+                                            <p className="text-xs text-red-600 mt-1">
+                                                Please switch to Arbitrum Sepolia or Sepolia network
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Auto Payout Control Panel */}
@@ -728,12 +759,10 @@ export default function ScanPage() {
                                             onChange={(e) => setEnableAutoPayout(e.target.checked)}
                                             className="sr-only"
                                         />
-                                        <div className={`relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full ${
-                                            enableAutoPayout ? 'bg-blue-600' : 'bg-gray-300'
-                                        }`}>
-                                            <span className={`absolute left-1 top-1 inline-block w-4 h-4 transition duration-200 ease-in-out bg-white rounded-full transform ${
-                                                enableAutoPayout ? 'translate-x-4' : 'translate-x-0'
-                                            }`} />
+                                        <div className={`relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full ${enableAutoPayout ? 'bg-blue-600' : 'bg-gray-300'
+                                            }`}>
+                                            <span className={`absolute left-1 top-1 inline-block w-4 h-4 transition duration-200 ease-in-out bg-white rounded-full transform ${enableAutoPayout ? 'translate-x-4' : 'translate-x-0'
+                                                }`} />
                                         </div>
                                     </label>
                                 </div>
@@ -930,18 +959,16 @@ export default function ScanPage() {
 
                             {/* Payout Status */}
                             {payoutResult && (
-                                <div className={`mb-4 sm:mb-6 bg-white/80 backdrop-blur-sm rounded-lg sm:rounded-xl border p-3 sm:p-4 mx-2 sm:mx-0 ${
-                                    payoutResult.success ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'
-                                }`}>
+                                <div className={`mb-4 sm:mb-6 bg-white/80 backdrop-blur-sm rounded-lg sm:rounded-xl border p-3 sm:p-4 mx-2 sm:mx-0 ${payoutResult.success ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'
+                                    }`}>
                                     <div className="flex items-center justify-center gap-3 mb-2">
                                         {payoutResult.success ? (
                                             <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                                         ) : (
                                             <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
                                         )}
-                                        <h3 className={`text-base sm:text-lg font-semibold ${
-                                            payoutResult.success ? 'text-green-900' : 'text-red-900'
-                                        }`}>
+                                        <h3 className={`text-base sm:text-lg font-semibold ${payoutResult.success ? 'text-green-900' : 'text-red-900'
+                                            }`}>
                                             {payoutResult.success ? 'Auto Payout Successful!' : 'Auto Payout Failed'}
                                         </h3>
                                     </div>
@@ -1229,7 +1256,9 @@ export default function ScanPage() {
                                         !isCurrencySupported(parsedData.data.cu) ||
                                         (parsedData.data.am && !isAmountValid(parsedData.data.am)) ||
                                         (!parsedData.data.am && (!userAmount.trim() || !isAmountValid(userAmount))) ||
-                                        isConverting
+                                        isConverting ||
+                                        !connectedChain ||
+                                        !isValidChainId(connectedChain)
                                     }
                                 >
                                     {isConverting ? (
@@ -1356,7 +1385,7 @@ export default function ScanPage() {
                                 {/* Horizontal Separator */}
                                 <div className="h-px bg-gradient-to-r from-transparent via-teal-200 to-transparent"></div>
 
-                                    {/* Payment Summary Section */}
+                                {/* Payment Summary Section */}
                                 <div className="p-4">
                                     <div className="flex items-center gap-2 mb-3">
                                         <Banknote className="w-5 h-5 text-emerald-600" />
@@ -1429,6 +1458,16 @@ export default function ScanPage() {
                                             return
                                         }
 
+                                        // Validate chain ID before proceeding
+                                        if (!connectedChain) {
+                                            throw new Error('No connected chain found. Please ensure your wallet is connected to a supported network.')
+                                        }
+
+                                        if (!isValidChainId(connectedChain)) {
+                                            const chainInfo = getChainInfo(connectedChain)
+                                            throw new Error(`Unsupported network: ${chainInfo?.name || 'Unknown'} (Chain ID: ${connectedChain}). Please switch to a supported network.`)
+                                        }
+
                                         // Store transaction in database first
                                         const finalAmount = parsedData!.data.am || userAmount
                                         const storeTransactionData = {
@@ -1438,10 +1477,14 @@ export default function ScanPage() {
                                             inrAmount: finalAmount,
                                             walletAddress: undefined, // Will be updated after payment
                                             txnHash: undefined, // Will be updated after payment
+                                            chainId: connectedChain, // Include validated chain ID
                                             isSuccess: false // Default to false, will be updated after payment
                                         }
 
-                                        console.log('Storing transaction in database...')
+                                        console.log('Storing transaction in database with chain validation...')
+                                        console.log('Chain ID:', connectedChain)
+                                        console.log('Chain Info:', getChainInfo(connectedChain))
+
                                         const storeResponse = await fetch('/api/store-upi-transaction', {
                                             method: 'POST',
                                             headers: {
@@ -1452,22 +1495,29 @@ export default function ScanPage() {
 
                                         if (!storeResponse.ok) {
                                             const errorData = await storeResponse.json()
+                                            console.error('Store transaction error:', errorData)
+
+                                            // Handle specific chain validation errors
+                                            if (errorData.validChains) {
+                                                const validChains = (errorData.validChains as Array<{name: string}>).map((c) => c.name).join(', ')
+                                                throw new Error(`Chain validation failed. Supported networks: ${validChains}`)
+                                            }
+
                                             throw new Error(errorData.error || 'Failed to store transaction')
                                         }
 
                                         const storeResult = await storeResponse.json()
                                         console.log('Transaction stored successfully:', storeResult)
+                                        console.log('Transaction ID:', storeResult.transactionId)
+                                        console.log('Chain used:', storeResult.chain)
 
                                         // Store the transaction ID for future updates
                                         if (storeResult.transactionId) {
                                             setStoredTransactionId(storeResult.transactionId)
                                         }
 
-                                        // Get current chain ID
-                                        const provider = await wallet!.getEthereumProvider()
-                                        const ethersProvider = new ethers.BrowserProvider(provider)
-                                        const network = await ethersProvider.getNetwork()
-                                        const chainId = Number(network.chainId)
+                                        // Use the validated chain ID from wallet context
+                                        const chainId = connectedChain!
 
                                         // Prepare UPI details
                                         const upiDetails = {
@@ -1479,8 +1529,8 @@ export default function ScanPage() {
 
                                         // Create sponsored transaction request for EIP-7702
                                         const sponsoredRequest = await createSponsoredTransactionRequest(
-                                            conversionResult!.totalUsdcAmount.toString(), 
-                                            chainId, 
+                                            conversionResult!.totalUsdcAmount.toString(),
+                                            chainId,
                                             upiDetails
                                         )
                                         console.log('Created sponsored transaction request:', sponsoredRequest)
@@ -1493,6 +1543,9 @@ export default function ScanPage() {
 
                                         // Update transaction in database with payment results
                                         if (storeResult.transactionId) {
+                                            // Get wallet address for transaction update
+                                            const provider = await wallet!.getEthereumProvider()
+                                            const ethersProvider = new ethers.BrowserProvider(provider)
                                             const walletAddress = await ethersProvider.getSigner().then(s => s.getAddress())
 
                                             await updateTransactionWithPayment(
@@ -1514,14 +1567,21 @@ export default function ScanPage() {
                                         setIsProcessingPayment(false)
                                     }
                                 }}
-                                disabled={isCheckingBalance || isProcessingPayment || parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount}
-                                className={`w-full sm:flex-1 px-4 py-3 sm:py-2 rounded-lg transition-colors flex items-center justify-center gap-2 touch-manipulation min-h-[44px] text-sm sm:text-base ${
-                                    isCheckingBalance || isProcessingPayment
+                                disabled={
+                                    isCheckingBalance ||
+                                    isProcessingPayment ||
+                                    parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ||
+                                    !connectedChain ||
+                                    !isValidChainId(connectedChain)
+                                }
+                                className={`w-full sm:flex-1 px-4 py-3 sm:py-2 rounded-lg transition-colors flex items-center justify-center gap-2 touch-manipulation min-h-[44px] text-sm sm:text-base ${isCheckingBalance || isProcessingPayment
                                         ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                                         : parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount
                                             ? 'bg-red-500 text-white cursor-not-allowed'
-                                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                }`}
+                                            : !connectedChain || !isValidChainId(connectedChain)
+                                                ? 'bg-orange-500 text-white cursor-not-allowed'
+                                                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    }`}
                             >
                                 {isCheckingBalance ? (
                                     <>
@@ -1532,6 +1592,11 @@ export default function ScanPage() {
                                     <>
                                         <AlertCircle className="w-4 h-4" />
                                         Insufficient USDC
+                                    </>
+                                ) : !connectedChain || !isValidChainId(connectedChain) ? (
+                                    <>
+                                        <AlertCircle className="w-4 h-4" />
+                                        Unsupported Network
                                     </>
                                 ) : (
                                     <>
