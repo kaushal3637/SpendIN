@@ -11,7 +11,7 @@ export const MONGODB_URI =
 // USDC Contract Addresses
 export const USDC_CONTRACT_ADDRESSES = {
   // Ethereum Sepolia Testnet
-  11155111: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+  11155111: "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
   // Arbitrum Sepolia Testnet
   421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 } as const;
@@ -22,3 +22,29 @@ export const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || "";
 // Backend API Configuration
 export const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:3001";
 export const BACKEND_API_KEY = process.env.BACKEND_API_KEY || "";
+
+// Cashfree Payout API Configuration
+export const CASHFREE_CONFIG = {
+  // Test mode configuration
+  TEST: {
+    APP_ID: process.env.CASHFREE_APP_ID || "TEST_APP_ID",
+    SECRET_KEY: process.env.CASHFREE_SECRET_KEY || "TEST_SECRET_KEY",
+    BASE_URL: "https://sandbox.cashfree.com/payout",
+    CLIENT_ID: process.env.CASHFREE_CLIENT_ID || "TEST_CLIENT_ID",
+    CLIENT_SECRET: process.env.CASHFREE_CLIENT_SECRET || "TEST_CLIENT_SECRET",
+  },
+  // Production configuration
+  PRODUCTION: {
+    APP_ID: process.env.CASHFREE_APP_ID_PROD || "",
+    SECRET_KEY: process.env.CASHFREE_SECRET_KEY_PROD || "",
+    BASE_URL: "https://api.cashfree.com/payout",
+    CLIENT_ID: process.env.CASHFREE_CLIENT_ID_PROD || "",
+    CLIENT_SECRET: process.env.CASHFREE_CLIENT_SECRET_PROD || "",
+  }
+};
+
+// Get current Cashfree configuration based on environment
+export const getCashfreeConfig = () => {
+  const isProduction = process.env.NODE_ENV === "production";
+  return isProduction ? CASHFREE_CONFIG.PRODUCTION : CASHFREE_CONFIG.TEST;
+};

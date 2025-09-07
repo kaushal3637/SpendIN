@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSignIcon } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSign } from 'lucide-react'
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse, UpiQrData } from '@/types/upi.types'
 // import SwitchNetwork from '@/components/SwitchNetwork'
@@ -63,6 +63,18 @@ export default function ScanPage() {
         upiPaymentId?: string;
         error?: string;
         status: string;
+    } | null>(null)
+    const [enableAutoPayout, setEnableAutoPayout] = useState(false)
+    const [payoutAmount, setPayoutAmount] = useState<string>('')
+    const [payoutResult, setPayoutResult] = useState<{
+        success: boolean;
+        payout?: {
+            transferId: string;
+            amount: number;
+            status: string;
+            message: string;
+        };
+        error?: string;
     } | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
@@ -204,6 +216,12 @@ export default function ScanPage() {
 
                 if (parsed) {
                     setParsedData(parsed)
+
+                    // Check if this is a customer QR and auto-payout is enabled
+                    if (parsed.data && enableAutoPayout && payoutAmount) {
+                        await handleCustomerPayout(parsed.data.pa)
+                    }
+
                     setShowModal(true)
                 }
 
@@ -265,11 +283,53 @@ export default function ScanPage() {
         setConversionResult(null)
         setShowConversionModal(false)
         setShowReason(false)
+        setPayoutResult(null)
         stopScanning()
     }
 
+    // Function to check if scanned QR belongs to a test customer and trigger payout
+    const handleCustomerPayout = async (upiId: string) => {
+        if (!enableAutoPayout || !payoutAmount) return
+
+        try {
+            setPayoutResult(null)
+
+            // Extract customer identifier from UPI ID (for test customers)
+            // This is a simplified approach - in production you'd have a proper lookup
+            const customerIdentifier = upiId.split('@')[0]
+
+            // Try to find customer by UPI ID or name
+            const response = await fetch('/api/payouts/initiate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    customerId: customerIdentifier, // This might need adjustment based on your customer ID format
+                    amount: parseFloat(payoutAmount),
+                    remarks: `Auto payout triggered by QR scan - ${upiId}`,
+                }),
+            })
+
+            const data = await response.json()
+            setPayoutResult(data)
+
+            if (data.success) {
+                console.log('Auto payout successful:', data.payout.transferId)
+            } else {
+                console.error('Auto payout failed:', data.error || data.payout.message)
+            }
+
+        } catch (error) {
+            console.error('Error processing auto payout:', error)
+            setPayoutResult({
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
+
     // Function to update transaction with payment details
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const updateTransactionWithPayment = async (
         txnHash: string,
         isSuccess: boolean,
@@ -343,7 +403,7 @@ export default function ScanPage() {
     }
 
     // Check USDC balance
-    const checkUSDCBalance = async (requiredAmount: number) => {
+    const checkUSDCBalance = useCallback(async (requiredAmount: number) => {
         if (!wallet || !conversionResult) return false
 
         try {
@@ -398,7 +458,7 @@ export default function ScanPage() {
         } finally {
             setIsCheckingBalance(false)
         }
-    }
+    }, [wallet, conversionResult])
 
     // Create UserOp for USDC transfer
     const createUserOp = async (amount: string, chainId: number) => {
@@ -556,6 +616,52 @@ export default function ScanPage() {
                                 </p>
                             </div>
 
+                            {/* Auto Payout Control Panel */}
+                            <div className="mb-4 sm:mb-6 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center">
+                                        <DollarSign className="w-4 h-4 text-blue-600 mr-2" />
+                                        <span className="text-sm font-medium text-blue-900">Auto Payout (Test Mode)</span>
+                                    </div>
+                                    <label className="flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={enableAutoPayout}
+                                            onChange={(e) => setEnableAutoPayout(e.target.checked)}
+                                            className="sr-only"
+                                        />
+                                        <div className={`relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full ${
+                                            enableAutoPayout ? 'bg-blue-600' : 'bg-gray-300'
+                                        }`}>
+                                            <span className={`absolute left-1 top-1 inline-block w-4 h-4 transition duration-200 ease-in-out bg-white rounded-full transform ${
+                                                enableAutoPayout ? 'translate-x-4' : 'translate-x-0'
+                                            }`} />
+                                        </div>
+                                    </label>
+                                </div>
+
+                                {enableAutoPayout && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center space-x-2">
+                                            <span className="text-xs text-blue-700">₹</span>
+                                            <input
+                                                type="number"
+                                                value={payoutAmount}
+                                                onChange={(e) => setPayoutAmount(e.target.value)}
+                                                placeholder="Enter payout amount"
+                                                className="flex-1 text-sm border border-blue-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                                min="0.01"
+                                                max="25000"
+                                                step="0.01"
+                                            />
+                                        </div>
+                                        <p className="text-xs text-blue-600">
+                                            When enabled, scanning a customer QR will automatically trigger a payout to that customer.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* QR Scanner */}
                             <div className="mb-4 sm:mb-6 md:mb-8 lg:mb-12">
                                 <div className="relative w-full max-w-[85vw] sm:max-w-sm md:max-w-md mx-auto">
@@ -709,6 +815,50 @@ export default function ScanPage() {
                                 </div>
                             </div>
 
+                            {/* Payout Status */}
+                            {payoutResult && (
+                                <div className={`mb-4 sm:mb-6 bg-white/80 backdrop-blur-sm rounded-lg sm:rounded-xl border p-3 sm:p-4 mx-2 sm:mx-0 ${
+                                    payoutResult.success ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'
+                                }`}>
+                                    <div className="flex items-center justify-center gap-3 mb-2">
+                                        {payoutResult.success ? (
+                                            <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                                        ) : (
+                                            <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                                        )}
+                                        <h3 className={`text-base sm:text-lg font-semibold ${
+                                            payoutResult.success ? 'text-green-900' : 'text-red-900'
+                                        }`}>
+                                            {payoutResult.success ? 'Auto Payout Successful!' : 'Auto Payout Failed'}
+                                        </h3>
+                                    </div>
+                                    <div className="text-center space-y-1">
+                                        {payoutResult.payout && (
+                                            <>
+                                                <p className={`text-sm ${payoutResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                                                    {payoutResult.payout.message}
+                                                </p>
+                                                {payoutResult.payout.transferId && (
+                                                    <p className="text-xs text-gray-600 font-mono">
+                                                        Transfer ID: {payoutResult.payout.transferId}
+                                                    </p>
+                                                )}
+                                                {payoutResult.payout.amount && (
+                                                    <p className="text-sm font-medium text-gray-900">
+                                                        Amount: ₹{payoutResult.payout.amount}
+                                                    </p>
+                                                )}
+                                            </>
+                                        )}
+                                        {payoutResult.error && (
+                                            <p className="text-sm text-red-700">
+                                                {payoutResult.error}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Next Steps */}
                             <div className="bg-white/50 backdrop-blur-sm rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 lg:p-8 border border-emerald-100 mx-2 sm:mx-0">
                                 {scanResult ? (
@@ -716,9 +866,14 @@ export default function ScanPage() {
                                         <div className="flex items-center justify-center gap-3">
                                             <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-green-600" />
                                             <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                                                Payment Done Successfully!
+                                                QR Scanned Successfully!
                                             </h3>
                                         </div>
+                                        {enableAutoPayout && (
+                                            <p className="text-sm text-slate-600 mt-2">
+                                                Auto payout {payoutResult ? (payoutResult.success ? 'completed' : 'failed') : 'processing'}...
+                                            </p>
+                                        )}
                                     </>
                                 ) : (
                                     <>
@@ -1226,7 +1381,7 @@ export default function ScanPage() {
                                     </>
                                 ) : (
                                     <>
-                                        <DollarSignIcon className="w-4 h-4" />
+                                        <DollarSign className="w-4 h-4" />
                                         Pay Now
                                     </>
                                 )}
