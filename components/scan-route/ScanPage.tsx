@@ -13,6 +13,7 @@ import Confetti from 'react-confetti'
 import { ScanningState } from '@/types/qr-service.types'
 import QrScanner from '@/components/scan-route/services/QrScanner'
 import { QrScannerRef } from '@/types/qr-service.types'
+import { checkUSDCBalance } from '@/lib/helpers/usdc-balance-checker'
 
 
 export default function ScanPage() {
@@ -233,54 +234,24 @@ export default function ScanPage() {
         }
     }
 
-    // Check USDC balance
-    const checkUSDCBalance = useCallback(async (requiredAmount: number) => {
+    // Check USDC balance using helper function
+    const checkUSDCBalanceLocal = useCallback(async (requiredAmount: number) => {
         if (!wallet || !conversionResult) return false
 
         try {
             setIsCheckingBalance(true)
             setBalanceError(null)
 
-            // Get the wallet provider and signer
-            const provider = await wallet.getEthereumProvider()
-            const ethersProvider = new ethers.BrowserProvider(provider)
-            const signer = await ethersProvider.getSigner()
+            // Use the helper function to check balance
+            const result = await checkUSDCBalance(wallet, requiredAmount, connectedChain || undefined)
 
-            // Get current chain ID
-            const network = await ethersProvider.getNetwork()
-            const chainId = Number(network.chainId)
-
-            // Get USDC contract address for current network
-            const usdcAddress = USDC_CONTRACT_ADDRESSES[chainId as keyof typeof USDC_CONTRACT_ADDRESSES]
-            if (!usdcAddress) {
-                throw new Error(`USDC contract not configured for chain ID: ${chainId}`)
+            // Update local state with the result
+            setUsdcBalance(result.balance)
+            if (result.error) {
+                setBalanceError(result.error)
             }
 
-            // USDC Contract ABI (minimal)
-            const usdcAbi = [
-                'function balanceOf(address account) external view returns (uint256)',
-                'function decimals() external view returns (uint8)'
-            ]
-
-            // Create contract instance
-            const usdcContract = new ethers.Contract(usdcAddress, usdcAbi, ethersProvider)
-
-            // Get user's wallet address
-            const userAddress = await signer.getAddress()
-
-            // Get USDC balance
-            const balance = await usdcContract.balanceOf(userAddress)
-            const decimals = await usdcContract.decimals()
-
-            // Convert to readable format
-            const formattedBalance = ethers.formatUnits(balance, decimals)
-            setUsdcBalance(formattedBalance)
-
-            // Check if user has sufficient balance
-            const requiredAmountFloat = parseFloat(requiredAmount.toString())
-            const currentBalanceFloat = parseFloat(formattedBalance)
-
-            return currentBalanceFloat >= requiredAmountFloat
+            return result.hasSufficientBalance
 
         } catch (error) {
             console.error('Error checking USDC balance:', error)
@@ -289,7 +260,7 @@ export default function ScanPage() {
         } finally {
             setIsCheckingBalance(false)
         }
-    }, [wallet, conversionResult])
+    }, [wallet, conversionResult, connectedChain])
 
     // Function to load test data for development
     const loadTestData = async () => {
@@ -380,9 +351,9 @@ export default function ScanPage() {
     // Check USDC balance when conversion modal opens
     useEffect(() => {
         if (showConversionModal && conversionResult && wallet) {
-            checkUSDCBalance(conversionResult.totalUsdcAmount)
+            checkUSDCBalanceLocal(conversionResult.totalUsdcAmount)
         }
-    }, [showConversionModal, conversionResult, wallet, checkUSDCBalance])
+    }, [showConversionModal, conversionResult, wallet, checkUSDCBalanceLocal])
 
     return (
         <>
@@ -1085,7 +1056,7 @@ export default function ScanPage() {
                                         setPaymentResult(null)
 
                                         // Check USDC balance before proceeding
-                                        const hasSufficientBalance = await checkUSDCBalance(conversionResult!.totalUsdcAmount)
+                                        const hasSufficientBalance = await checkUSDCBalanceLocal(conversionResult!.totalUsdcAmount)
 
                                         if (!hasSufficientBalance) {
                                             setPaymentResult({
