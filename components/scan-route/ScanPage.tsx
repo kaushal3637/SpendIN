@@ -50,7 +50,7 @@ export default function ScanPage() {
     const [isProcessingPayment, setIsProcessingPayment] = useState(false)
     const [paymentStep, setPaymentStep] = useState<string>('')
     const [isTestMode, setIsTestMode] = useState(false)
-    const [paymentResult, setPaymentResult] = useState<{ // eslint-disable-line @typescript-eslint/no-unused-vars
+    const [paymentResult, setPaymentResult] = useState<{
         success: boolean;
         transactionHash?: string;
         upiPaymentId?: string;
@@ -478,40 +478,40 @@ export default function ScanPage() {
     const loadTestData = async () => {
         console.log('Loading test data...')
 
-            // Use the beneficiary with UPI ID from your dashboard
-            const beneficiaryId = '1492218328b3o0m39jsCfkjeyFVBKdreP1'
+        // Use the beneficiary with UPI ID from your dashboard
+        const beneficiaryId = '1492218328b3o0m39jsCfkjeyFVBKdreP1'
 
-            // Fetch beneficiary details from Cashfree
-            const response = await fetch(`/api/cashfree-beneficiary/${beneficiaryId}`)
-            if (!response.ok) {
-                throw new Error('Failed to fetch beneficiary details')
+        // Fetch beneficiary details from Cashfree
+        const response = await fetch(`/api/cashfree-beneficiary/${beneficiaryId}`)
+        if (!response.ok) {
+            throw new Error('Failed to fetch beneficiary details')
+        }
+
+        const beneficiaryData = await response.json()
+        const beneficiary = beneficiaryData.beneficiary
+
+        // Store beneficiary details for display
+        setBeneficiaryDetails(beneficiary)
+
+        // Get UPI ID from beneficiary instrument details
+        const upiId = beneficiary?.beneficiary_instrument_details?.vpa || 'success@upi'
+
+        // Create test QR data using the beneficiary's UPI ID
+        const testParsedData: ParsedQrResponse = {
+            qrType: 'dynamic_merchant',
+            isValid: true,
+            data: {
+                pa: upiId,
+                pn: beneficiary?.beneficiary_name || 'Test Bene',
+                am: '10.00', // Test amount
+                cu: 'INR',
+                mc: '1234',
+                tr: `TXN${Date.now()}`
             }
+        }
 
-            const beneficiaryData = await response.json()
-            const beneficiary = beneficiaryData.beneficiary
-
-            // Store beneficiary details for display
-            setBeneficiaryDetails(beneficiary)
-
-            // Get UPI ID from beneficiary instrument details
-            const upiId = beneficiary?.beneficiary_instrument_details?.vpa || 'success@upi'
-
-            // Create test QR data using the beneficiary's UPI ID
-            const testParsedData: ParsedQrResponse = {
-                qrType: 'dynamic_merchant',
-                isValid: true,
-                data: {
-                    pa: upiId,
-                    pn: beneficiary?.beneficiary_name || 'Test Bene',
-                    am: '10.00', // Test amount
-                    cu: 'INR',
-                    mc: '1234',
-                    tr: `TXN${Date.now()}`
-                }
-            }
-
-            // Generate QR string
-            const qrString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(testParsedData.data.pn || 'Test Bene')}&am=${testParsedData.data.am}&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${testParsedData.data.tr}`
+        // Generate QR string
+        const qrString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(testParsedData.data.pn || 'Test Bene')}&am=${testParsedData.data.am}&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${testParsedData.data.tr}`
 
         setParsedData(testParsedData)
         setScanResult('upi://pay?pa=merchant@paytm&pn=Test%20Merchant%20Store&am=850.00&cu=INR&mc=1234&tr=TXN123456789')
@@ -519,10 +519,6 @@ export default function ScanPage() {
         setShowModal(true)
         setError(null)
     }
-
-
-
-
 
     // Check if currency is supported (only INR allowed)
     const isCurrencySupported = (currency?: string): boolean => {
@@ -600,8 +596,8 @@ export default function ScanPage() {
                                 {isWalletConnected && connectedChain && (
                                     <div className="mt-4 text-center">
                                         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${isValidChainId(connectedChain)
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-red-100 text-red-800'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-red-100 text-red-800'
                                             }`}>
                                             {isValidChainId(connectedChain) ? (
                                                 <>
@@ -620,50 +616,6 @@ export default function ScanPage() {
                                                 Please switch to Arbitrum Sepolia or Sepolia network
                                             </p>
                                         )}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Auto Payout Control Panel */}
-                            <div className="mb-4 sm:mb-6 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center">
-                                        <DollarSign className="w-4 h-4 text-blue-600 mr-2" />
-                                        <span className="text-sm font-medium text-blue-900">Auto Payout (Test Mode)</span>
-                                    </div>
-                                    <label className="flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={enableAutoPayout}
-                                            onChange={(e) => setEnableAutoPayout(e.target.checked)}
-                                            className="sr-only"
-                                        />
-                                        <div className={`relative inline-block w-10 h-6 transition duration-200 ease-in-out rounded-full ${enableAutoPayout ? 'bg-blue-600' : 'bg-gray-300'
-                                            }`}>
-                                            <span className={`absolute left-1 top-1 inline-block w-4 h-4 transition duration-200 ease-in-out bg-white rounded-full transform ${enableAutoPayout ? 'translate-x-4' : 'translate-x-0'
-                                                }`} />
-                                        </div>
-                                    </label>
-                                </div>
-
-                                {enableAutoPayout && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center space-x-2">
-                                            <span className="text-xs text-blue-700">₹</span>
-                                            <input
-                                                type="number"
-                                                value={payoutAmount}
-                                                onChange={(e) => setPayoutAmount(e.target.value)}
-                                                placeholder="Enter payout amount"
-                                                className="flex-1 text-sm border border-blue-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                                min="0.01"
-                                                max="25000"
-                                                step="0.01"
-                                            />
-                                        </div>
-                                        <p className="text-xs text-blue-600">
-                                            When enabled, scanning a customer QR will automatically trigger a payout to that customer.
-                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -1468,7 +1420,7 @@ export default function ScanPage() {
 
                                             // Handle specific chain validation errors
                                             if (errorData.validChains) {
-                                                const validChains = (errorData.validChains as Array<{name: string}>).map((c) => c.name).join(', ')
+                                                const validChains = (errorData.validChains as Array<{ name: string }>).map((c) => c.name).join(', ')
                                                 throw new Error(`Chain validation failed. Supported networks: ${validChains}`)
                                             }
 
@@ -1488,18 +1440,18 @@ export default function ScanPage() {
                                         // Use the validated chain ID from wallet context
                                         const chainId = connectedChain!
 
-                                        
+
                                         // Step 1: Now proceed with EIP-7702 transaction
                                         console.log('Step 1: Proceeding with EIP-7702 transaction...')
                                         setPaymentStep('Processing blockchain transaction...')
-                                        
-                                        
+
+
                                         // Use new client-side flow with user's wallet
                                         const provider = await wallet!.getEthereumProvider()
                                         const ethersProvider = new ethers.BrowserProvider(provider)
                                         const signer = await ethersProvider.getSigner()
                                         const usdcAddress = USDC_CONTRACT_ADDRESSES[chainId as keyof typeof USDC_CONTRACT_ADDRESSES]
-                                        
+
                                         const prepared = await prepareUSDCMetaTransaction({
                                             recipient: TREASURY_ADDRESS,
                                             usdcAddress,
@@ -1517,11 +1469,11 @@ export default function ScanPage() {
                                                 tr: parsedData?.data?.tr || `TXN_${Date.now()}`
                                             }
                                         })
-                                        
+
                                         const receipt = await prepared.send()
                                         const txHash = receipt?.transactionHash
                                         const wasSuccess = !!(receipt?.success && txHash)
-                                        
+
                                         setPaymentResult({
                                             success: wasSuccess,
                                             status: wasSuccess ? 'completed' : 'failed',
@@ -1649,12 +1601,12 @@ export default function ScanPage() {
                                     !isValidChainId(connectedChain)
                                 }
                                 className={`w-full sm:flex-1 px-4 py-3 sm:py-2 rounded-lg transition-colors flex items-center justify-center gap-2 touch-manipulation min-h-[44px] text-sm sm:text-base ${isCheckingBalance || isProcessingPayment
-                                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                                        : parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount
-                                            ? 'bg-red-500 text-white cursor-not-allowed'
-                                            : !connectedChain || !isValidChainId(connectedChain)
-                                                ? 'bg-orange-500 text-white cursor-not-allowed'
-                                                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                    : parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount
+                                        ? 'bg-red-500 text-white cursor-not-allowed'
+                                        : !connectedChain || !isValidChainId(connectedChain)
+                                            ? 'bg-orange-500 text-white cursor-not-allowed'
+                                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
                                     }`}
                             >
                                 {isCheckingBalance ? (
