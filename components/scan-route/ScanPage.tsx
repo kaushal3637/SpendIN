@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSign } from 'lucide-react'
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library'
 import { ParsedQrResponse } from '@/types/upi.types'
 // import SwitchNetwork from '@/components/SwitchNetwork'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
@@ -12,6 +11,8 @@ import { useWallet } from '@/context/WalletContext'
 import { isValidChainId, getChainInfo } from '@/lib/chain-validation'
 import { ethers } from 'ethers'
 import Confetti from 'react-confetti'
+import { QrScanningService } from '@/services/qr-service'
+import { ScanningState } from '@/types/qr-service.types'
 
 
 export default function ScanPage() {
@@ -23,13 +24,8 @@ export default function ScanPage() {
     const { connectedChain } = useWallet()
 
     const [isVisible, setIsVisible] = useState(false)
-    const [isScanning, setIsScanning] = useState(false)
-    const [scanResult, setScanResult] = useState<string | null>(null)
-    const [error, setError] = useState<string | null>(null)
-    const [hasPermission, setHasPermission] = useState<boolean | null>(null)
     const [parsedData, setParsedData] = useState<ParsedQrResponse | null>(null)
     const [showModal, setShowModal] = useState(false)
-    const [isLoading, setIsLoading] = useState(false)
     const [userAmount, setUserAmount] = useState<string>('')
     const [isConverting, setIsConverting] = useState(false)
     const [conversionResult, setConversionResult] = useState<{
@@ -57,8 +53,6 @@ export default function ScanPage() {
         error?: string;
         status: string;
     } | null>(null)
-    const [enableAutoPayout, setEnableAutoPayout] = useState(false)
-    const [payoutAmount, setPayoutAmount] = useState<string>('')
     const [payoutResult, setPayoutResult] = useState<{
         success: boolean;
         payout?: {
@@ -86,228 +80,20 @@ export default function ScanPage() {
     } | null>(null)
     const [showConfetti, setShowConfetti] = useState(false)
 
+    // QR Service State
+    const [scanningState, setScanningState] = useState<ScanningState>({
+        isScanning: false,
+        hasPermission: null,
+        error: null,
+        scanResult: null,
+        isLoading: false
+    })
+
     const videoRef = useRef<HTMLVideoElement>(null)
-    const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
-
-    useEffect(() => {
-        setIsVisible(true)
-
-        return () => {
-            stopScanning()
-        }
-    }, [])
-
-    // Force re-render when validation state changes
-    useEffect(() => {
-        // This ensures the component re-renders when parsedData or userAmount changes
-        // which should update the disabled state of the confirm button
-    }, [parsedData, userAmount])
-
-    const requestCameraPermission = async (): Promise<boolean> => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' }
-            })
-
-            stream.getTracks().forEach(track => track.stop())
-
-            setHasPermission(true)
-            return true
-        } catch (err) {
-            console.error('Camera permission denied:', err)
-            setHasPermission(false)
-            return false
-        }
-    }
-
-    const parseQrData = async (qrString: string): Promise<ParsedQrResponse | null> => {
-        try {
-            const response = await fetch('/api/scans', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ qrData: qrString }),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to parse QR data')
-            }
-
-            const data = await response.json()
-            return data
-        } catch (err) {
-            console.error('Error parsing QR data:', err)
-            setError(`Failed to parse QR data: ${err instanceof Error ? err.message : 'Unknown error'}`)
-            return null
-        }
-    }
-
-
-    const startScanning = async () => {
-        if (!videoRef.current) return
-
-        setError(null)
-        setScanResult(null)
-
-        // First, request camera permission
-        console.log('Requesting camera permission...')
-        const permissionGranted = await requestCameraPermission()
-
-        if (!permissionGranted) {
-            setError('Camera permission is required to scan QR codes. Please allow camera access and try again.')
-            return
-        }
-
-        console.log('Camera permission granted, starting scan...')
-
-        try {
-            // Initialize the code reader
-            if (!codeReaderRef.current) {
-                codeReaderRef.current = new BrowserMultiFormatReader()
-                console.log('Code reader initialized')
-            }
-
-            // Get available video devices and find the back camera
-            const videoInputDevices = await codeReaderRef.current.listVideoInputDevices()
-            console.log('Available video devices:', videoInputDevices)
-
-            if (videoInputDevices.length === 0) {
-                throw new Error('No camera devices found')
-            }
-
-            // Find the back camera (environment facing)
-            let selectedDevice = videoInputDevices.find(device =>
-                device.label.toLowerCase().includes('back') ||
-                device.label.toLowerCase().includes('rear') ||
-                device.label.toLowerCase().includes('environment')
-            )
-
-            // If no back camera found, try to find one without "front" in the name
-            if (!selectedDevice) {
-                selectedDevice = videoInputDevices.find(device =>
-                    !device.label.toLowerCase().includes('front') &&
-                    !device.label.toLowerCase().includes('user')
-                )
-            }
-
-            // Fallback to first device if we can't identify back camera
-            if (!selectedDevice) {
-                selectedDevice = videoInputDevices[0]
-            }
-
-            const selectedDeviceId = selectedDevice.deviceId
-            console.log('Selected camera:', selectedDevice.label)
-            console.log('All available cameras:', videoInputDevices.map(d => d.label))
-
-            // Alternative approach: Use ZXing's built-in camera selection with facing mode
-            console.log('Attempting to scan with selected camera...')
-
-            // Try the selected camera first, fallback to auto-selection if it fails
-            let result
-            try {
-                result = await codeReaderRef.current.decodeOnceFromVideoDevice(selectedDeviceId, videoRef.current)
-            } catch (deviceError) {
-                console.log('Selected camera failed, trying auto-selection:', deviceError)
-                // Fallback to auto-selection (ZXing will choose best camera)
-                result = await codeReaderRef.current.decodeOnceFromVideoDevice(undefined, videoRef.current)
-            }
-
-            if (result) {
-                console.log('QR Code detected:', result.getText())
-                setIsLoading(true)
-                setScanResult(result.getText())
-
-                // Parse the QR data using the API
-                const parsed = await parseQrData(result.getText())
-                setIsLoading(false)
-
-                if (parsed) {
-                    setParsedData(parsed)
-
-                    // Log current beneficiary details state
-                    console.log('Current beneficiaryDetails state:', beneficiaryDetails)
-                    console.log('Parsed QR data UPI ID:', parsed.data?.pa)
-
-                    // Check if this is a customer QR and auto-payout is enabled
-                    if (parsed.data && enableAutoPayout && payoutAmount) {
-                        await handleCustomerPayout(parsed.data.pa)
-                    }
-
-                    setShowModal(true)
-                }
-
-                setIsScanning(false)
-                stopScanning()
-            }
-        } catch (err) {
-            if (err instanceof NotFoundException) {
-                console.log('No QR code found, continuing to scan...')
-                // Continue scanning if no QR code found
-                if (isScanning) {
-                    setTimeout(() => startScanning(), 500)
-                }
-            } else {
-                console.error('QR scanning error:', err)
-                setError(`Camera error: ${err instanceof Error ? err.message : 'Unknown error'}`)
-                setIsScanning(false)
-                stopScanning()
-            }
-        }
-    }
-
-    const stopScanning = () => {
-        if (codeReaderRef.current) {
-            codeReaderRef.current.reset()
-            codeReaderRef.current = null
-        }
-        setIsScanning(false)
-    }
-
-    const toggleScanning = async () => {
-        if (isScanning) {
-            stopScanning()
-        } else {
-            // If permission was previously denied, try to request it again
-            if (hasPermission === false) {
-                setError(null)
-                setScanResult(null)
-                const permissionGranted = await requestCameraPermission()
-                if (permissionGranted) {
-                    setIsScanning(true)
-                    await startScanning()
-                }
-            } else {
-                setIsScanning(true)
-                await startScanning()
-            }
-        }
-    }
-
-    const resetScan = () => {
-        setScanResult(null)
-        setError(null)
-        setIsScanning(false)
-        setParsedData(null)
-        setShowModal(false)
-        setIsLoading(false)
-        setUserAmount('')
-        setConversionResult(null)
-        setShowConversionModal(false)
-        setShowReason(false)
-        setPayoutResult(null)
-        setBeneficiaryDetails(null)
-        setShowConfetti(false)
-        setPaymentResult(null)
-        setStoredTransactionId(null)
-        stopScanning()
-    }
+    const qrScanningServiceRef = useRef<QrScanningService | null>(null)
 
     // Function to check if scanned QR belongs to a test customer and trigger payout
-    const handleCustomerPayout = async (upiId: string) => {
-        if (!enableAutoPayout || !payoutAmount) return
-
+    const handleCustomerPayout = useCallback(async (upiId: string) => {
         try {
             setPayoutResult(null)
 
@@ -323,7 +109,7 @@ export default function ScanPage() {
                 },
                 body: JSON.stringify({
                     customerId: customerIdentifier, // This might need adjustment based on your customer ID format
-                    amount: parseFloat(payoutAmount),
+                    amount: parseFloat(userAmount),
                     remarks: `Auto payout triggered by QR scan - ${upiId}`,
                 }),
             })
@@ -344,6 +130,73 @@ export default function ScanPage() {
                 error: error instanceof Error ? error.message : 'Unknown error'
             })
         }
+    }, [userAmount])
+
+    // Initialize QR Scanning Service
+    useEffect(() => {
+        setIsVisible(true)
+
+        // Initialize QR scanning service
+        qrScanningServiceRef.current = new QrScanningService({
+            onQrDetected: (qrData: string, parsedData: ParsedQrResponse) => {
+                setParsedData(parsedData)
+
+                // Check if this is a customer QR
+                if (parsedData.data && userAmount) {
+                    handleCustomerPayout(parsedData.data.pa)
+                }
+
+                setShowModal(true)
+            },
+            onError: (error: string) => {
+                console.error('QR scanning error:', error)
+                setScanningState(prev => ({ ...prev, error }))
+            },
+            onStateChange: (updates: Partial<ScanningState>) => {
+                setScanningState(prev => ({ ...prev, ...updates }))
+            }
+        })
+
+        return () => {
+            // Cleanup
+            if (qrScanningServiceRef.current) {
+                qrScanningServiceRef.current.dispose()
+                qrScanningServiceRef.current = null
+            }
+        }
+    }, [beneficiaryDetails, userAmount, handleCustomerPayout])
+
+    // Force re-render when validation state changes
+    useEffect(() => {
+        // This ensures the component re-renders when parsedData or userAmount changes
+        // which should update the disabled state of the confirm button
+    }, [parsedData, userAmount])
+
+    // QR Service Methods
+    const toggleScanning = async () => {
+        if (!qrScanningServiceRef.current || !videoRef.current) return
+
+        await qrScanningServiceRef.current.toggleScanning(videoRef.current)
+    }
+
+    const resetScan = () => {
+        // Reset scanning service
+        if (qrScanningServiceRef.current) {
+            qrScanningServiceRef.current.reset()
+        }
+
+        // Reset component state
+        setParsedData(null)
+        setShowModal(false)
+        setUserAmount('')
+        setConversionResult(null)
+        setShowConversionModal(false)
+        setShowReason(false)
+        setPayoutResult(null)
+        setBeneficiaryDetails(null)
+        setShowConfetti(false)
+        setPaymentResult(null)
+        setStoredTransactionId(null)
     }
 
     // Function to update transaction with payment details
@@ -511,13 +364,23 @@ export default function ScanPage() {
         }
 
         // Generate QR string
-        const qrString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(testParsedData.data.pn || 'Test Bene')}&am=${testParsedData.data.am}&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${testParsedData.data.tr}`
+        const qrString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(testParsedData.data.pn || 'Test Bene')}&am=${testParsedData.data.am}&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${testParsedData.data.tr}` // eslint-disable-line @typescript-eslint/no-unused-vars
 
         setParsedData(testParsedData)
-        setScanResult('upi://pay?pa=merchant@paytm&pn=Test%20Merchant%20Store&am=850.00&cu=INR&mc=1234&tr=TXN123456789')
+
+        // Update scanning service state
+        if (qrScanningServiceRef.current) {
+            qrScanningServiceRef.current.reset()
+            // Simulate scan result for testing
+            setScanningState(prev => ({
+                ...prev,
+                scanResult: 'upi://pay?pa=merchant@paytm&pn=Test%20Merchant%20Store&am=850.00&cu=INR&mc=1234&tr=TXN123456789',
+                error: null
+            }))
+        }
+
         setIsTestMode(true)
         setShowModal(true)
-        setError(null)
     }
 
     // Check if currency is supported (only INR allowed)
@@ -626,16 +489,16 @@ export default function ScanPage() {
                                     {/* Scanner Frame */}
                                     <div className="relative bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-lg border-2 border-emerald-200 p-3 sm:p-4 md:p-6 lg:p-8 overflow-hidden">
                                         {/* Video Element for Camera Feed */}
-                                        <div className={`relative bg-slate-900 rounded-lg overflow-hidden ${isScanning ? 'border-2 border-emerald-300' : 'border-0'}`}>
+                                        <div className={`relative bg-slate-900 rounded-lg overflow-hidden ${scanningState.isScanning ? 'border-2 border-emerald-300' : 'border-0'}`}>
                                             <video
                                                 ref={videoRef}
-                                                className={`w-full h-48 sm:h-56 md:h-64 lg:h-80 object-cover ${!isScanning ? 'hidden' : ''}`}
+                                                className={`w-full h-48 sm:h-56 md:h-64 lg:h-80 object-cover ${!scanningState.isScanning ? 'hidden' : ''}`}
                                                 playsInline
                                                 muted
                                             />
 
                                             {/* Placeholder when not scanning */}
-                                            {!isScanning && !scanResult && !error && (
+                                            {!scanningState.isScanning && !scanningState.scanResult && !scanningState.error && (
                                                 <div className="w-full h-48 sm:h-56 md:h-64 lg:h-80 flex items-center justify-center bg-slate-50">
                                                     <div className="text-center p-4">
                                                         {!isWalletConnected ? (
@@ -664,10 +527,10 @@ export default function ScanPage() {
                                             )}
 
                                             {/* Scan Result Display */}
-                                            {scanResult && (
+                                            {scanningState.scanResult && (
                                                 <div className="absolute inset-0 bg-white flex items-center justify-center p-4">
                                                     <div className="w-full h-full">
-                                                        {isLoading ? (
+                                                        {scanningState.isLoading ? (
                                                             <div className="text-center">
                                                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-4"></div>
                                                                 <p className="text-slate-600">Processing QR data...</p>
@@ -675,7 +538,7 @@ export default function ScanPage() {
                                                         ) : (
                                                             <div className="text-left text-sm">
                                                                 <p className="font-medium mb-2">QR Data:</p>
-                                                                <p className="text-slate-600 break-all">{scanResult}</p>
+                                                                <p className="text-slate-600 break-all">{scanningState.scanResult}</p>
                                                             </div>
                                                         )}
                                                     </div>
@@ -683,7 +546,7 @@ export default function ScanPage() {
                                             )}
 
                                             {/* Error Display */}
-                                            {error && (
+                                            {scanningState.error && (
                                                 <div className="absolute inset-0 bg-red-50 flex items-center justify-center">
                                                     <div className="text-center p-4">
                                                         <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-600 mx-auto mb-4" />
@@ -691,7 +554,7 @@ export default function ScanPage() {
                                                             Scanning Error
                                                         </h3>
                                                         <p className="text-sm sm:text-base text-red-700">
-                                                            {error}
+                                                            {scanningState.error}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -700,20 +563,20 @@ export default function ScanPage() {
 
                                         {/* Control Buttons */}
                                         <div className="mt-3 sm:mt-4 flex gap-2 sm:gap-3 justify-center px-2">
-                                            {!scanResult && !error && (
+                                            {!scanningState.scanResult && !scanningState.error && (
                                                 <button
                                                     onClick={isWalletConnected ? toggleScanning : login}
-                                                    disabled={hasPermission === false}
-                                                    className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-2 rounded-full font-medium transition-all duration-200 text-sm sm:text-base touch-manipulation min-h-[44px] ${isScanning
+                                                    disabled={scanningState.hasPermission === false}
+                                                    className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-2 rounded-full font-medium transition-all duration-200 text-sm sm:text-base touch-manipulation min-h-[44px] ${scanningState.isScanning
                                                         ? 'bg-red-600 hover:bg-red-700 text-white'
                                                         : !isWalletConnected
                                                             ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                                            : hasPermission === false
+                                                            : scanningState.hasPermission === false
                                                                 ? 'bg-orange-600 hover:bg-orange-700 text-white'
                                                                 : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                                                         } disabled:bg-slate-400 disabled:cursor-not-allowed`}
                                                 >
-                                                    {isScanning ? (
+                                                    {scanningState.isScanning ? (
                                                         <>
                                                             <Square className="w-4 h-4" />
                                                             Stop
@@ -723,7 +586,7 @@ export default function ScanPage() {
                                                             <Wallet className="w-4 h-4" />
                                                             Connect Wallet
                                                         </>
-                                                    ) : hasPermission === false ? (
+                                                    ) : scanningState.hasPermission === false ? (
                                                         <>
                                                             <Camera className="w-4 h-4" />
                                                             Request Permission
@@ -737,7 +600,7 @@ export default function ScanPage() {
                                                 </button>
                                             )}
 
-                                            {(scanResult || error) && (
+                                            {(scanningState.scanResult || scanningState.error) && (
                                                 <button
                                                     onClick={resetScan}
                                                     className="flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-full font-medium transition-all duration-200 text-sm sm:text-base touch-manipulation min-h-[44px]"
@@ -750,19 +613,19 @@ export default function ScanPage() {
 
                                         {/* Permission Status */}
                                         <div className="mt-4 text-center">
-                                            {hasPermission === false && (
+                                            {scanningState.hasPermission === false && (
                                                 <div className="space-y-2">
                                                     <p className="text-xs sm:text-sm text-red-600">
                                                         Camera access denied. Please allow camera access to continue.
                                                     </p>
                                                 </div>
                                             )}
-                                            {hasPermission === null && (
+                                            {scanningState.hasPermission === null && (
                                                 <p className="text-xs sm:text-sm text-slate-500">
                                                     Camera access will be requested when you start scanning.
                                                 </p>
                                             )}
-                                            {hasPermission === true && (
+                                            {scanningState.hasPermission === true && (
                                                 <p className="text-xs sm:text-sm text-green-600">
                                                     Camera access granted ✓
                                                 </p>
@@ -860,7 +723,7 @@ export default function ScanPage() {
 
                             {/* Next Steps */}
                             <div className="bg-white/50 backdrop-blur-sm rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 lg:p-8 border border-emerald-100 mx-2 sm:mx-0">
-                                {scanResult ? (
+                                {scanningState.scanResult ? (
                                     <>
                                         <div className="flex items-center justify-center gap-3">
                                             <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-green-600" />
@@ -868,7 +731,7 @@ export default function ScanPage() {
                                                 QR Scanned Successfully!
                                             </h3>
                                         </div>
-                                        {enableAutoPayout && (
+                                        {userAmount && (
                                             <p className="text-sm text-slate-600 mt-2">
                                                 Auto payout {payoutResult ? (payoutResult.success ? 'completed' : 'failed') : 'processing'}...
                                             </p>
