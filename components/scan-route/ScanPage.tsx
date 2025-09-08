@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { QrCode, Camera, Wallet, CheckCircle, AlertCircle, Play, Square, X, Check, Banknote, ArrowBigRight, DollarSign } from 'lucide-react'
+import { QrCode, Wallet, CheckCircle, AlertCircle, X, Check, Banknote, ArrowBigRight, DollarSign } from 'lucide-react'
 import { ParsedQrResponse } from '@/types/upi.types'
-// import SwitchNetwork from '@/components/SwitchNetwork'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
 import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from '@/config/constant'
 import { prepareUSDCMetaTransaction } from '@/lib/abstractionkit'
@@ -11,8 +10,9 @@ import { useWallet } from '@/context/WalletContext'
 import { isValidChainId, getChainInfo } from '@/lib/chain-validation'
 import { ethers } from 'ethers'
 import Confetti from 'react-confetti'
-import { QrScanningService } from '@/services/qr-service'
 import { ScanningState } from '@/types/qr-service.types'
+import QrScanner from '@/components/scan-route/services/QrScanner'
+import { QrScannerRef } from '@/types/qr-service.types'
 
 
 export default function ScanPage() {
@@ -89,8 +89,7 @@ export default function ScanPage() {
         isLoading: false
     })
 
-    const videoRef = useRef<HTMLVideoElement>(null)
-    const qrScanningServiceRef = useRef<QrScanningService | null>(null)
+    const qrScannerRef = useRef<QrScannerRef>(null)
 
     // Function to check if scanned QR belongs to a test customer and trigger payout
     const handleCustomerPayout = useCallback(async (upiId: string) => {
@@ -132,39 +131,10 @@ export default function ScanPage() {
         }
     }, [userAmount])
 
-    // Initialize QR Scanning Service
+    // Initialize component
     useEffect(() => {
         setIsVisible(true)
-
-        // Initialize QR scanning service
-        qrScanningServiceRef.current = new QrScanningService({
-            onQrDetected: (qrData: string, parsedData: ParsedQrResponse) => {
-                setParsedData(parsedData)
-
-                // Check if this is a customer QR
-                if (parsedData.data && userAmount) {
-                    handleCustomerPayout(parsedData.data.pa)
-                }
-
-                setShowModal(true)
-            },
-            onError: (error: string) => {
-                console.error('QR scanning error:', error)
-                setScanningState(prev => ({ ...prev, error }))
-            },
-            onStateChange: (updates: Partial<ScanningState>) => {
-                setScanningState(prev => ({ ...prev, ...updates }))
-            }
-        })
-
-        return () => {
-            // Cleanup
-            if (qrScanningServiceRef.current) {
-                qrScanningServiceRef.current.dispose()
-                qrScanningServiceRef.current = null
-            }
-        }
-    }, [beneficiaryDetails, userAmount, handleCustomerPayout])
+    }, [])
 
     // Force re-render when validation state changes
     useEffect(() => {
@@ -173,16 +143,10 @@ export default function ScanPage() {
     }, [parsedData, userAmount])
 
     // QR Service Methods
-    const toggleScanning = async () => {
-        if (!qrScanningServiceRef.current || !videoRef.current) return
-
-        await qrScanningServiceRef.current.toggleScanning(videoRef.current)
-    }
-
     const resetScan = () => {
-        // Reset scanning service
-        if (qrScanningServiceRef.current) {
-            qrScanningServiceRef.current.reset()
+        // Reset QR scanner component
+        if (qrScannerRef.current) {
+            qrScannerRef.current.reset()
         }
 
         // Reset component state
@@ -369,8 +333,8 @@ export default function ScanPage() {
         setParsedData(testParsedData)
 
         // Update scanning service state
-        if (qrScanningServiceRef.current) {
-            qrScanningServiceRef.current.reset()
+        if (qrScannerRef.current) {
+            qrScannerRef.current.reset()
             // Simulate scan result for testing
             setScanningState(prev => ({
                 ...prev,
@@ -485,169 +449,59 @@ export default function ScanPage() {
 
                             {/* QR Scanner */}
                             <div className="mb-4 sm:mb-6 md:mb-8 lg:mb-12">
-                                <div className="relative w-full max-w-[85vw] sm:max-w-sm md:max-w-md mx-auto">
-                                    {/* Scanner Frame */}
-                                    <div className="relative bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-lg border-2 border-emerald-200 p-3 sm:p-4 md:p-6 lg:p-8 overflow-hidden">
-                                        {/* Video Element for Camera Feed */}
-                                        <div className={`relative bg-slate-900 rounded-lg overflow-hidden ${scanningState.isScanning ? 'border-2 border-emerald-300' : 'border-0'}`}>
-                                            <video
-                                                ref={videoRef}
-                                                className={`w-full h-48 sm:h-56 md:h-64 lg:h-80 object-cover ${!scanningState.isScanning ? 'hidden' : ''}`}
-                                                playsInline
-                                                muted
-                                            />
+                                <QrScanner
+                                    ref={qrScannerRef}
+                                    isWalletConnected={isWalletConnected}
+                                    onConnectWallet={login}
+                                    onQrDetected={useCallback((qrData: string, parsedData: ParsedQrResponse) => {
+                                        console.log('QR Code detected:', qrData)
+                                        setParsedData(parsedData)
 
-                                            {/* Placeholder when not scanning */}
-                                            {!scanningState.isScanning && !scanningState.scanResult && !scanningState.error && (
-                                                <div className="w-full h-48 sm:h-56 md:h-64 lg:h-80 flex items-center justify-center bg-slate-50">
-                                                    <div className="text-center p-4">
-                                                        {!isWalletConnected ? (
-                                                            <>
-                                                                <Wallet className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-blue-500 mx-auto mb-3 sm:mb-4" />
-                                                                <h3 className="text-base sm:text-lg md:text-xl font-semibold text-slate-700 mb-2">
-                                                                    Wallet Required
-                                                                </h3>
-                                                                <p className="text-xs sm:text-sm md:text-base text-slate-500 px-2">
-                                                                    Connect your wallet to start scanning QR codes
-                                                                </p>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Camera className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-slate-400 mx-auto mb-3 sm:mb-4" />
-                                                                <h3 className="text-base sm:text-lg md:text-xl font-semibold text-slate-700 mb-2">
-                                                                    Camera Ready
-                                                                </h3>
-                                                                <p className="text-xs sm:text-sm md:text-base text-slate-500 px-2">
-                                                                    Click start to begin scanning
-                                                                </p>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
+                                        // Log current beneficiary details state
+                                        console.log('Current beneficiaryDetails state:', beneficiaryDetails)
+                                        console.log('Parsed QR data UPI ID:', parsedData.data?.pa)
 
-                                            {/* Scan Result Display */}
-                                            {scanningState.scanResult && (
-                                                <div className="absolute inset-0 bg-white flex items-center justify-center p-4">
-                                                    <div className="w-full h-full">
-                                                        {scanningState.isLoading ? (
-                                                            <div className="text-center">
-                                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-                                                                <p className="text-slate-600">Processing QR data...</p>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="text-left text-sm">
-                                                                <p className="font-medium mb-2">QR Data:</p>
-                                                                <p className="text-slate-600 break-all">{scanningState.scanResult}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
+                                        // Check if this is a customer QR
+                                        if (parsedData.data && userAmount) {
+                                            handleCustomerPayout(parsedData.data.pa)
+                                        }
 
-                                            {/* Error Display */}
-                                            {scanningState.error && (
-                                                <div className="absolute inset-0 bg-red-50 flex items-center justify-center">
-                                                    <div className="text-center p-4">
-                                                        <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-600 mx-auto mb-4" />
-                                                        <h3 className="text-lg sm:text-xl font-semibold text-red-800 mb-2">
-                                                            Scanning Error
-                                                        </h3>
-                                                        <p className="text-sm sm:text-base text-red-700">
-                                                            {scanningState.error}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                        setShowModal(true)
+                                    }, [beneficiaryDetails, userAmount, handleCustomerPayout])}
+                                    onError={useCallback((error: string) => {
+                                        console.error('QR scanning error:', error)
+                                        // Error state is now managed by QrScanner component
+                                    }, [])}
+                                    onScanningStateChange={useCallback((state: ScanningState) => {
+                                        setScanningState(prevState => {
+                                            // Only update if state has actually changed to prevent unnecessary re-renders
+                                            if (
+                                                prevState.isScanning !== state.isScanning ||
+                                                prevState.hasPermission !== state.hasPermission ||
+                                                prevState.error !== state.error ||
+                                                prevState.scanResult !== state.scanResult ||
+                                                prevState.isLoading !== state.isLoading
+                                            ) {
+                                                return state
+                                            }
+                                            return prevState
+                                        })
+                                    }, [])}
+                                />
 
-                                        {/* Control Buttons */}
-                                        <div className="mt-3 sm:mt-4 flex gap-2 sm:gap-3 justify-center px-2">
-                                            {!scanningState.scanResult && !scanningState.error && (
-                                                <button
-                                                    onClick={isWalletConnected ? toggleScanning : login}
-                                                    disabled={scanningState.hasPermission === false}
-                                                    className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-2 rounded-full font-medium transition-all duration-200 text-sm sm:text-base touch-manipulation min-h-[44px] ${scanningState.isScanning
-                                                        ? 'bg-red-600 hover:bg-red-700 text-white'
-                                                        : !isWalletConnected
-                                                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                                            : scanningState.hasPermission === false
-                                                                ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                                                                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                                        } disabled:bg-slate-400 disabled:cursor-not-allowed`}
-                                                >
-                                                    {scanningState.isScanning ? (
-                                                        <>
-                                                            <Square className="w-4 h-4" />
-                                                            Stop
-                                                        </>
-                                                    ) : !isWalletConnected ? (
-                                                        <>
-                                                            <Wallet className="w-4 h-4" />
-                                                            Connect Wallet
-                                                        </>
-                                                    ) : scanningState.hasPermission === false ? (
-                                                        <>
-                                                            <Camera className="w-4 h-4" />
-                                                            Request Permission
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Play className="w-4 h-4" />
-                                                            Start Scan
-                                                        </>
-                                                    )}
-                                                </button>
-                                            )}
-
-                                            {(scanningState.scanResult || scanningState.error) && (
-                                                <button
-                                                    onClick={resetScan}
-                                                    className="flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-full font-medium transition-all duration-200 text-sm sm:text-base touch-manipulation min-h-[44px]"
-                                                >
-                                                    <QrCode className="w-4 h-4" />
-                                                    Scan Again
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {/* Permission Status */}
-                                        <div className="mt-4 text-center">
-                                            {scanningState.hasPermission === false && (
-                                                <div className="space-y-2">
-                                                    <p className="text-xs sm:text-sm text-red-600">
-                                                        Camera access denied. Please allow camera access to continue.
-                                                    </p>
-                                                </div>
-                                            )}
-                                            {scanningState.hasPermission === null && (
-                                                <p className="text-xs sm:text-sm text-slate-500">
-                                                    Camera access will be requested when you start scanning.
-                                                </p>
-                                            )}
-                                            {scanningState.hasPermission === true && (
-                                                <p className="text-xs sm:text-sm text-green-600">
-                                                    Camera access granted ✓
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        {/* Test Button for Development */}
-                                        <div className="mt-4 text-center">
-                                            <button
-                                                onClick={loadTestData}
-                                                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors text-sm mx-auto"
-                                                disabled={!isWalletConnected}
-                                            >
-                                                <QrCode className="w-4 h-4" />
-                                                Load Cashfree Beneficiary
-                                            </button>
-                                            <p className="text-xs text-slate-500 mt-2">
-                                                For development: Load verified Cashfree beneficiary with UPI ID
-                                            </p>
-                                        </div>
-                                    </div>
-
+                                {/* Test Button for Development */}
+                                <div className="mt-4 text-center">
+                                    <button
+                                        onClick={loadTestData}
+                                        className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors text-sm mx-auto"
+                                        disabled={!isWalletConnected}
+                                    >
+                                        <QrCode className="w-4 h-4" />
+                                        Load Cashfree Beneficiary
+                                    </button>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        For development: Load verified Cashfree beneficiary with UPI ID
+                                    </p>
                                 </div>
                             </div>
 

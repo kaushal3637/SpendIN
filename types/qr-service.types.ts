@@ -18,3 +18,18 @@ export interface QrScanningServiceConfig {
   onError: (error: string) => void;
   onStateChange: (state: Partial<ScanningState>) => void;
 }
+
+export interface QrScannerRef {
+  toggleScanning: () => Promise<void>;
+  reset: () => void;
+  getScanningState: () => ScanningState;
+}
+
+export interface QrScannerProps {
+  isWalletConnected: boolean;
+  onConnectWallet: () => void;
+  onQrDetected: (qrData: string, parsedData: ParsedQrResponse) => void;
+  onError: (error: string) => void;
+  onScanningStateChange?: (state: ScanningState) => void;
+  className?: string;
+}

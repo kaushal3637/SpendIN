@@ -266,8 +266,9 @@ export class QrScanningService {
    * Clean up resources
    */
   dispose(): void {
+    // Clear config first to prevent state updates during cleanup
+    this.config = null;
     this.stopScanning();
     this.videoElement = null;
-    this.config = null;
   }
 }
