@@ -14,6 +14,17 @@ import { ScanningState } from '@/types/qr-service.types'
 import QrScanner from '@/components/scan-route/services/QrScanner'
 import { QrScannerRef } from '@/types/qr-service.types'
 import { checkUSDCBalance } from '@/lib/helpers/usdc-balance-checker'
+import {
+    isCurrencySupported,
+    isAmountValid,
+    getCurrencyError,
+    getAmountError,
+    handleCustomerPayout,
+    convertInrToUsdc,
+    updateTransactionWithPayment,
+    loadTestData,
+    resetScanState
+} from '@/lib/helpers/api-data-validator'
 
 
 export default function ScanPage() {
@@ -93,43 +104,10 @@ export default function ScanPage() {
     const qrScannerRef = useRef<QrScannerRef>(null)
 
     // Function to check if scanned QR belongs to a test customer and trigger payout
-    const handleCustomerPayout = useCallback(async (upiId: string) => {
-        try {
-            setPayoutResult(null)
-
-            // Extract customer identifier from UPI ID (for test customers)
-            // This is a simplified approach - in production you'd have a proper lookup
-            const customerIdentifier = upiId.split('@')[0]
-
-            // Try to find customer by UPI ID or name
-            const response = await fetch('/api/payouts/initiate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    customerId: customerIdentifier, // This might need adjustment based on your customer ID format
-                    amount: parseFloat(userAmount),
-                    remarks: `Auto payout triggered by QR scan - ${upiId}`,
-                }),
-            })
-
-            const data = await response.json()
-            setPayoutResult(data)
-
-            if (data.success) {
-                console.log('Auto payout successful:', data.payout.transferId)
-            } else {
-                console.error('Auto payout failed:', data.error || data.payout.message)
-            }
-
-        } catch (error) {
-            console.error('Error processing auto payout:', error)
-            setPayoutResult({
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error'
-            })
-        }
+    const handleCustomerPayoutWrapper = useCallback(async (upiId: string) => {
+        setPayoutResult(null)
+        const result = await handleCustomerPayout(upiId, userAmount)
+        setPayoutResult(result)
     }, [userAmount])
 
     // Initialize component
@@ -144,86 +122,41 @@ export default function ScanPage() {
     }, [parsedData, userAmount])
 
     // QR Service Methods
-    const resetScan = () => {
-        // Reset QR scanner component
-        if (qrScannerRef.current) {
-            qrScannerRef.current.reset()
-        }
-
-        // Reset component state
-        setParsedData(null)
-        setShowModal(false)
-        setUserAmount('')
-        setConversionResult(null)
-        setShowConversionModal(false)
-        setShowReason(false)
-        setPayoutResult(null)
-        setBeneficiaryDetails(null)
-        setShowConfetti(false)
-        setPaymentResult(null)
-        setStoredTransactionId(null)
-    }
+    const resetScan = useCallback(() => {
+        resetScanState({
+            setParsedData,
+            setShowModal,
+            setUserAmount,
+            setConversionResult,
+            setShowConversionModal,
+            setShowReason,
+            setPayoutResult,
+            setBeneficiaryDetails,
+            setShowConfetti,
+            setPaymentResult,
+            setStoredTransactionId,
+            qrScannerRef
+        })
+    }, [])
 
     // Function to update transaction with payment details
     // Updated to include chain validation and use chain ID from WalletContext
-    const updateTransactionWithPayment = async (
+    const updateTransactionWithPaymentWrapper = async (
         transactionId: string,
         txnHash: string,
         isSuccess: boolean,
         walletAddress?: string
     ) => {
-        try {
-            const response = await fetch('/api/update-upi-transaction', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    transactionId,
-                    txnHash,
-                    isSuccess,
-                    walletAddress
-                }),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to update transaction')
-            }
-
-            const result = await response.json()
-            console.log('Transaction updated successfully:', result)
-            return true
-        } catch (error) {
-            console.error('Error updating transaction:', error)
-            return false
-        }
+        return await updateTransactionWithPayment(transactionId, txnHash, isSuccess, walletAddress)
     }
 
 
-    const convertInrToUsdc = async (inrAmount: number) => {
+    const convertInrToUsdcWrapper = async (inrAmount: number) => {
         try {
             setIsConverting(true)
             setConversionResult(null)
 
-            const response = await fetch('/api/conversion/inr-to-usd', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    amount: inrAmount,
-                    chainId: 421614 // Default to Arbitrum Sepolia, can be made dynamic later
-                }),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to convert currency')
-            }
-
-            const data = await response.json()
-
+            const data = await convertInrToUsdc(inrAmount)
             setConversionResult(data)
             return data
         } catch (err) {
@@ -263,90 +196,32 @@ export default function ScanPage() {
     }, [wallet, conversionResult, connectedChain])
 
     // Function to load test data for development
-    const loadTestData = async () => {
-        console.log('Loading test data...')
+    const loadTestDataWrapper = async () => {
+        try {
+            const { beneficiary, testParsedData } = await loadTestData()
 
-        // Use the beneficiary with UPI ID from your dashboard
-        const beneficiaryId = '1492218328b3o0m39jsCfkjeyFVBKdreP1'
+            // Store beneficiary details for display
+            setBeneficiaryDetails(beneficiary || null)
+            setParsedData(testParsedData)
 
-        // Fetch beneficiary details from Cashfree
-        const response = await fetch(`/api/cashfree-beneficiary/${beneficiaryId}`)
-        if (!response.ok) {
-            throw new Error('Failed to fetch beneficiary details')
-        }
-
-        const beneficiaryData = await response.json()
-        const beneficiary = beneficiaryData.beneficiary
-
-        // Store beneficiary details for display
-        setBeneficiaryDetails(beneficiary)
-
-        // Get UPI ID from beneficiary instrument details
-        const upiId = beneficiary?.beneficiary_instrument_details?.vpa || 'success@upi'
-
-        // Create test QR data using the beneficiary's UPI ID
-        const testParsedData: ParsedQrResponse = {
-            qrType: 'dynamic_merchant',
-            isValid: true,
-            data: {
-                pa: upiId,
-                pn: beneficiary?.beneficiary_name || 'Test Bene',
-                am: '10.00', // Test amount
-                cu: 'INR',
-                mc: '1234',
-                tr: `TXN${Date.now()}`
+            // Update scanning service state
+            if (qrScannerRef.current) {
+                qrScannerRef.current.reset()
+                // Simulate scan result for testing
+                setScanningState(prev => ({
+                    ...prev,
+                    scanResult: 'upi://pay?pa=merchant@paytm&pn=Test%20Merchant%20Store&am=850.00&cu=INR&mc=1234&tr=TXN123456789',
+                    error: null
+                }))
             }
+
+            setIsTestMode(true)
+            setShowModal(true)
+        } catch (error) {
+            console.error('Error loading test data:', error)
         }
-
-        // Generate QR string
-        const qrString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(testParsedData.data.pn || 'Test Bene')}&am=${testParsedData.data.am}&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${testParsedData.data.tr}` // eslint-disable-line @typescript-eslint/no-unused-vars
-
-        setParsedData(testParsedData)
-
-        // Update scanning service state
-        if (qrScannerRef.current) {
-            qrScannerRef.current.reset()
-            // Simulate scan result for testing
-            setScanningState(prev => ({
-                ...prev,
-                scanResult: 'upi://pay?pa=merchant@paytm&pn=Test%20Merchant%20Store&am=850.00&cu=INR&mc=1234&tr=TXN123456789',
-                error: null
-            }))
-        }
-
-        setIsTestMode(true)
-        setShowModal(true)
     }
 
-    // Check if currency is supported (only INR allowed)
-    const isCurrencySupported = (currency?: string): boolean => {
-        const normalizedCurrency = (currency || 'INR').toUpperCase()
-        return normalizedCurrency === 'INR'
-    }
-
-    // Check if amount is valid (max 25000)
-    const isAmountValid = (amount?: string): boolean => {
-        if (!amount) return false
-        const numAmount = parseFloat(amount)
-        return !isNaN(numAmount) && numAmount > 0 && numAmount <= 25000
-    }
-
-    // Get currency validation error message
-    const getCurrencyError = (currency?: string): string | null => {
-        if (!isCurrencySupported(currency)) {
-            return `Unsupported currency: ${currency || 'Unknown'}. This platform only supports INR (Indian Rupees).`
-        }
-        return null
-    }
-
-    // Get amount validation error message
-    const getAmountError = (amount?: string): string | null => {
-        if (!amount) return 'Amount is required'
-        const numAmount = parseFloat(amount)
-        if (isNaN(numAmount) || numAmount <= 0) return 'Amount must be a positive number'
-        if (numAmount > 25000) return 'Amount cannot exceed ₹25,000'
-        return null
-    }
 
     // Check USDC balance when conversion modal opens
     useEffect(() => {
@@ -434,11 +309,11 @@ export default function ScanPage() {
 
                                         // Check if this is a customer QR
                                         if (parsedData.data && userAmount) {
-                                            handleCustomerPayout(parsedData.data.pa)
+                                            handleCustomerPayoutWrapper(parsedData.data.pa)
                                         }
 
                                         setShowModal(true)
-                                    }, [beneficiaryDetails, userAmount, handleCustomerPayout])}
+                                    }, [beneficiaryDetails, userAmount, handleCustomerPayoutWrapper])}
                                     onError={useCallback((error: string) => {
                                         console.error('QR scanning error:', error)
                                         // Error state is now managed by QrScanner component
@@ -463,7 +338,7 @@ export default function ScanPage() {
                                 {/* Test Button for Development */}
                                 <div className="mt-4 text-center">
                                     <button
-                                        onClick={loadTestData}
+                                        onClick={loadTestDataWrapper}
                                         className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors text-sm mx-auto"
                                         disabled={!isWalletConnected}
                                     >
@@ -829,7 +704,7 @@ export default function ScanPage() {
                                     onClick={async () => {
                                         try {
                                             const finalAmount = parseFloat(parsedData!.data!.am || userAmount)
-                                            await convertInrToUsdc(finalAmount)
+                                            await convertInrToUsdcWrapper(finalAmount)
                                             setShowModal(false)
                                             setShowReason(false) // Reset to collapsed state
                                             setShowConversionModal(true)
@@ -1171,7 +1046,7 @@ export default function ScanPage() {
                                         // Update transaction in database with payment results
                                         if (storeResult.transactionId) {
                                             const walletAddress = await signer.getAddress()
-                                            await updateTransactionWithPayment(
+                                            await updateTransactionWithPaymentWrapper(
                                                 storeResult.transactionId,
                                                 txHash || '',
                                                 wasSuccess,
