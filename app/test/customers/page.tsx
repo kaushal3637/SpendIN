@@ -18,6 +18,16 @@ export default function BeneficiaryManagementPage() {
   const [addResult, setAddResult] = useState<{
     success: boolean;
     message: string;
+    cashfree?: {
+      success: boolean;
+      message: string;
+      beneficiary?: { beneficiary_id: string; beneficiary_status?: string };
+    };
+    localStorage?: {
+      success: boolean;
+      message: string;
+      customerId?: string;
+    };
     beneficiary?: { beneficiary_id: string; beneficiary_status?: string };
     error?: string;
   } | null>(null)
@@ -81,8 +91,10 @@ export default function BeneficiaryManagementPage() {
 
       setAddResult({
         success: true,
-        message: `Beneficiary added successfully!\nBeneficiary ID: ${data.beneficiary?.beneficiary_id}\nStatus: ${data.beneficiary?.beneficiary_status || 'Success'}`,
-        beneficiary: data.beneficiary
+        message: "Beneficiary processing completed",
+        cashfree: data.cashfree,
+        localStorage: data.localStorage,
+        beneficiary: data.cashfree?.beneficiary
       })
 
       // Reset form on success
@@ -289,24 +301,91 @@ export default function BeneficiaryManagementPage() {
           <div className="space-y-3 sm:space-y-4 md:space-y-6">
             {/* Results Display */}
             {addResult && (
-              <div className={`rounded-xl shadow-lg border p-3 sm:p-4 md:p-6 ${addResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                <div className="flex items-start">
-                  {addResult.success ? (
-                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-red-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
-                  )}
-                  <div className="flex-1">
-                    <h3 className={`text-sm sm:text-base md:text-lg font-semibold mb-2 ${addResult.success ? 'text-green-900' : 'text-red-900'}`}>
-                      {addResult.success ? 'Beneficiary Added Successfully!' : 'Error Adding Beneficiary'}
-                    </h3>
-                  </div>
+              <div className="rounded-xl shadow-lg border border-slate-200 p-3 sm:p-4 md:p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-900">
+                    Beneficiary Processing Results
+                  </h3>
                   <button
                     onClick={() => setAddResult(null)}
                     className="text-slate-400 hover:text-slate-600 transition-colors p-1 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                   >
                     <X className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
+                </div>
+
+                {/* Cashfree Results */}
+                {addResult.cashfree && (
+                  <div className={`mb-4 rounded-lg p-3 sm:p-4 ${addResult.cashfree.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                    <div className="flex items-start">
+                      {addResult.cashfree.success ? (
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
+                      )}
+                      <div className="flex-1">
+                        <h4 className="text-sm sm:text-base font-semibold mb-1 text-slate-900">
+                          Cashfree Registration
+                        </h4>
+                        <p className="text-xs sm:text-sm text-slate-700 mb-2">
+                          {addResult.cashfree.message}
+                        </p>
+                        {addResult.cashfree.beneficiary && (
+                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                            <strong>ID:</strong> {addResult.cashfree.beneficiary.beneficiary_id}
+                            {addResult.cashfree.beneficiary.beneficiary_status && (
+                              <span className="ml-2">
+                                <strong>Status:</strong> {addResult.cashfree.beneficiary.beneficiary_status}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Local Storage Results */}
+                {addResult.localStorage && (
+                  <div className={`rounded-lg p-3 sm:p-4 ${addResult.localStorage.success ? 'bg-blue-50 border border-blue-200' : 'bg-orange-50 border border-orange-200'}`}>
+                    <div className="flex items-start">
+                      {addResult.localStorage.success ? (
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
+                      )}
+                      <div className="flex-1">
+                        <h4 className="text-sm sm:text-base font-semibold mb-1 text-slate-900">
+                          Local Database Storage
+                        </h4>
+                        <p className="text-xs sm:text-sm text-slate-700 mb-2">
+                          {addResult.localStorage.message}
+                        </p>
+                        {addResult.localStorage.customerId && (
+                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                            <strong>Customer ID:</strong> {addResult.localStorage.customerId}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Overall Status */}
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="flex items-center justify-center">
+                    {addResult.success ? (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                        <span className="text-sm font-medium text-green-800">Processing Completed Successfully</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+                        <span className="text-sm font-medium text-red-800">Processing Failed</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -362,6 +441,19 @@ export default function BeneficiaryManagementPage() {
                     <span className="text-emerald-700 font-bold text-xs">4</span>
                   </div>
                   <div className="flex-1">
+                    <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Data Storage</h4>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                      Beneficiary data is automatically stored in your local database for future reference.
+                      You can track all beneficiaries and their transaction history through the system.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-emerald-100 rounded-full flex items-center justify-center mr-2 sm:mr-3 md:mr-4 mt-0.5 flex-shrink-0">
+                    <span className="text-emerald-700 font-bold text-xs">5</span>
+                  </div>
+                  <div className="flex-1">
                     <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Use in Payouts</h4>
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                       Once successfully registered, use the Beneficiary ID in your payout API calls.
@@ -396,6 +488,16 @@ export default function BeneficiaryManagementPage() {
                   <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
                     <strong>Bank Details Validation:</strong> Ensure bank account numbers and IFSC codes are accurate.
                     Incorrect details may cause payout failures.
+                  </p>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 bg-amber-200 rounded-full flex items-center justify-center mr-2 sm:mr-3 mt-0.5 flex-shrink-0">
+                    <span className="text-amber-800 font-bold text-xs">!</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
+                    <strong>Dual Storage System:</strong> Beneficiaries are stored both in Cashfree&apos;s system and your local database.
+                    This ensures you have complete control over beneficiary data and transaction history.
                   </p>
                 </div>
 
