@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from "@/config/constant";
 import { prepareUSDCMetaTransaction } from "@/lib/abstractionkit";
 import { isValidChainId, getChainInfo } from "@/lib/chain-validation";
-import { PaymentProcessingOptions } from "@/types/payment-hook.types";
+import { PaymentProcessingOptions } from "@/types/hooks/usePaymentProcessing";
 
 export function usePaymentProcessing({
   parsedData,

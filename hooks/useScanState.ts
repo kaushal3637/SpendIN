@@ -7,7 +7,7 @@ import {
   BeneficiaryDetails,
 } from "@/types/api-validator.types";
 import { ScanningState } from "@/types/qr-service.types";
-import { ScanState, ScanActions } from "@/types/scanstate-hook.types";
+import { ScanState, ScanActions } from "@/types/hooks/useScanState";
 
 const initialScanState: ScanState = {
   showModal: false,

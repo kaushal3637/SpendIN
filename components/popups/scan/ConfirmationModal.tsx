@@ -3,7 +3,7 @@
 import React from 'react'
 import { QrCode, Wallet, CheckCircle, AlertCircle, X, Check, Banknote } from 'lucide-react'
 import { isCurrencySupported, isAmountValid, getCurrencyError, getAmountError } from '@/lib/helpers/api-data-validator'
-import { ConfirmationModalProps } from '@/types/confirmation-popup.types'
+import { ConfirmationModalProps } from '@/types/popups/ConfirmationModal'
 
 export default function ConfirmationModal({
   isOpen,

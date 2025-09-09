@@ -20,9 +20,9 @@ import {
     updateTransactionWithPayment,
     loadTestData
 } from '@/lib/helpers/api-data-validator'
-import ConfirmationModal from '@/components/scan-route/pop-ups/ConfirmationModal'
-import ConversionModal from '@/components/scan-route/pop-ups/ConversionModal'
-import { useScanState } from '@/components/scan-route/hooks/useScanState'
+import ConfirmationModal from '@/components/popups/scan/ConfirmationModal'
+import ConversionModal from '@/components/popups/scan/ConversionModal'
+import { useScanState } from '@/hooks/useScanState'
 
 
 export default function ScanPage() {
@@ -161,7 +161,7 @@ export default function ScanPage() {
         try {
             const { beneficiary, testParsedData } = await loadTestData()
 
-        // Store beneficiary details for display
+            // Store beneficiary details for display
             setBeneficiaryDetails(beneficiary || null)
             setParsedData(testParsedData)
 
@@ -178,8 +178,8 @@ export default function ScanPage() {
                 })
             }
 
-        setIsTestMode(true)
-        setShowModal(true)
+            setIsTestMode(true)
+            setShowModal(true)
         } catch (error) {
             console.error('Error loading test data:', error)
         }
@@ -286,19 +286,19 @@ export default function ScanPage() {
                                     }, [updateScanningState])}
                                 />
 
-                                        {/* Test Button for Development */}
-                                        <div className="mt-4 text-center">
-                                            <button
+                                {/* Test Button for Development */}
+                                <div className="mt-4 text-center">
+                                    <button
                                         onClick={loadTestDataWrapper}
-                                                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors text-sm mx-auto"
-                                                disabled={!isWalletConnected}
-                                            >
-                                                <QrCode className="w-4 h-4" />
-                                                Load Cashfree Beneficiary
-                                            </button>
-                                            <p className="text-xs text-slate-500 mt-2">
-                                                For development: Load verified Cashfree beneficiary with UPI ID
-                                            </p>
+                                        className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors text-sm mx-auto"
+                                        disabled={!isWalletConnected}
+                                    >
+                                        <QrCode className="w-4 h-4" />
+                                        Load Cashfree Beneficiary
+                                    </button>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        For development: Load verified Cashfree beneficiary with UPI ID
+                                    </p>
                                 </div>
                             </div>
 
@@ -428,13 +428,13 @@ export default function ScanPage() {
                     onConfirm={async (finalAmount: number) => {
                         try {
                             await convertInrToUsdcWrapper(finalAmount)
-                                            setShowModal(false)
-                                            setShowConversionModal(true)
-                                        } catch (err) {
-                                            console.error('Conversion failed:', err)
-                                            // Could show error toast here
-                                        }
-                                    }}
+                            setShowModal(false)
+                            setShowConversionModal(true)
+                        } catch (err) {
+                            console.error('Conversion failed:', err)
+                            // Could show error toast here
+                        }
+                    }}
                     parsedData={parsedData}
                     userAmount={userAmount}
                     isConverting={isConverting}
