@@ -149,6 +149,24 @@ CustomerSchema.methods.generateUpiQrData = function(amount?: number) {
   return baseData;
 };
 
+// Define the beneficiary details interface
+interface BeneficiaryDetails {
+  beneId: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address1: string;
+  city: string;
+  state: string;
+  pincode: string;
+  bankAccount: {
+    accountNumber: string;
+    ifsc: string;
+    accountHolderName: string;
+  };
+  vpa: string;
+}
+
 // Define the interface for the Customer document
 interface ICustomer extends mongoose.Document {
   customerId: string;
@@ -169,7 +187,7 @@ interface ICustomer extends mongoose.Document {
   createdAt: Date;
   updatedAt: Date;
   lastPaymentAt?: Date;
-  getBeneficiaryDetails(): any;
+  getBeneficiaryDetails(): BeneficiaryDetails;
   generateUpiQrData(amount?: number): string;
 }
 
