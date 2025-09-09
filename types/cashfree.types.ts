@@ -88,24 +88,66 @@ export interface CashfreeTransferStatusResponse {
 }
 
 export interface CashfreeBeneficiaryDetailsResponse {
+  beneficiary_id?: string;
+  beneficiary_name?: string;
+  beneficiary_status?: string;
+  added_on?: string;
+  beneficiary_instrument_details?: {
+    bank_account_number?: string;
+    bank_ifsc?: string;
+    vpa?: string;
+  };
+  beneficiary_contact_details?: {
+    beneficiary_email?: string;
+    beneficiary_phone?: string;
+    beneficiary_country_code?: string;
+    beneficiary_address?: string;
+    beneficiary_city?: string;
+    beneficiary_state?: string;
+    beneficiary_postal_code?: string;
+  };
+}
+
+export interface CashfreeQrCodeRequest {
+  amount?: number;
+  purpose?: string;
+  remarks?: string;
+  expiryDate?: string;
+  customerId?: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+}
+
+export interface CashfreeQrCodeResponse {
   status: string;
   message: string;
   data?: {
-    beneId: string;
-    name: string;
-    email: string;
-    phone?: string;
-    address1?: string;
-    city?: string;
-    state?: string;
-    pincode?: string;
+    qrCodeId: string;
+    qrCodeUrl: string;
+    qrCodeString: string;
+    amount?: number;
+    purpose?: string;
+    expiryDate?: string;
+    createdAt: string;
+    upiString: string;
+  };
+}
+
+export interface CashfreeQrCodeDetailsResponse {
+  status: string;
+  message: string;
+  data?: {
+    qrCodeId: string;
+    qrCodeUrl: string;
+    qrCodeString: string;
+    amount?: number;
+    purpose?: string;
+    expiryDate?: string;
     status: string;
-    addedOn: string;
-    bankAccount?: {
-      accountNumber: string;
-      ifsc: string;
-      accountHolderName: string;
-    };
-    vpa?: string;
+    createdAt: string;
+    upiString: string;
+    customerId?: string;
+    customerName?: string;
   };
 }

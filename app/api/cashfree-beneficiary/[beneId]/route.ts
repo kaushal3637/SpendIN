@@ -24,7 +24,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      beneficiary: beneficiaryDetails.data,
+      beneficiary: beneficiaryDetails,
     });
 
   } catch (error) {
