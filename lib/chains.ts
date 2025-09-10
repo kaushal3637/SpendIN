@@ -49,9 +49,32 @@ export const chainImages = {
 };
 
 export const getChainById = (chainId: number) => {
-  return chains.find(chain => chain.id === chainId);
+  return chains.find((chain) => chain.id === chainId);
 };
 
 export const getChainImage = (chainId: number) => {
-  return chainImages[chainId as keyof typeof chainImages] || "/default-chain.png";
+  return (
+    chainImages[chainId as keyof typeof chainImages] || "/default-chain.png"
+  );
+};
+
+// Helper function to get blockchain explorer URL
+export const getExplorerUrl = (
+  chainId: number | null | undefined,
+  txHash: string
+): string => {
+  if (!chainId) return "#";
+
+  switch (chainId) {
+    case 1: // Ethereum Mainnet
+      return `https://etherscan.io/tx/${txHash}`;
+    case 11155111: // Sepolia Testnet
+      return `https://sepolia.etherscan.io/tx/${txHash}`;
+    case 42161: // Arbitrum One
+      return `https://arbiscan.io/tx/${txHash}`;
+    case 421614: // Arbitrum Sepolia
+      return `https://sepolia.arbiscan.io/tx/${txHash}`;
+    default:
+      return "#";
+  }
 };

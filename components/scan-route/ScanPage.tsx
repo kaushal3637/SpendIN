@@ -14,16 +14,11 @@ import { ScanningState } from '@/types/qr-service.types'
 import QrScanner from '@/components/scan-route/services/QrScanner'
 import { QrScannerRef } from '@/types/qr-service.types'
 import { checkUSDCBalance } from '@/lib/helpers/usdc-balance-checker'
-import {
-    handleCustomerPayout,
-    convertInrToUsdc,
-    updateTransactionWithPayment,
-    loadTestData
-} from '@/lib/helpers/api-data-validator'
+import { convertInrToUsdc, loadTestData } from '@/lib/helpers/api-data-validator'
 import ConfirmationModal from '@/components/popups/scan/ConfirmationModal'
 import ConversionModal from '@/components/popups/scan/ConversionModal'
 import { useScanState } from '@/hooks/useScanState'
-
+import { getExplorerUrl } from '@/lib/chains'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -49,7 +44,6 @@ export default function ScanPage() {
         userAmount,
         conversionResult,
         paymentResult,
-        payoutResult,
         beneficiaryDetails,
         isConverting,
         isProcessingPayment,
@@ -63,9 +57,7 @@ export default function ScanPage() {
         setParsedData,
         setConversionResult,
         setPaymentResult,
-        setPayoutResult,
         setBeneficiaryDetails,
-        setStoredTransactionId,
         setIsConverting,
         setIsProcessingPayment,
         setPaymentStep,
@@ -76,13 +68,6 @@ export default function ScanPage() {
     } = scanState
 
     const qrScannerRef = useRef<QrScannerRef>(null)
-
-    // Function to check if scanned QR belongs to a test customer and trigger payout
-    const handleCustomerPayoutWrapper = useCallback(async (upiId: string) => {
-        setPayoutResult(null)
-        const result = await handleCustomerPayout(upiId, userAmount)
-        setPayoutResult(result)
-    }, [userAmount, setPayoutResult])
 
     // Initialize component
     useEffect(() => {
@@ -99,18 +84,6 @@ export default function ScanPage() {
     const resetScan = useCallback(() => {
         resetScanState()
     }, [resetScanState])
-
-    // Function to update transaction with payment details
-    // Updated to include chain validation and use chain ID from WalletContext
-    const updateTransactionWithPaymentWrapper = async (
-        transactionId: string,
-        txnHash: string,
-        isSuccess: boolean,
-        walletAddress?: string
-    ) => {
-        return await updateTransactionWithPayment(transactionId, txnHash, isSuccess, walletAddress)
-    }
-
 
     const convertInrToUsdcWrapper = async (inrAmount: number) => {
         try {
@@ -270,13 +243,8 @@ export default function ScanPage() {
                                         console.log('Current beneficiaryDetails state:', beneficiaryDetails)
                                         console.log('Parsed QR data UPI ID:', parsedData.data?.pa)
 
-                                        // Check if this is a customer QR
-                                        if (parsedData.data && userAmount) {
-                                            handleCustomerPayoutWrapper(parsedData.data.pa)
-                                        }
-
                                         setShowModal(true)
-                                    }, [beneficiaryDetails, userAmount, handleCustomerPayoutWrapper, setParsedData, setShowModal])}
+                                    }, [setParsedData, setShowModal, beneficiaryDetails])}
                                     onError={useCallback((error: string) => {
                                         console.error('QR scanning error:', error)
                                         // Error state is now managed by QrScanner component
@@ -302,48 +270,6 @@ export default function ScanPage() {
                                 </div>
                             </div>
 
-                            {/* Payout Status */}
-                            {payoutResult && (
-                                <div className={`mb-4 sm:mb-6 bg-white/80 backdrop-blur-sm rounded-lg sm:rounded-xl border p-3 sm:p-4 mx-2 sm:mx-0 ${payoutResult.success ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'
-                                    }`}>
-                                    <div className="flex items-center justify-center gap-3 mb-2">
-                                        {payoutResult.success ? (
-                                            <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                                        ) : (
-                                            <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-                                        )}
-                                        <h3 className={`text-base sm:text-lg font-semibold ${payoutResult.success ? 'text-green-900' : 'text-red-900'
-                                            }`}>
-                                            {payoutResult.success ? 'Auto Payout Successful!' : 'Auto Payout Failed'}
-                                        </h3>
-                                    </div>
-                                    <div className="text-center space-y-1">
-                                        {payoutResult.payout && (
-                                            <>
-                                                <p className={`text-sm ${payoutResult.success ? 'text-green-700' : 'text-red-700'}`}>
-                                                    {payoutResult.payout.message}
-                                                </p>
-                                                {payoutResult.payout.transferId && (
-                                                    <p className="text-xs text-gray-600 font-mono">
-                                                        Transfer ID: {payoutResult.payout.transferId}
-                                                    </p>
-                                                )}
-                                                {payoutResult.payout.amount && (
-                                                    <p className="text-sm font-medium text-gray-900">
-                                                        Amount: ₹{payoutResult.payout.amount}
-                                                    </p>
-                                                )}
-                                            </>
-                                        )}
-                                        {payoutResult.error && (
-                                            <p className="text-sm text-red-700">
-                                                {payoutResult.error}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Payment Success Message */}
                             {paymentResult?.success && !showConversionModal && (
                                 <div className="mb-4 sm:mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg sm:rounded-xl p-4 mx-2 sm:mx-0 shadow-lg">
@@ -355,11 +281,36 @@ export default function ScanPage() {
                                     </div>
                                     <div className="text-center space-y-2">
                                         <p className="text-green-800 font-medium">
-                                            Your payment has been processed and INR has been sent to the merchant.
+                                            Your payment has been processed successfully!
                                         </p>
                                         {paymentResult.transactionHash && (
-                                            <p className="text-xs text-green-700 font-mono bg-green-100 px-2 py-1 rounded">
-                                                TX: {paymentResult.transactionHash.substring(0, 10)}...{paymentResult.transactionHash.substring(paymentResult.transactionHash.length - 8)}
+                                            <div className="text-center">
+                                                <p className="text-xs text-green-700 font-mono bg-green-100 px-2 py-1 rounded inline-block">
+                                                    USDC TX: {paymentResult.transactionHash.substring(0, 10)}...{paymentResult.transactionHash.substring(paymentResult.transactionHash.length - 8)}
+                                                </p>
+                                                <a
+                                                    href={getExplorerUrl(connectedChain, paymentResult.transactionHash)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-block ml-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                                                >
+                                                    🔗 View on Explorer
+                                                </a>
+                                            </div>
+                                        )}
+                                        {paymentResult.upiPaymentId && (
+                                            <div className="mt-2 text-center">
+                                                <p className="text-sm text-green-700">
+                                                    INR payout: {paymentResult.upiPaymentStatus === 'SUCCESS' ? '✅ Completed' : paymentResult.upiPaymentStatus === 'PENDING' ? '⏳ Processing' : '❌ ' + paymentResult.upiPaymentStatus}
+                                                </p>
+                                                <p className="text-xs text-green-700 font-mono bg-green-100 px-2 py-1 rounded mt-1">
+                                                    Transfer ID: {paymentResult.upiPaymentId}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {paymentResult.upiPayoutDetails && (
+                                            <p className="text-xs text-green-700 mt-1">
+                                                Amount: ₹{paymentResult.upiPayoutDetails.amount}
                                             </p>
                                         )}
                                         <button
@@ -384,7 +335,7 @@ export default function ScanPage() {
                                         </div>
                                         {userAmount && (
                                             <p className="text-sm text-slate-600 mt-2">
-                                                Auto payout {payoutResult ? (payoutResult.success ? 'completed' : 'failed') : 'processing'}...
+                                                Ready to process payment...
                                             </p>
                                         )}
                                     </>
@@ -455,22 +406,10 @@ export default function ScanPage() {
                 onPay={async () => {
                     try {
                         setIsProcessingPayment(true)
-                        setPaymentStep('Initiating payment...')
+                        setPaymentStep('Processing payment...')
                         setPaymentResult(null)
 
-                        // Check USDC balance before proceeding
-                        const hasSufficientBalance = await checkUSDCBalanceLocal(conversionResult!.totalUsdcAmount)
-
-                        if (!hasSufficientBalance) {
-                            setPaymentResult({
-                                success: false,
-                                error: 'Insufficient USDC balance',
-                                status: 'failed'
-                            })
-                            return
-                        }
-
-                        // Validate chain ID before proceeding
+                        // Validate chain ID
                         if (!connectedChain) {
                             throw new Error('No connected chain found. Please ensure your wallet is connected to a supported network.')
                         }
@@ -480,168 +419,82 @@ export default function ScanPage() {
                             throw new Error(`Unsupported network: ${chainInfo?.name || 'Unknown'} (Chain ID: ${connectedChain}). Please switch to a supported network.`)
                         }
 
-                        // Store transaction in database first
-                        const finalAmount = parsedData!.data.am || userAmount
-                        const storeTransactionData = {
-                            upiId: parsedData!.data.pa,
-                            merchantName: parsedData!.data.pn || 'Unknown Merchant',
-                            totalUsdToPay: conversionResult!.totalUsdcAmount,
-                            inrAmount: finalAmount,
-                            walletAddress: undefined, // Will be updated after payment
-                            txnHash: undefined, // Will be updated after payment
-                            chainId: connectedChain, // Include validated chain ID
-                            isSuccess: false // Default to false, will be updated after payment
-                        }
-
-                        console.log('Storing transaction in database with chain validation...')
-                        console.log('Chain ID:', connectedChain)
-
-                        const storeResponse = await fetch('/api/store-upi-transaction', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(storeTransactionData),
-                        })
-
-                        if (!storeResponse.ok) {
-                            const errorData = await storeResponse.json()
-                            console.error('Store transaction error:', errorData)
-
-                            // Handle specific chain validation errors
-                            if (errorData.validChains) {
-                                const validChains = (errorData.validChains as Array<{ name: string }>).map((c) => c.name).join(', ')
-                                throw new Error(`Chain validation failed. Supported networks: ${validChains}`)
-                            }
-
-                            throw new Error(errorData.error || 'Failed to store transaction')
-                        }
-
-                        const storeResult = await storeResponse.json()
-                        console.log('Transaction stored successfully:', storeResult)
-                        console.log('Transaction ID:', storeResult.transactionId)
-
-                        // Store the transaction ID for future updates
-                        if (storeResult.transactionId) {
-                            setStoredTransactionId(storeResult.transactionId)
-                        }
-
-                        // Use the validated chain ID from wallet context
-                        const chainId = connectedChain!
-
-                        // Step 1: Proceed with EIP-7702 transaction
-                        console.log('Step 1: Proceeding with EIP-7702 transaction...')
-                        setPaymentStep('Processing blockchain transaction...')
-
-                        // Use new client-side flow with user's wallet
+                        // Prepare USDC meta transaction with user's wallet
                         const provider = await wallet!.getEthereumProvider()
                         const ethersProvider = new ethers.BrowserProvider(provider)
                         const signer = await ethersProvider.getSigner()
-                        const usdcAddress = USDC_CONTRACT_ADDRESSES[chainId as keyof typeof USDC_CONTRACT_ADDRESSES]
+                        const usdcAddress = USDC_CONTRACT_ADDRESSES[connectedChain as keyof typeof USDC_CONTRACT_ADDRESSES]
 
+                        // Prepare the meta transaction data (this will sign and prepare the transaction)
                         const prepared = await prepareUSDCMetaTransaction({
                             recipient: TREASURY_ADDRESS,
                             usdcAddress,
                             amountUsdc: conversionResult!.totalUsdcAmount.toString(),
                             userSigner: signer,
-                            chainId: chainId,
+                            chainId: connectedChain,
                             backendApiKey: process.env.NEXT_PUBLIC_BACKEND_API_KEY || "your-api-key-here",
                             backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001",
                             upiMerchantDetails: {
                                 pa: parsedData?.data?.pa || "merchant@upi",
                                 pn: parsedData?.data?.pn || "Merchant",
-                                am: (conversionResult!.totalUsdcAmount * 83).toFixed(2), // Convert USDC to INR
+                                am: (conversionResult!.inrAmount || userAmount).toString(),
                                 cu: "INR",
                                 mc: parsedData?.data?.mc || "1234",
                                 tr: parsedData?.data?.tr || `TXN_${Date.now()}`
                             }
                         })
 
+                        // Execute the USDC transaction directly on frontend
                         const receipt = await prepared.send()
                         const txHash = receipt?.transactionHash
                         const wasSuccess = !!(receipt?.success && txHash)
 
-                        setPaymentResult({
-                            success: wasSuccess,
-                            status: wasSuccess ? 'completed' : 'failed',
-                            transactionHash: txHash,
-                        })
-
-                        // Update transaction in database with payment results
-                        if (storeResult.transactionId) {
-                            const walletAddress = await signer.getAddress()
-                            await updateTransactionWithPaymentWrapper(
-                                storeResult.transactionId,
-                                txHash || '',
-                                wasSuccess,
-                                walletAddress
-                            )
+                        if (!wasSuccess) {
+                            throw new Error('USDC transaction failed')
                         }
 
-                        // Step 2: Initiate Cashfree payout to beneficiary
-                        console.log('Step 2: Initiating Cashfree payout to beneficiary...')
-                        setPaymentStep('Sending INR to beneficiary via Cashfree...')
+                        console.log('USDC transaction successful:', txHash)
 
-                        // Create clean, short remarks for Cashfree
-                        const merchantName = parsedData!.data.pn || 'Merchant';
-                        const cleanRemarks = `Pay ${merchantName.substring(0, 20)}`.replace(/[^a-zA-Z0-9\s]/g, '').trim();
-
-                        // Determine the customer identifier to use
-                        let customerIdentifier = beneficiaryDetails?.beneficiary_id
-
-                        if (!customerIdentifier) {
-                            customerIdentifier = parsedData?.data?.pa || 'success@upi'
-                            console.log('No beneficiary details found, using UPI ID:', customerIdentifier)
-                        }
-
-                        const payoutData = {
-                            customerId: customerIdentifier,
-                            amount: parseFloat(finalAmount),
-                            remarks: cleanRemarks,
-                        }
-
-                        console.log('Payout data:', payoutData)
-
-                        const payoutResponse = await fetch('/api/payouts/initiate', {
+                        // Now send transaction details to backend for INR payout processing
+                        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"
+                        const payoutResponse = await fetch(`${backendUrl}/api/payments/process-payout`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
+                                'X-API-Key': process.env.NEXT_PUBLIC_BACKEND_API_KEY || "your-api-key-here",
                             },
-                            body: JSON.stringify(payoutData),
+                            body: JSON.stringify({
+                                transactionHash: txHash,
+                                upiMerchantDetails: {
+                                    pa: parsedData?.data?.pa || "merchant@upi",
+                                    pn: parsedData?.data?.pn || "Merchant",
+                                    am: (conversionResult!.inrAmount || userAmount).toString(),
+                                    cu: "INR",
+                                    mc: parsedData?.data?.mc || "1234",
+                                    tr: parsedData?.data?.tr || `TXN_${Date.now()}`
+                                },
+                                chainId: connectedChain
+                            }),
                         })
 
                         if (!payoutResponse.ok) {
-                            let payoutError = { error: 'Unknown error', details: '' }
-                            try {
-                                payoutError = await payoutResponse.json()
-                            } catch (parseError) {
-                                console.error('Failed to parse payout error response:', parseError)
-                            }
-                            throw new Error(payoutError.error || payoutError.details || 'Failed to initiate payout')
+                            const errorData = await payoutResponse.json()
+                            console.warn('INR payout failed, but USDC transaction succeeded:', errorData.error)
+                            // Don't throw error - USDC transaction was successful
                         }
 
                         const payoutResult = await payoutResponse.json()
-                        console.log('Cashfree payout initiated:', payoutResult)
+                        console.log('INR payout result:', payoutResult)
 
-                        if (!payoutResult.success) {
-                            throw new Error(payoutResult.error || 'Payout initiation failed')
-                        }
-
-                        // Update transaction with payout details
-                        if (storeResult.transactionId) {
-                            await fetch('/api/update-upi-transaction', {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                    transactionId: storeResult.transactionId,
-                                    payoutTransferId: payoutResult.payout?.transferId,
-                                    payoutStatus: payoutResult.payout?.status,
-                                    isSuccess: true
-                                }),
-                            })
-                        }
+                        // Update local state with results
+                        setPaymentResult({
+                            success: true,
+                            status: 'completed',
+                            transactionHash: txHash,
+                            upiPaymentId: payoutResult.data?.upiPaymentId,
+                            upiPaymentStatus: payoutResult.data?.upiPaymentStatus,
+                            upiPayoutDetails: payoutResult.data?.upiPayoutDetails
+                        })
 
                         // Payment completed successfully
                         setShowConversionModal(false)

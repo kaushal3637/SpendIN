@@ -166,6 +166,7 @@ export async function handleCustomerPayout(
  * @returns Promise with conversion result
  */
 export async function convertInrToUsdc(inrAmount: number): Promise<{
+  inrAmount: number;
   usdAmount: number;
   usdcAmount: number;
   exchangeRate: number;
