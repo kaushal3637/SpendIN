@@ -28,6 +28,9 @@ export default function BeneficiaryManagementPage() {
       success: boolean;
       message: string;
       customerId?: string;
+      name?: string;
+      upiId?: string;
+      isBeneficiaryAdded?: boolean;
     };
     beneficiary?: { beneficiary_id: string; beneficiary_status?: string };
     error?: string;
@@ -85,25 +88,25 @@ export default function BeneficiaryManagementPage() {
     setIsLoading(true)
     try {
       const requestBody = {
-        beneficiary_id: beneficiaryData.beneficiary_id,
-        beneficiary_name: beneficiaryData.beneficiary_name,
-        beneficiary_instrument_details: {
-          ...(beneficiaryData.vpa && { vpa: beneficiaryData.vpa }),
-          ...(beneficiaryData.bank_account_number && {
-            bank_account_number: beneficiaryData.bank_account_number
-          }),
-          ...(beneficiaryData.bank_ifsc && {
-            bank_ifsc: beneficiaryData.bank_ifsc
-          })
-        }
+        beneId: beneficiaryData.beneficiary_id,
+        name: beneficiaryData.beneficiary_name,
+        ...(beneficiaryData.vpa && { vpa: beneficiaryData.vpa }),
+        ...(beneficiaryData.bank_account_number && beneficiaryData.bank_ifsc && {
+          bankAccount: {
+            accountNumber: beneficiaryData.bank_account_number,
+            ifsc: beneficiaryData.bank_ifsc,
+            accountHolderName: beneficiaryData.beneficiary_name
+          }
+        })
       }
 
       console.log('Adding beneficiary:', requestBody)
 
-      const response = await fetch('/api/cashfree-beneficiary/add', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/cashfree/beneficiary/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
         },
         body: JSON.stringify(requestBody),
       })
@@ -117,10 +120,10 @@ export default function BeneficiaryManagementPage() {
 
       setAddResult({
         success: true,
-        message: "Beneficiary processing completed",
-        cashfree: data.cashfree,
-        localStorage: data.localStorage,
-        beneficiary: data.cashfree?.beneficiary
+        message: data.message || "Beneficiary processing completed",
+        cashfree: data.data?.cashfree,
+        localStorage: data.data?.database,
+        beneficiary: data.data?.cashfree
       })
 
       // Reset form on success
@@ -169,10 +172,11 @@ export default function BeneficiaryManagementPage() {
 
       console.log('Generating QR code:', requestBody)
 
-      const response = await fetch('/api/cashfree-qr/generate', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/cashfree/qr/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
         },
         body: JSON.stringify(requestBody),
       })
@@ -184,10 +188,13 @@ export default function BeneficiaryManagementPage() {
 
       const data = await response.json()
 
+      console.log('QR code response:', data)
+      console.log('QR code data:', data.data)
+
       setQrResult({
         success: true,
-        message: "QR code generated successfully",
-        qrCode: data.qrCode
+        message: data.message || "QR code generated successfully",
+        qrCode: data.data?.data || data.data // Handle both nested and direct data structures
       })
 
       // Reset form on success (keep beneficiary ID for convenience)
@@ -570,11 +577,24 @@ export default function BeneficiaryManagementPage() {
                           Local Database Storage
                         </h4>
                         <p className="text-xs sm:text-sm text-slate-700 mb-2">
-                          {addResult.localStorage.message}
+                          Beneficiary stored in local database
                         </p>
-                        {addResult.localStorage.customerId && (
-                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                            <strong>Customer ID:</strong> {addResult.localStorage.customerId}
+                        {addResult.localStorage && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                              <strong>Customer ID:</strong> {addResult.localStorage.customerId}
+                            </div>
+                            <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                              <strong>Name:</strong> {addResult.localStorage.name}
+                            </div>
+                            {addResult.localStorage.upiId && (
+                              <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                                <strong>UPI ID:</strong> {addResult.localStorage.upiId}
+                              </div>
+                            )}
+                            <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                              <strong>Beneficiary Added:</strong> {addResult.localStorage.isBeneficiaryAdded ? 'Yes' : 'No'}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -616,8 +636,14 @@ export default function BeneficiaryManagementPage() {
                   </button>
                 </div>
 
-                {qrResult.success && qrResult.qrCode ? (
+                {qrResult.success && qrResult.qrCode && qrResult.qrCode.qrCodeUrl ? (
                   <div className="space-y-4">
+                    {/* Debug info */}
+                    <div className="text-xs bg-gray-100 p-2 rounded">
+                      <strong>Debug:</strong> QR Code loaded successfully<br/>
+                      URL: {qrResult.qrCode.qrCodeUrl}<br/>
+                      ID: {qrResult.qrCode.qrCodeId}
+                    </div>
                     {/* QR Code Display */}
                     <div className="flex justify-center">
                       <div className="bg-white p-4 rounded-lg border-2 border-slate-200">
@@ -687,6 +713,14 @@ export default function BeneficiaryManagementPage() {
                       <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                       <p className="text-red-700 font-medium">QR Code Generation Failed</p>
                       <p className="text-red-600 text-sm mt-1">{qrResult.error}</p>
+                      {/* Debug info for troubleshooting */}
+                      <div className="text-xs bg-red-50 p-2 rounded mt-4 text-left">
+                        <strong>Debug Info:</strong><br/>
+                        Success: {String(qrResult.success)}<br/>
+                        Has QR Code: {String(!!qrResult.qrCode)}<br/>
+                        Has URL: {String(!!qrResult.qrCode?.qrCodeUrl)}<br/>
+                        Message: {qrResult.message}
+                      </div>
                     </div>
                   </div>
                 )}

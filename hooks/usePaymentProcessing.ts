@@ -178,10 +178,11 @@ export function usePaymentProcessing({
 
       // Update transaction with payout details
       if (storedTransactionId) {
-        await fetch("/api/update-upi-transaction", {
+        await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/transactions/update`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "your-api-key"
           },
           body: JSON.stringify({
             transactionId: storedTransactionId,

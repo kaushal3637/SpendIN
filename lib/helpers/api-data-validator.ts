@@ -1,5 +1,4 @@
 import { ParsedQrResponse } from "@/types/upi.types";
-import { CashfreeBeneficiaryResponse } from "@/types/cashfree.types";
 import { ScanStateSetters } from "@/types/api-validator.types";
 
 /**
@@ -103,63 +102,6 @@ export function validatePaymentForm(
   };
 }
 
-// ========== API UTILITY FUNCTIONS ==========
-
-/**
- * Handle customer payout via API
- * @param upiId - UPI ID for payout
- * @param userAmount - Amount to pay
- * @returns Promise with payout result
- */
-export async function handleCustomerPayout(
-  upiId: string,
-  userAmount: string
-): Promise<{
-  success: boolean;
-  payout?: {
-    transferId: string;
-    amount: number;
-    status: string;
-    message: string;
-  };
-  error?: string;
-}> {
-  try {
-    // Extract customer identifier from UPI ID (for test customers)
-    // This is a simplified approach - in production you'd have a proper lookup
-    const customerIdentifier = upiId.split("@")[0];
-
-    // Try to find customer by UPI ID or name
-    const response = await fetch("/api/payouts/initiate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        customerId: customerIdentifier, // This might need adjustment based on your customer ID format
-        amount: parseFloat(userAmount),
-        remarks: `Auto payout triggered by QR scan - ${upiId}`,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      console.log("Auto payout successful:", data.payout.transferId);
-      return data;
-    } else {
-      console.error("Auto payout failed:", data.error || data.payout.message);
-      return data;
-    }
-  } catch (error) {
-    console.error("Error processing auto payout:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
 /**
  * Convert INR to USDC via API
  * @param inrAmount - INR amount to convert
@@ -215,10 +157,11 @@ export async function updateTransactionWithPayment(
   walletAddress?: string
 ): Promise<boolean> {
   try {
-    const response = await fetch("/api/update-upi-transaction", {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/transactions/update`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "your-api-key"
       },
       body: JSON.stringify({
         transactionId,
@@ -247,7 +190,12 @@ export async function updateTransactionWithPayment(
  * @returns Promise that resolves when test data is loaded
  */
 export async function loadTestData(): Promise<{
-  beneficiary: CashfreeBeneficiaryResponse["data"];
+  beneficiary: {
+    beneficiary_id: string;
+    beneficiary_name: string;
+    beneficiary_status: string;
+    added_on: string;
+  };
   upiId: string;
   testParsedData: ParsedQrResponse;
   qrString: string;
@@ -257,14 +205,20 @@ export async function loadTestData(): Promise<{
   // Use the beneficiary with UPI ID from your dashboard
   const beneficiaryId = "1492218328b3o0m39jsCfkjeyFVBKdreP1";
 
-  // Fetch beneficiary details from Cashfree
-  const response = await fetch(`/api/cashfree-beneficiary/${beneficiaryId}`);
+  // Fetch beneficiary details from backend Cashfree API
+  const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/cashfree/beneficiary/${beneficiaryId}`, {
+    headers: {
+      'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+    }
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch beneficiary details");
   }
 
   const beneficiaryData = await response.json();
-  const beneficiary = beneficiaryData.beneficiary;
+
+  // Backend API returns data in beneficiaryData.data
+  const beneficiary = beneficiaryData.success ? beneficiaryData.data : beneficiaryData;
 
   // Get UPI ID from beneficiary instrument details
   const upiId =

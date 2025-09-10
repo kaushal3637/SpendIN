@@ -18,7 +18,6 @@ import { convertInrToUsdc, loadTestData } from '@/lib/helpers/api-data-validator
 import ConfirmationModal from '@/components/popups/scan/ConfirmationModal'
 import ConversionModal from '@/components/popups/scan/ConversionModal'
 import { useScanState } from '@/hooks/useScanState'
-import { getExplorerUrl } from '@/lib/chains'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -262,10 +261,10 @@ export default function ScanPage() {
                                         disabled={!isWalletConnected}
                                     >
                                         <QrCode className="w-4 h-4" />
-                                        Load Cashfree Beneficiary
+                                        Load Test Data
                                     </button>
                                     <p className="text-xs text-slate-500 mt-2">
-                                        For development: Load verified Cashfree beneficiary with UPI ID
+                                        For development: Load test customer data
                                     </p>
                                 </div>
                             </div>
@@ -289,7 +288,7 @@ export default function ScanPage() {
                                                     USDC TX: {paymentResult.transactionHash.substring(0, 10)}...{paymentResult.transactionHash.substring(paymentResult.transactionHash.length - 8)}
                                                 </p>
                                                 <a
-                                                    href={getExplorerUrl(connectedChain, paymentResult.transactionHash)}
+                                                    href={`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/payments/explorer/${connectedChain}/${paymentResult.transactionHash}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="inline-block ml-2 text-xs text-blue-600 hover:text-blue-800 underline"
@@ -423,6 +422,7 @@ export default function ScanPage() {
                         const provider = await wallet!.getEthereumProvider()
                         const ethersProvider = new ethers.BrowserProvider(provider)
                         const signer = await ethersProvider.getSigner()
+                        const userAddress = await signer.getAddress()
                         const usdcAddress = USDC_CONTRACT_ADDRESSES[connectedChain as keyof typeof USDC_CONTRACT_ADDRESSES]
 
                         // Prepare the meta transaction data (this will sign and prepare the transaction)
@@ -455,8 +455,39 @@ export default function ScanPage() {
 
                         console.log('USDC transaction successful:', txHash)
 
-                        // Now send transaction details to backend for INR payout processing
+                        // Define backend URL
                         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"
+
+                        // Store transaction details in database
+                        console.log('Storing transaction details...');
+                        const storeResponse = await fetch(`${backendUrl}/api/transactions/store`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+                            },
+                            body: JSON.stringify({
+                                upiId: parsedData?.data?.pa || "merchant@upi",
+                                merchantName: parsedData?.data?.pn || "Merchant",
+                                totalUsdToPay: conversionResult!.totalUsdcAmount.toString(),
+                                inrAmount: (conversionResult!.inrAmount || userAmount).toString(),
+                                walletAddress: userAddress,
+                                txnHash: txHash,
+                                chainId: connectedChain,
+                                isSuccess: true
+                            }),
+                        });
+
+                        let storedTransactionId = null;
+                        if (storeResponse.ok) {
+                            const storeResult = await storeResponse.json();
+                            storedTransactionId = storeResult.data?.transactionId;
+                            console.log('Transaction stored successfully:', storedTransactionId);
+                        } else {
+                            console.warn('Failed to store transaction details');
+                        }
+
+                        // Now send transaction details to backend for INR payout processing
                         const payoutResponse = await fetch(`${backendUrl}/api/payments/process-payout`, {
                             method: 'POST',
                             headers: {
@@ -485,6 +516,27 @@ export default function ScanPage() {
 
                         const payoutResult = await payoutResponse.json()
                         console.log('INR payout result:', payoutResult)
+
+                        // Update transaction with payout details if we have a stored transaction ID
+                        if (storedTransactionId && payoutResult.success) {
+                            console.log('Updating transaction with payout details...');
+                            await fetch(`${backendUrl}/api/transactions/update`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+                                },
+                                body: JSON.stringify({
+                                    transactionId: storedTransactionId,
+                                    payoutTransferId: payoutResult.data?.upiPaymentId,
+                                    payoutStatus: payoutResult.data?.upiPaymentStatus,
+                                    payoutAmount: payoutResult.data?.upiPayoutDetails?.amount,
+                                    payoutRemarks: `Payout to ${parsedData?.data?.pn || "Merchant"}`,
+                                    isSuccess: true,
+                                    walletAddress: userAddress
+                                }),
+                            });
+                        }
 
                         // Update local state with results
                         setPaymentResult({
