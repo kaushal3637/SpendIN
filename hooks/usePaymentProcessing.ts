@@ -5,6 +5,7 @@ import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from "@/config/constant";
 import { prepareUSDCMetaTransaction } from "@/lib/abstractionkit";
 import { isValidChainId, getChainInfo } from "@/lib/chain-validation";
 import { PaymentProcessingOptions } from "@/types/hooks/usePaymentProcessing";
+import { BACKEND_URL, API_KEY } from "@/config/constant";
 
 export function usePaymentProcessing({
   parsedData,
@@ -93,10 +94,8 @@ export function usePaymentProcessing({
         amountUsdc: conversionResult!.totalUsdcAmount.toString(),
         userSigner: signer,
         chainId: chainId,
-        backendApiKey:
-          process.env.NEXT_PUBLIC_BACKEND_API_KEY || "your-api-key-here",
-        backendUrl:
-          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001",
+        backendApiKey: API_KEY!,
+        backendUrl: BACKEND_URL,
         upiMerchantDetails: {
           pa: parsedData?.data?.pa || "merchant@upi",
           pn: parsedData?.data?.pn || "Merchant",
@@ -178,11 +177,11 @@ export function usePaymentProcessing({
 
       // Update transaction with payout details
       if (storedTransactionId) {
-        await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/transactions/update`, {
+        await fetch(`${BACKEND_URL}/api/transactions/update`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "your-api-key"
+            "x-api-key": API_KEY!,
           },
           body: JSON.stringify({
             transactionId: storedTransactionId,

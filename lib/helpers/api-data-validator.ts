@@ -1,5 +1,6 @@
 import { ParsedQrResponse } from "@/types/upi.types";
 import { ScanStateSetters } from "@/types/api-validator.types";
+import { BACKEND_URL, API_KEY } from "@/config/constant";
 
 /**
  * Form validation and API utility functions for ScanPage
@@ -157,11 +158,11 @@ export async function updateTransactionWithPayment(
   walletAddress?: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/transactions/update`, {
+    const response = await fetch(`${BACKEND_URL}/api/transactions/update`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "your-api-key"
+        "x-api-key": API_KEY!,
       },
       body: JSON.stringify({
         transactionId,
@@ -206,11 +207,14 @@ export async function loadTestData(): Promise<{
   const beneficiaryId = "1492218328b3o0m39jsCfkjeyFVBKdreP1";
 
   // Fetch beneficiary details from backend Cashfree API
-  const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/cashfree/beneficiary/${beneficiaryId}`, {
-    headers: {
-      'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+  const response = await fetch(
+    `${BACKEND_URL}/api/cashfree/beneficiary/${beneficiaryId}`,
+    {
+      headers: {
+        "x-api-key": API_KEY!,
+      },
     }
-  });
+  );
   if (!response.ok) {
     throw new Error("Failed to fetch beneficiary details");
   }
@@ -218,7 +222,9 @@ export async function loadTestData(): Promise<{
   const beneficiaryData = await response.json();
 
   // Backend API returns data in beneficiaryData.data
-  const beneficiary = beneficiaryData.success ? beneficiaryData.data : beneficiaryData;
+  const beneficiary = beneficiaryData.success
+    ? beneficiaryData.data
+    : beneficiaryData;
 
   // Get UPI ID from beneficiary instrument details
   const upiId =

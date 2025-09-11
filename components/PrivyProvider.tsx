@@ -1,7 +1,8 @@
 'use client'
 
 import { PrivyProvider } from '@privy-io/react-auth'
-import { privyConfig, PRIVY_APP_ID } from '@/lib/privy'
+import { privyConfig } from '@/lib/privy'
+import { PRIVY_APP_ID } from '@/config/constant'
 import { WalletProvider } from '@/context/WalletContext'
 
 interface PrivyProviderWrapperProps {

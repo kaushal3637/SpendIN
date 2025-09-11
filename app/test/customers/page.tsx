@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Plus, CheckCircle, AlertCircle, X, QrCode, Download, Copy } from 'lucide-react'
 import Image from 'next/image'
+import { BACKEND_URL, API_KEY } from '@/config/constant'
 
 export default function BeneficiaryManagementPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -102,11 +103,11 @@ export default function BeneficiaryManagementPage() {
 
       console.log('Adding beneficiary:', requestBody)
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/cashfree/beneficiary/add`, {
+      const response = await fetch(`${BACKEND_URL}/api/cashfree/beneficiary/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+          'x-api-key': API_KEY!
         },
         body: JSON.stringify(requestBody),
       })
@@ -172,11 +173,11 @@ export default function BeneficiaryManagementPage() {
 
       console.log('Generating QR code:', requestBody)
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/cashfree/qr/generate`, {
+      const response = await fetch(`${BACKEND_URL}/api/cashfree/qr/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+          'x-api-key': API_KEY!
         },
         body: JSON.stringify(requestBody),
       })
@@ -640,8 +641,8 @@ export default function BeneficiaryManagementPage() {
                   <div className="space-y-4">
                     {/* Debug info */}
                     <div className="text-xs bg-gray-100 p-2 rounded">
-                      <strong>Debug:</strong> QR Code loaded successfully<br/>
-                      URL: {qrResult.qrCode.qrCodeUrl}<br/>
+                      <strong>Debug:</strong> QR Code loaded successfully<br />
+                      URL: {qrResult.qrCode.qrCodeUrl}<br />
                       ID: {qrResult.qrCode.qrCodeId}
                     </div>
                     {/* QR Code Display */}
@@ -715,10 +716,10 @@ export default function BeneficiaryManagementPage() {
                       <p className="text-red-600 text-sm mt-1">{qrResult.error}</p>
                       {/* Debug info for troubleshooting */}
                       <div className="text-xs bg-red-50 p-2 rounded mt-4 text-left">
-                        <strong>Debug Info:</strong><br/>
-                        Success: {String(qrResult.success)}<br/>
-                        Has QR Code: {String(!!qrResult.qrCode)}<br/>
-                        Has URL: {String(!!qrResult.qrCode?.qrCodeUrl)}<br/>
+                        <strong>Debug Info:</strong><br />
+                        Success: {String(qrResult.success)}<br />
+                        Has QR Code: {String(!!qrResult.qrCode)}<br />
+                        Has URL: {String(!!qrResult.qrCode?.qrCodeUrl)}<br />
                         Message: {qrResult.message}
                       </div>
                     </div>

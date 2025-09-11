@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getChainById } from "@/lib/chains";
+import { COINGECKO_API_KEY } from "@/config/constant";
 
 interface ConversionResponse {
   inrAmount: number;
@@ -16,18 +17,18 @@ interface ConversionResponse {
 const getNetworkFee = (chainId: number): number => {
   switch (chainId) {
     case 421614: // Arbitrum Sepolia Testnet
-      return 0.5
+      return 0.5;
     case 11155111: // Sepolia Testnet
-      return 1.0
+      return 1.0;
     default:
-      return 0.5 // Default to 0.5 USDC for unknown networks
+      return 0.5; // Default to 0.5 USDC for unknown networks
   }
-}
+};
 
 const getNetworkName = (chainId: number): string => {
   const chain = getChainById(chainId);
   return chain?.name || "Unknown Network";
-}
+};
 
 /**
  * POST /api/conversion/inr-to-usd
@@ -56,8 +57,7 @@ export async function POST(request: NextRequest) {
     const networkName = getNetworkName(chainId);
 
     // Check for CoinGecko API key
-    const apiKey = process.env.COINGECKO_API_KEY;
-    if (!apiKey) {
+    if (!COINGECKO_API_KEY) {
       console.error("CoinGecko API key not found");
       return NextResponse.json(
         {
@@ -72,15 +72,17 @@ export async function POST(request: NextRequest) {
       `https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=inr&include_last_updated_at=true`,
       {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Accept': 'application/json',
+          Authorization: `Bearer ${COINGECKO_API_KEY}`,
+          Accept: "application/json",
         },
-        next: { revalidate: 60 } // Cache for 1 minute
+        next: { revalidate: 60 }, // Cache for 1 minute
       }
     );
 
     if (!response.ok) {
-      console.error(`CoinGecko API error: ${response.status} ${response.statusText}`);
+      console.error(
+        `CoinGecko API error: ${response.status} ${response.statusText}`
+      );
       return NextResponse.json(
         {
           error: "Failed to fetch exchange rates",
@@ -119,14 +121,15 @@ export async function POST(request: NextRequest) {
       usdAmount: Number(usdAmount.toFixed(6)),
       usdcAmount: Number(usdcAmount.toFixed(6)),
       exchangeRate: Number(exchangeRate.toFixed(6)),
-      lastUpdated: lastUpdated ? new Date(lastUpdated * 1000).toISOString() : new Date().toISOString(),
+      lastUpdated: lastUpdated
+        ? new Date(lastUpdated * 1000).toISOString()
+        : new Date().toISOString(),
       networkFee,
       networkName,
-      totalUsdcAmount: Number(totalUsdcAmount.toFixed(6))
+      totalUsdcAmount: Number(totalUsdcAmount.toFixed(6)),
     };
 
     return NextResponse.json(result, { status: 200 });
-
   } catch (error) {
     console.error("Error converting INR to USDC:", error);
 

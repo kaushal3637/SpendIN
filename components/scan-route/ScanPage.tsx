@@ -18,6 +18,7 @@ import { convertInrToUsdc, loadTestData } from '@/lib/helpers/api-data-validator
 import ConfirmationModal from '@/components/popups/scan/ConfirmationModal'
 import ConversionModal from '@/components/popups/scan/ConversionModal'
 import { useScanState } from '@/hooks/useScanState'
+import { BACKEND_URL, API_KEY } from '@/config/constant'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -288,7 +289,7 @@ export default function ScanPage() {
                                                     USDC TX: {paymentResult.transactionHash.substring(0, 10)}...{paymentResult.transactionHash.substring(paymentResult.transactionHash.length - 8)}
                                                 </p>
                                                 <a
-                                                    href={`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/payments/explorer/${connectedChain}/${paymentResult.transactionHash}`}
+                                                    href={`${BACKEND_URL}/api/payments/explorer/${connectedChain}/${paymentResult.transactionHash}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="inline-block ml-2 text-xs text-blue-600 hover:text-blue-800 underline"
@@ -432,8 +433,8 @@ export default function ScanPage() {
                             amountUsdc: conversionResult!.totalUsdcAmount.toString(),
                             userSigner: signer,
                             chainId: connectedChain,
-                            backendApiKey: process.env.NEXT_PUBLIC_BACKEND_API_KEY || "your-api-key-here",
-                            backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001",
+                            backendApiKey: API_KEY!,
+                            backendUrl: BACKEND_URL,
                             upiMerchantDetails: {
                                 pa: parsedData?.data?.pa || "merchant@upi",
                                 pn: parsedData?.data?.pn || "Merchant",
@@ -455,16 +456,13 @@ export default function ScanPage() {
 
                         console.log('USDC transaction successful:', txHash)
 
-                        // Define backend URL
-                        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"
-
                         // Store transaction details in database
                         console.log('Storing transaction details...');
-                        const storeResponse = await fetch(`${backendUrl}/api/transactions/store`, {
+                        const storeResponse = await fetch(`${BACKEND_URL}/api/transactions/store`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+                                'x-api-key': API_KEY!
                             },
                             body: JSON.stringify({
                                 upiId: parsedData?.data?.pa || "merchant@upi",
@@ -488,11 +486,11 @@ export default function ScanPage() {
                         }
 
                         // Now send transaction details to backend for INR payout processing
-                        const payoutResponse = await fetch(`${backendUrl}/api/payments/process-payout`, {
+                        const payoutResponse = await fetch(`${BACKEND_URL}/api/payments/process-payout`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'X-API-Key': process.env.NEXT_PUBLIC_BACKEND_API_KEY || "your-api-key-here",
+                                'X-API-Key': API_KEY!,
                             },
                             body: JSON.stringify({
                                 transactionHash: txHash,
@@ -520,11 +518,11 @@ export default function ScanPage() {
                         // Update transaction with payout details if we have a stored transaction ID
                         if (storedTransactionId && payoutResult.success) {
                             console.log('Updating transaction with payout details...');
-                            await fetch(`${backendUrl}/api/transactions/update`, {
+                            await fetch(`${BACKEND_URL}/api/transactions/update`, {
                                 method: 'PUT',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'x-api-key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+                                    'x-api-key': API_KEY!
                                 },
                                 body: JSON.stringify({
                                     transactionId: storedTransactionId,
