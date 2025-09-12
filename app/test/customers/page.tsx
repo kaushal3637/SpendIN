@@ -103,7 +103,7 @@ export default function BeneficiaryManagementPage() {
 
       console.log('Adding beneficiary:', requestBody)
 
-      const response = await fetch(`${BACKEND_URL}/api/cashfree/beneficiary/add`, {
+      const response = await fetch(`${BACKEND_URL}/api/phonepe/beneficiary/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -173,7 +173,7 @@ export default function BeneficiaryManagementPage() {
 
       console.log('Generating QR code:', requestBody)
 
-      const response = await fetch(`${BACKEND_URL}/api/cashfree/qr/generate`, {
+      const response = await fetch(`${BACKEND_URL}/api/phonepe/qr/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -247,7 +247,7 @@ export default function BeneficiaryManagementPage() {
             <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900">Add Beneficiary</h1>
           </div>
           <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-2xl mx-auto px-2 leading-relaxed">
-            Add beneficiaries to your Cashfree Payments account for seamless payout testing.
+            Add beneficiaries to your PhonePe Business account for seamless payout testing.
           </p>
         </div>
 
@@ -544,7 +544,7 @@ export default function BeneficiaryManagementPage() {
                       )}
                       <div className="flex-1">
                         <h4 className="text-sm sm:text-base font-semibold mb-1 text-slate-900">
-                          Cashfree Registration
+                          PhonePe Registration
                         </h4>
                         <p className="text-xs sm:text-sm text-slate-700 mb-2">
                           {addResult.cashfree.message}

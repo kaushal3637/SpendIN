@@ -206,9 +206,9 @@ export async function loadTestData(): Promise<{
   // Use the beneficiary with UPI ID from your dashboard
   const beneficiaryId = "1492218328b3o0m39jsCfkjeyFVBKdreP1";
 
-  // Fetch beneficiary details from backend Cashfree API
+  // Fetch beneficiary details from backend PhonePe API
   const response = await fetch(
-    `${BACKEND_URL}/api/cashfree/beneficiary/${beneficiaryId}`,
+    `${BACKEND_URL}/api/phonepe/beneficiary/${beneficiaryId}`,
     {
       headers: {
         "x-api-key": API_KEY!,
