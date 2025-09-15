@@ -55,7 +55,6 @@ export default function ScanPage() {
         setShowConversionModal,
         setShowConfetti,
         setParsedData,
-        setUserAmount,
         setConversionResult,
         setPaymentResult,
         setBeneficiaryDetails,

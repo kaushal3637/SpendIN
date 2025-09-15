@@ -151,11 +151,15 @@ export default function ConversionModal({
                   <>
                     <div className="flex justify-between">
                       <span className="text-emerald-700">Beneficiary ID:</span>
-                      <span className="font-mono text-emerald-900 text-xs">{beneficiaryDetails.beneficiary_id}</span>
+                      <span className="font-mono text-emerald-900 text-xs">{beneficiaryDetails.beneficiaryId}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-emerald-700">Beneficiary Email:</span>
-                      <span className="text-emerald-900 text-xs">{beneficiaryDetails.beneficiary_email}</span>
+                      <span className="text-emerald-700">Beneficiary Name:</span>
+                      <span className="text-emerald-900 text-xs">{beneficiaryDetails.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-emerald-700">UPI ID:</span>
+                      <span className="font-mono text-emerald-900 text-xs">{beneficiaryDetails.vpa}</span>
                     </div>
                   </>
                 )}

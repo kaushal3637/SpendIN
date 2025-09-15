@@ -3,12 +3,12 @@ import { BeneficiaryResponse, BeneficiaryRequest } from '@/types/api-helper'
 
 /**
  * Add a new beneficiary for payouts
- * @param beneficiaryData - Beneficiary information
+ * @param beneficiaryData - Beneficiary information (name and vpa only)
  * @returns Promise with beneficiary creation result
  */
 export async function addBeneficiary(beneficiaryData: BeneficiaryRequest): Promise<BeneficiaryResponse> {
   try {
-    console.log('Adding beneficiary via API:', beneficiaryData.beneId)
+    console.log('Adding beneficiary via API:', beneficiaryData.vpa)
 
     const response = await fetch(`${BACKEND_URL}/api/phonepe/beneficiary/add`, {
       method: 'POST',
@@ -30,11 +30,8 @@ export async function addBeneficiary(beneficiaryData: BeneficiaryRequest): Promi
     
     return {
       success: true,
-      message: data.message || "Beneficiary processing completed",
-      data: {
-        cashfree: data.data?.cashfree,
-        database: data.data?.database,
-      }
+      message: data.message || "Beneficiary added successfully",
+      data: data.data
     }
 
   } catch (error) {
@@ -45,6 +42,97 @@ export async function addBeneficiary(beneficiaryData: BeneficiaryRequest): Promi
       message: `Failed to add beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`,
       error: error instanceof Error ? error.message : 'Unknown error'
     }
+  }
+}
+
+/**
+ * Get beneficiary details by VPA
+ * @param vpa - VPA to search for
+ * @returns Promise with beneficiary details
+ */
+export async function getBeneficiaryByVpa(vpa: string): Promise<{
+  success: boolean
+  message: string
+  data?: {
+    beneficiaryId: string
+    name: string
+    vpa: string
+    isActive: boolean
+    totalReceived: number
+    totalPaid: number
+    transactionCount: number
+    createdAt: string
+    updatedAt: string
+  }
+  error?: string
+}> {
+  try {
+    console.log('Getting beneficiary details by VPA:', vpa)
+
+    const response = await fetch(`${BACKEND_URL}/api/phonepe/beneficiary/vpa/${encodeURIComponent(vpa)}`, {
+      method: 'GET',
+      headers: {
+        'x-api-key': API_KEY!
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    
+    console.log('✅ Beneficiary details retrieved:', data)
+    
+    return {
+      success: true,
+      message: data.message || "Beneficiary details retrieved successfully",
+      data: data.data
+    }
+
+  } catch (error) {
+    console.error('❌ Error getting beneficiary details:', error)
+    
+    return {
+      success: false,
+      message: `Failed to get beneficiary details: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
+ * Validate beneficiary data before submission
+ * @param data - Beneficiary data to validate
+ * @returns Validation result with errors if any
+ */
+export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
+  isValid: boolean
+  errors: string[]
+} {
+  const errors: string[] = []
+
+  // Required fields
+  if (!data.name?.trim()) {
+    errors.push('Beneficiary name is required')
+  }
+
+  if (!data.vpa?.trim()) {
+    errors.push('VPA (UPI ID) is required')
+  }
+
+  // VPA format validation
+  if (data.vpa?.trim()) {
+    const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/
+    if (!vpaRegex.test(data.vpa)) {
+      errors.push('Invalid UPI ID format')
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
   }
 }
 

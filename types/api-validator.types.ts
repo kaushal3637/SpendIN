@@ -39,19 +39,10 @@ export interface PayoutResult {
 }
 
 export interface BeneficiaryDetails {
-  beneficiary_id?: string;
-  beneficiary_name?: string;
-  beneficiary_email?: string;
-  beneficiary_phone?: string;
-  beneficiary_instrument_details?: {
-    vpa?: string;
-    bank_account_number?: string;
-    bank_ifsc?: string;
-  };
-  beneficiary_contact_details?: {
-    beneficiary_email?: string;
-    beneficiary_phone?: string;
-  };
+  beneficiaryId: string;
+  name: string;
+  vpa: string;
+  isActive: boolean;
 }
 
 export interface ScanStateSetters {

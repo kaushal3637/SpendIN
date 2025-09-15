@@ -1,36 +1,18 @@
-// Types for beneficiary API
+// Simplified beneficiary API types - only name and vpa
 export interface BeneficiaryRequest {
-  beneId: string
   name: string
-  email?: string
-  phone?: string
-  vpa?: string
-  bankAccount?: {
-    accountNumber: string
-    ifsc: string
-    accountHolderName: string
-  }
+  vpa: string
 }
 
 export interface BeneficiaryResponse {
   success: boolean
   message: string
   data?: {
-    cashfree?: {
-      success: boolean
-      message: string
-      beneficiary?: { 
-        beneficiary_id: string
-        beneficiary_status?: string 
-      }
-    }
-    database?: {
-      success: boolean
-      message: string
-      customerId?: string
-      name?: string
-      upiId?: string
-      isBeneficiaryAdded?: boolean
+    database: {
+      beneficiaryId: string
+      name: string
+      vpa: string
+      isActive: boolean
     }
   }
   error?: string

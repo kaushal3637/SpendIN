@@ -138,7 +138,7 @@ export function usePaymentProcessing({
         .trim();
 
       // Determine the customer identifier to use
-      let customerIdentifier = beneficiaryDetails?.beneficiary_id;
+      let customerIdentifier = beneficiaryDetails?.beneficiaryId;
 
       if (!customerIdentifier) {
         // If we don't have beneficiary details, use the UPI ID from parsed QR data
@@ -159,7 +159,7 @@ export function usePaymentProcessing({
 
       console.log("🚀 Payout data being sent:");
       console.log("- beneficiaryDetails:", beneficiaryDetails);
-      console.log("- beneficiary_id:", beneficiaryDetails?.beneficiary_id);
+      console.log("- beneficiary_id:", beneficiaryDetails?.beneficiaryId);
       console.log("- final customerId:", payoutData.customerId);
 
       console.log("Original merchant name:", merchantName);

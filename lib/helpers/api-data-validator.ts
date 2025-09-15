@@ -192,10 +192,10 @@ export async function updateTransactionWithPayment(
  */
 export async function loadTestData(): Promise<{
   beneficiary: {
-    beneficiary_id: string;
-    beneficiary_name: string;
-    beneficiary_status: string;
-    added_on: string;
+    beneficiaryId: string;
+    name: string;
+    vpa: string;
+    isActive: boolean;
   };
   upiId: string;
   testParsedData: ParsedQrResponse;
@@ -203,40 +203,24 @@ export async function loadTestData(): Promise<{
 }> {
   console.log("Loading test data...");
 
-  // Use the beneficiary with UPI ID from your dashboard
-  const beneficiaryId = "success";
+  // Use a test VPA for development
+  const testVpa = "success@upi";
 
-  // Fetch beneficiary details from backend PhonePe API
-  const response = await fetch(
-    `${BACKEND_URL}/api/phonepe/beneficiary/${beneficiaryId}`,
-    {
-      headers: {
-        "x-api-key": API_KEY!,
-      },
-    }
-  );
-  if (!response.ok) {
-    throw new Error("Failed to fetch beneficiary details");
-  }
+  // Create simplified test beneficiary data
+  const beneficiary = {
+    beneficiaryId: "test-beneficiary-id",
+    name: "Test Merchant",
+    vpa: testVpa,
+    isActive: true
+  };
 
-  const beneficiaryData = await response.json();
-
-  // Backend API returns data in beneficiaryData.data
-  const beneficiary = beneficiaryData.success
-    ? beneficiaryData.data
-    : beneficiaryData;
-
-  // Get UPI ID from beneficiary instrument details
-  const upiId =
-    beneficiary?.beneficiary_instrument_details?.vpa || "success@upi";
-
-  // Create test QR data using the beneficiary's UPI ID
+  // Create test QR data using the test VPA
   const testParsedData: ParsedQrResponse = {
     qrType: "dynamic_merchant",
     isValid: true,
     data: {
-      pa: upiId,
-      pn: beneficiary?.beneficiary_name || "Test Bene",
+      pa: testVpa,
+      pn: beneficiary.name,
       am: "10.00", // Test amount
       cu: "INR",
       mc: "1234",
@@ -246,8 +230,8 @@ export async function loadTestData(): Promise<{
 
   // Generate QR string
   const qrString = `upi://pay?pa=${encodeURIComponent(
-    upiId
-  )}&pn=${encodeURIComponent(testParsedData.data.pn || "Test Bene")}&am=${
+    testVpa
+  )}&pn=${encodeURIComponent(testParsedData.data.pn || "Test Merchant")}&am=${
     testParsedData.data.am
   }&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${
     testParsedData.data.tr
@@ -255,7 +239,7 @@ export async function loadTestData(): Promise<{
 
   return {
     beneficiary,
-    upiId,
+    upiId: testVpa,
     testParsedData,
     qrString,
   };
