@@ -1,5 +1,10 @@
 import { BACKEND_URL, API_KEY } from "@/config/constant";
-import { BeneficiaryResponse, BeneficiaryRequest } from "@/types/api-helper";
+import {
+  BeneficiaryResponse,
+  BeneficiaryRequest,
+  QRCodeRequest,
+  QRCodeResponse,
+} from "@/types/api-helper";
 
 /**
  * Add a new beneficiary for payouts
@@ -10,8 +15,6 @@ export async function addBeneficiary(
   beneficiaryData: BeneficiaryRequest
 ): Promise<BeneficiaryResponse> {
   try {
-    console.log("Adding beneficiary via API:", beneficiaryData.vpa);
-
     const response = await fetch(`${BACKEND_URL}/api/phonepe/beneficiary/add`, {
       method: "POST",
       headers: {
@@ -81,6 +84,49 @@ export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
 }
 
 /**
+ * Generate QR code for a beneficiary
+ * @param qrData - QR code generation parameters
+ * @returns Promise with QR code generation result
+ */
+export async function generateQRCode(
+  qrData: QRCodeRequest
+): Promise<QRCodeResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/phonepe/qr/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY!,
+      },
+      body: JSON.stringify(qrData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.error || `HTTP ${response.status}: ${response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+
+    return {
+      success: true,
+      message: data.message || "QR code generated successfully",
+      data: data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to generate QR code: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
  * Get beneficiary details by VPA
  * @param vpa - VPA to search for
  * @returns Promise with beneficiary details
@@ -140,50 +186,6 @@ export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
 //       }`,
 //       error: error instanceof Error ? error.message : "Unknown error",
 //     };
-//   }
-// }
-
-/**
- * Generate QR code for a beneficiary
- * @param qrData - QR code generation parameters
- * @returns Promise with QR code generation result
- */
-// export async function generateQRCode(qrData: QRCodeRequest): Promise<QRCodeResponse> {
-//   try {
-//     console.log('🔄 Generating QR code via API:', qrData.beneficiaryId)
-
-//     const response = await fetch(`${BACKEND_URL}/api/phonepe/qr/generate`, {
-//       method: 'POST',
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'x-api-key': API_KEY!
-//       },
-//       body: JSON.stringify(qrData),
-//     })
-
-//     if (!response.ok) {
-//       const errorData = await response.json()
-//       throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-//     }
-
-//     const data = await response.json()
-
-//     console.log('✅ QR code generated successfully:', data.data?.qrCodeId)
-
-//     return {
-//       success: true,
-//       message: data.message || "QR code generated successfully",
-//       data: data.data
-//     }
-
-//   } catch (error) {
-//     console.error('❌ Error generating QR code:', error)
-
-//     return {
-//       success: false,
-//       message: `Failed to generate QR code: ${error instanceof Error ? error.message : 'Unknown error'}`,
-//       error: error instanceof Error ? error.message : 'Unknown error'
-//     }
 //   }
 // }
 

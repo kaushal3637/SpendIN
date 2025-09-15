@@ -17,25 +17,31 @@ export interface BeneficiaryResponse {
   error?: string;
 }
 
-// export interface QRCodeRequest {
-//   beneficiaryId: string;
-//   amount?: number;
-//   purpose?: string;
-//   remarks?: string;
-// }
+export interface QRCodeRequest {
+  vpa: string;
+  amount?: number;
+  purpose?: string;
+  remarks?: string;
+}
 
-// export interface QRCodeResponse {
-//   success: boolean;
-//   message: string;
-//   data?: {
-//     qrCodeId: string;
-//     qrCodeUrl: string;
-//     qrCodeString: string;
-//     amount?: number;
-//     purpose?: string;
-//     expiryDate?: string;
-//     createdAt: string;
-//     upiString: string;
-//   };
-//   error?: string;
-// }
+export interface QRCodeData {
+  qrCodeId: string;
+  qrCodeUrl: string;
+  qrCodeString: string;
+  amount?: number;
+  purpose?: string;
+  expiryDate?: string;
+  createdAt: string;
+  upiString: string;
+}
+
+export interface QRCodeResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    status: string;
+    message: string;
+    data: QRCodeData;
+  };
+  error?: string;
+}
