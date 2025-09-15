@@ -3,20 +3,18 @@
 import { useState } from 'react'
 import { Plus, CheckCircle, AlertCircle, X, QrCode, Download, Copy } from 'lucide-react'
 import Image from 'next/image'
+import { toast } from 'react-hot-toast'
 import { addBeneficiary, validateBeneficiaryData } from '@/lib/apis/beneficiary'
-import { BeneficiaryRequest, BeneficiaryResponse } from '@/types/api-helper'
+import { BeneficiaryRequest } from '@/types/api-helper'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
 
 export default function BeneficiaryManagementPage() {
   const [isLoading, setIsLoading] = useState(false)
 
-  // Form state for beneficiary addition - simplified structure
   const [beneficiaryData, setBeneficiaryData] = useState({
     name: '',
     vpa: ''
   })
-
-  const [addResult, setAddResult] = useState<BeneficiaryResponse | null>(null)
 
   // QR Code generation state
   const [qrCodeData, setQrCodeData] = useState({
@@ -45,17 +43,11 @@ export default function BeneficiaryManagementPage() {
 
   // To Add and validate beneficiary data
   const handleAddBeneficiary = async () => {
-    // Reset previous result
-    setAddResult(null)
 
     const validation = validateBeneficiaryData(beneficiaryData);
 
     if (!validation.isValid) {
-      setAddResult({
-        success: false,
-        message: validation.errors.join(', '),
-        error: 'Validation failed'
-      });
+      toast.error("Please add valid data");
       return;
     }
 
@@ -69,21 +61,13 @@ export default function BeneficiaryManagementPage() {
 
       const result = await addBeneficiary(requestData)
 
-      setAddResult(result)
-
       // Reset form on success
       if (result.success) {
-        setBeneficiaryData({
-          name: '',
-          vpa: ''
-        })
+        toast.success("Beneficiary added successfully");
       }
-    } catch (error) {
-      setAddResult({
-        success: false,
-        message: `Failed to add beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      })
+    } catch {
+
+      toast.error("Failed to add beneficiary");
     } finally {
       setIsLoading(false)
     }
@@ -380,71 +364,6 @@ export default function BeneficiaryManagementPage() {
 
           {/* Instructions & Results */}
           <div className="space-y-3 sm:space-y-4 md:space-y-6">
-            {/* Results Display */}
-            {addResult && (
-              <div className="rounded-xl shadow-lg border border-slate-200 p-3 sm:p-4 md:p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-sm sm:text-base md:text-lg font-semibold text-slate-900">
-                    Beneficiary Processing Results
-                  </h3>
-                  <button
-                    onClick={() => setAddResult(null)}
-                    className="text-slate-400 hover:text-slate-600 transition-colors p-1 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
-                  >
-                    <X className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </button>
-                </div>
-
-                {/* Database Results */}
-                {addResult.data?.database && (
-                  <div className="rounded-lg p-3 sm:p-4 bg-blue-50 border border-blue-200">
-                    <div className="flex items-start">
-                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
-                      <div className="flex-1">
-                        <h4 className="text-sm sm:text-base font-semibold mb-1 text-slate-900">
-                          Database Storage
-                        </h4>
-                        <p className="text-xs sm:text-sm text-slate-700 mb-2">
-                          Beneficiary stored successfully in database
-                        </p>
-                        <div className="space-y-1">
-                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                            <strong>Beneficiary ID:</strong> {addResult.data.database.beneficiaryId}
-                          </div>
-                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                            <strong>Name:</strong> {addResult.data.database.name}
-                          </div>
-                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                            <strong>UPI ID:</strong> {addResult.data.database.vpa}
-                          </div>
-                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                            <strong>Status:</strong> {addResult.data.database.isActive ? 'Active' : 'Inactive'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Overall Status */}
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                  <div className="flex items-center justify-center">
-                    {addResult.success ? (
-                      <>
-                        <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                        <span className="text-sm font-medium text-green-800">Processing Completed Successfully</span>
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-                        <span className="text-sm font-medium text-red-800">Processing Failed</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* QR Code Results Display */}
             {qrResult && (
               <div className="rounded-xl shadow-lg border border-slate-200 p-3 sm:p-4 md:p-6">
@@ -691,7 +610,6 @@ export default function BeneficiaryManagementPage() {
               </div>
             </div>
           </div>
-
           {/* Spacer for full height utilization */}
           <div className="flex-grow min-h-[2rem] sm:min-h-[3rem] md:min-h-[4rem]"></div>
         </div>
