@@ -16,6 +16,7 @@ export class QrScanningService {
     scanResult: null,
     isLoading: false,
   };
+  private scanningLoop: boolean = false; // Add flag to control scanning loop
 
   constructor(config: QrScanningServiceConfig) {
     this.config = config;
@@ -135,22 +136,10 @@ export class QrScanningService {
   }
 
   /**
-   * Start QR code scanning
+   * Start continuous QR code scanning
    */
-  async startScanning(videoElement: HTMLVideoElement): Promise<void> {
-    if (!videoElement) {
-      throw new Error("Video element is required for scanning");
-    }
-
-    this.videoElement = videoElement;
-    this.updateState({ error: null, scanResult: null });
-
-    // First, request camera permission
-    const permissionGranted = await this.requestCameraPermission();
-
-    if (!permissionGranted) {
-      return;
-    }
+  private async startContinuousScanning(videoElement: HTMLVideoElement): Promise<void> {
+    if (!this.scanningLoop || !videoElement) return;
 
     try {
       const selectedDevice = await this.findBestCameraDevice();
@@ -175,8 +164,9 @@ export class QrScanningService {
         );
       }
 
-      if (result) {
-        this.updateState({ scanResult: result.getText(), isScanning: false });
+      if (result && this.scanningLoop) {
+        this.scanningLoop = false; // Stop the scanning loop
+        this.updateState({ scanResult: result.getText() });
 
         // Parse the QR data
         const parsed = await this.parseQrData(result.getText());
@@ -188,26 +178,51 @@ export class QrScanningService {
     } catch (err) {
       if (err instanceof NotFoundException) {
         // Continue scanning if no QR code found
-        if (this.scanningState.isScanning) {
-          setTimeout(() => this.startScanning(videoElement), 500);
+        if (this.scanningLoop) {
+          setTimeout(() => this.startContinuousScanning(videoElement), 500);
         }
       } else {
         const errorMessage = `Camera error: ${
           err instanceof Error ? err.message : "Unknown error"
         }`;
         this.updateState({ error: errorMessage, isScanning: false });
+        this.scanningLoop = false;
         this.config?.onError(errorMessage);
       }
     }
   }
 
   /**
+   * Start QR code scanning
+   */
+  async startScanning(videoElement: HTMLVideoElement): Promise<void> {
+    if (!videoElement) {
+      throw new Error("Video element is required for scanning");
+    }
+
+    this.videoElement = videoElement;
+    this.updateState({ error: null, scanResult: null, isScanning: true });
+
+    // First, request camera permission
+    const permissionGranted = await this.requestCameraPermission();
+
+    if (!permissionGranted) {
+      this.updateState({ isScanning: false });
+      return;
+    }
+
+    // Start the scanning loop
+    this.scanningLoop = true;
+    await this.startContinuousScanning(videoElement);
+  }
+
+  /**
    * Stop scanning and cleanup
    */
   stopScanning(): void {
+    this.scanningLoop = false; // Stop the scanning loop
     if (this.codeReader) {
       this.codeReader.reset();
-      this.codeReader = null;
     }
     this.updateState({ isScanning: false });
   }
@@ -224,13 +239,31 @@ export class QrScanningService {
         this.updateState({ error: null, scanResult: null });
         const permissionGranted = await this.requestCameraPermission();
         if (permissionGranted) {
-          this.updateState({ isScanning: true });
           await this.startScanning(videoElement);
         }
       } else {
-        this.updateState({ isScanning: true });
         await this.startScanning(videoElement);
       }
+    }
+  }
+
+  /**
+   * Reset scanning state and restart camera
+   */
+  async resetAndRestart(videoElement: HTMLVideoElement): Promise<void> {
+    // Stop current scanning
+    this.stopScanning();
+    
+    // Clear results and errors
+    this.updateState({
+      scanResult: null,
+      error: null,
+      isLoading: false,
+    });
+
+    // Restart scanning if we have permission
+    if (this.scanningState.hasPermission === true && videoElement) {
+      await this.startScanning(videoElement);
     }
   }
 
@@ -266,9 +299,13 @@ export class QrScanningService {
    * Clean up resources
    */
   dispose(): void {
+    this.scanningLoop = false; // Stop scanning loop
     // Clear config first to prevent state updates during cleanup
     this.config = null;
     this.stopScanning();
+    if (this.codeReader) {
+      this.codeReader = null;
+    }
     this.videoElement = null;
   }
 }
