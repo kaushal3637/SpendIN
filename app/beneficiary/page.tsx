@@ -3,43 +3,24 @@
 import { useState } from 'react'
 import { Plus, CheckCircle, AlertCircle, X, QrCode, Download, Copy } from 'lucide-react'
 import Image from 'next/image'
+import { addBeneficiary } from '@/lib/apis/beneficiary'
+import { BeneficiaryRequest, BeneficiaryResponse } from '@/types/api-helper'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
 
 export default function BeneficiaryManagementPage() {
   const [isLoading, setIsLoading] = useState(false)
 
-  // Form state for beneficiary addition
+  // Form state for beneficiary addition - simplified structure
   const [beneficiaryData, setBeneficiaryData] = useState({
-    beneficiary_id: '',
-    beneficiary_name: '',
-    vpa: '',
-    bank_account_number: '',
-    bank_ifsc: ''
+    name: '',
+    vpa: ''
   })
 
-  const [addResult, setAddResult] = useState<{
-    success: boolean;
-    message: string;
-    cashfree?: {
-      success: boolean;
-      message: string;
-      beneficiary?: { beneficiary_id: string; beneficiary_status?: string };
-    };
-    localStorage?: {
-      success: boolean;
-      message: string;
-      customerId?: string;
-      name?: string;
-      upiId?: string;
-      isBeneficiaryAdded?: boolean;
-    };
-    beneficiary?: { beneficiary_id: string; beneficiary_status?: string };
-    error?: string;
-  } | null>(null)
+  const [addResult, setAddResult] = useState<BeneficiaryResponse | null>(null)
 
   // QR Code generation state
   const [qrCodeData, setQrCodeData] = useState({
-    beneficiaryId: '',
+    vpa: '',
     amount: '',
     purpose: '',
     remarks: ''
@@ -62,79 +43,50 @@ export default function BeneficiaryManagementPage() {
 
   const [isGeneratingQr, setIsGeneratingQr] = useState(false)
 
-  const addBeneficiary = async () => {
+  const handleAddBeneficiary = async () => {
     // Reset previous result
     setAddResult(null)
 
     // Validate required fields
-    if (!beneficiaryData.beneficiary_id || !beneficiaryData.beneficiary_name) {
+    if (!beneficiaryData.name.trim() || !beneficiaryData.vpa.trim()) {
       setAddResult({
         success: false,
-        message: 'Beneficiary ID and Name are required',
+        message: 'Both Name and UPI ID are required',
         error: 'Missing required fields'
       })
       return
     }
 
-    // Validate that at least one payment method is provided
-    if (!beneficiaryData.vpa && (!beneficiaryData.bank_account_number || !beneficiaryData.bank_ifsc)) {
+    // Basic VPA validation
+    const vpaPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/
+    if (!vpaPattern.test(beneficiaryData.vpa)) {
       setAddResult({
         success: false,
-        message: 'Either UPI ID (VPA) or Bank Account + IFSC must be provided',
-        error: 'Missing payment method'
+        message: 'Please enter a valid UPI ID (e.g., user@bank)',
+        error: 'Invalid VPA format'
       })
       return
     }
 
     setIsLoading(true)
     try {
-      const requestBody = {
-        beneId: beneficiaryData.beneficiary_id,
-        name: beneficiaryData.beneficiary_name,
-        ...(beneficiaryData.vpa && { vpa: beneficiaryData.vpa }),
-        ...(beneficiaryData.bank_account_number && beneficiaryData.bank_ifsc && {
-          bankAccount: {
-            accountNumber: beneficiaryData.bank_account_number,
-            ifsc: beneficiaryData.bank_ifsc,
-            accountHolderName: beneficiaryData.beneficiary_name
-          }
-        })
+      const requestData: BeneficiaryRequest = {
+        name: beneficiaryData.name.trim(),
+        vpa: beneficiaryData.vpa.trim().toLowerCase()
       }
 
-      console.log('Adding beneficiary:', requestBody)
+      console.log('Adding beneficiary:', requestData)
 
-      const response = await fetch(`${BACKEND_URL}/api/phonepe/beneficiary/add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': API_KEY!
-        },
-        body: JSON.stringify(requestBody),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to add beneficiary')
-      }
-
-      const data = await response.json()
-
-      setAddResult({
-        success: true,
-        message: data.message || "Beneficiary processing completed",
-        cashfree: data.data?.cashfree,
-        localStorage: data.data?.database,
-        beneficiary: data.data?.cashfree
-      })
+      const result = await addBeneficiary(requestData)
+      setAddResult(result)
 
       // Reset form on success
-      setBeneficiaryData({
-        beneficiary_id: '',
-        beneficiary_name: '',
-        vpa: '',
-        bank_account_number: '',
-        bank_ifsc: ''
-      })
+      if (result.success) {
+        setBeneficiaryData({
+          name: '',
+          vpa: ''
+        })
+      }
 
     } catch (error) {
       console.error('Error adding beneficiary:', error)
@@ -153,11 +105,22 @@ export default function BeneficiaryManagementPage() {
     setQrResult(null)
 
     // Validate required fields
-    if (!qrCodeData.beneficiaryId) {
+    if (!qrCodeData.vpa.trim()) {
       setQrResult({
         success: false,
-        message: 'Beneficiary ID is required to generate QR code',
-        error: 'Missing beneficiary ID'
+        message: 'UPI ID is required to generate QR code',
+        error: 'Missing UPI ID'
+      })
+      return
+    }
+
+    // Basic VPA validation
+    const vpaPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/
+    if (!vpaPattern.test(qrCodeData.vpa)) {
+      setQrResult({
+        success: false,
+        message: 'Please enter a valid UPI ID (e.g., user@bank)',
+        error: 'Invalid VPA format'
       })
       return
     }
@@ -165,13 +128,13 @@ export default function BeneficiaryManagementPage() {
     setIsGeneratingQr(true)
     try {
       const requestBody = {
-        beneficiaryId: qrCodeData.beneficiaryId,
+        vpa: qrCodeData.vpa.trim().toLowerCase(),
         amount: qrCodeData.amount ? parseFloat(qrCodeData.amount) : undefined,
         purpose: qrCodeData.purpose || undefined,
         remarks: qrCodeData.remarks || undefined,
       }
 
-      console.log('Generating QR code:', requestBody)
+      console.log('Generating QR code via backend:', requestBody)
 
       const response = await fetch(`${BACKEND_URL}/api/phonepe/qr/generate`, {
         method: 'POST',
@@ -195,10 +158,10 @@ export default function BeneficiaryManagementPage() {
       setQrResult({
         success: true,
         message: data.message || "QR code generated successfully",
-        qrCode: data.data?.data || data.data // Handle both nested and direct data structures
+        qrCode: data.data // Backend returns the QR code data structure
       })
 
-      // Reset form on success (keep beneficiary ID for convenience)
+      // Reset form on success (keep VPA for convenience)
       setQrCodeData(prev => ({
         ...prev,
         amount: '',
@@ -261,28 +224,6 @@ export default function BeneficiaryManagementPage() {
             </div>
 
             <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6 flex-1">
-              {/* Beneficiary ID */}
-              <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
-                  <label className="text-sm sm:text-base font-semibold text-slate-700">
-                    Beneficiary ID <span className="text-red-500">*</span>
-                  </label>
-                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded self-start sm:self-auto">Required</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="ABCDEFG12345"
-                  value={beneficiaryData.beneficiary_id}
-                  onChange={(e) => setBeneficiaryData({ ...beneficiaryData, beneficiary_id: e.target.value })}
-                  className="w-full px-3 sm:px-4 py-3 sm:py-3 text-base border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors touch-manipulation min-h-[48px]"
-                  disabled={isLoading}
-                  maxLength={50}
-                />
-                <p className="mt-1 text-xs sm:text-sm text-slate-500">
-                  Unique identifier for this beneficiary. Use alphanumeric characters only.
-                </p>
-              </div>
-
               {/* Beneficiary Name */}
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
@@ -293,112 +234,43 @@ export default function BeneficiaryManagementPage() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Test Beneficiary"
-                  value={beneficiaryData.beneficiary_name}
-                  onChange={(e) => setBeneficiaryData({ ...beneficiaryData, beneficiary_name: e.target.value })}
+                  placeholder="Test Merchant"
+                  value={beneficiaryData.name}
+                  onChange={(e) => setBeneficiaryData({ ...beneficiaryData, name: e.target.value })}
                   className="w-full px-3 sm:px-4 py-3 sm:py-3 text-base border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors touch-manipulation min-h-[48px]"
                   disabled={isLoading}
                   maxLength={100}
                 />
                 <p className="mt-1 text-xs sm:text-sm text-slate-500">
-                  Full name of the beneficiary. Maximum 25 characters, alphabets and spaces only.
+                  Full name of the beneficiary. Maximum 100 characters, alphabets and spaces only.
                 </p>
               </div>
 
-              {/* Payment Methods */}
-              <div className="space-y-3 sm:space-y-4 md:space-y-6">
-                {/* UPI Section */}
-                <div className="border border-slate-200 rounded-lg p-3 sm:p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                    <h4 className="text-sm sm:text-base font-semibold text-slate-700 flex items-center">
-                      UPI ID <span className="text-red-500 ml-1">*</span>
-                    </h4>
-                    <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded self-start sm:self-auto">Required</span>
-                  </div>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      placeholder="testbeneficiary@icici"
-                      value={beneficiaryData.vpa}
-                      onChange={(e) => setBeneficiaryData({ ...beneficiaryData, vpa: e.target.value })}
-                      className="w-full px-3 sm:px-4 py-3 sm:py-3 text-base border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors touch-manipulation min-h-[48px]"
-                      disabled={isLoading}
-                      maxLength={50}
-                    />
-                    <p className="text-xs sm:text-sm text-slate-500">
-                      Valid characters: alphanumeric, period (.), hyphen (-), underscore (_), at (@).
-                    </p>
-                  </div>
+              {/* UPI ID */}
+              <div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+                  <label className="text-sm sm:text-base font-semibold text-slate-700">
+                    UPI ID <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded self-start sm:self-auto">Required</span>
                 </div>
-
-                {/* Bank Transfer Section */}
-                <div className="border border-slate-200 rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <h4 className="text-sm sm:text-base font-semibold text-slate-700 flex items-center">
-                      Bank Transfer <span className="text-red-500 ml-1">*</span>
-                    </h4>
-                    <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded self-start sm:self-auto">Required</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">
-                        Bank Account Number
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="1234567890"
-                        value={beneficiaryData.bank_account_number}
-                        onChange={(e) => setBeneficiaryData({ ...beneficiaryData, bank_account_number: e.target.value })}
-                        className="w-full px-3 sm:px-4 py-3 sm:py-3 text-base border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors touch-manipulation min-h-[48px]"
-                        disabled={isLoading}
-                        maxLength={18}
-                        minLength={9}
-                      />
-                      <p className="mt-1 text-xs sm:text-sm text-slate-500">
-                        9-18 digit account number
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-slate-600 mb-1">
-                        Bank IFSC Code
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="ICIC0000001"
-                        value={beneficiaryData.bank_ifsc}
-                        onChange={(e) => setBeneficiaryData({ ...beneficiaryData, bank_ifsc: e.target.value })}
-                        className="w-full px-3 sm:px-4 py-3 sm:py-3 text-base border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors touch-manipulation min-h-[48px]"
-                        disabled={isLoading}
-                        maxLength={11}
-                        minLength={11}
-                      />
-                      <p className="mt-1 text-xs sm:text-sm text-slate-500">
-                        11-character IFSC code
-                      </p>
-                    </div>
-                  </div>
-
-                  {(beneficiaryData.bank_account_number || beneficiaryData.bank_ifsc) && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                      <div className="flex items-start">
-                        <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 mr-2 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs sm:text-sm text-amber-800">
-                            <strong>Note:</strong> Both Bank Account Number and IFSC are required if you provide either one.
-                            The IFSC must be in the standard format (first 4 alphabets, 5th character &apos;0&apos;, last 6 numerals).
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <input
+                  type="text"
+                  placeholder="merchant@paytm"
+                  value={beneficiaryData.vpa}
+                  onChange={(e) => setBeneficiaryData({ ...beneficiaryData, vpa: e.target.value.toLowerCase() })}
+                  className="w-full px-3 sm:px-4 py-3 sm:py-3 text-base border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors touch-manipulation min-h-[48px]"
+                  disabled={isLoading}
+                  maxLength={256}
+                />
+                <p className="mt-1 text-xs sm:text-sm text-slate-500">
+                  Valid UPI ID format: user@bank (e.g., merchant@paytm, user@ybl, customer@okaxis)
+                </p>
               </div>
 
               {/* Add Beneficiary Button */}
               <button
-                onClick={addBeneficiary}
+                onClick={handleAddBeneficiary}
                 disabled={isLoading}
                 className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 sm:px-6 py-4 sm:py-4 rounded-lg font-semibold text-base hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[56px]"
               >
@@ -427,21 +299,22 @@ export default function BeneficiaryManagementPage() {
             </div>
 
             <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
-              {/* Beneficiary ID */}
+              {/* UPI ID */}
               <div>
                 <label className="block text-sm sm:text-base font-semibold text-slate-700 mb-2">
-                  Beneficiary ID <span className="text-red-500">*</span>
+                  UPI ID <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Enter beneficiary ID"
-                  value={qrCodeData.beneficiaryId}
-                  onChange={(e) => setQrCodeData({ ...qrCodeData, beneficiaryId: e.target.value })}
+                  placeholder="merchant@paytm"
+                  value={qrCodeData.vpa}
+                  onChange={(e) => setQrCodeData({ ...qrCodeData, vpa: e.target.value.toLowerCase() })}
                   className="w-full px-3 sm:px-4 py-3 sm:py-3 text-base border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors touch-manipulation min-h-[48px]"
                   disabled={isGeneratingQr}
+                  maxLength={256}
                 />
                 <p className="mt-1 text-xs sm:text-sm text-slate-500">
-                  Enter the beneficiary ID for which you want to generate a QR code
+                  Enter the UPI ID for which you want to generate a QR code
                 </p>
               </div>
 
@@ -498,7 +371,7 @@ export default function BeneficiaryManagementPage() {
               {/* Generate QR Code Button */}
               <button
                 onClick={generateQrCode}
-                disabled={isGeneratingQr || !qrCodeData.beneficiaryId.trim()}
+                disabled={isGeneratingQr || !qrCodeData.vpa.trim()}
                 className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-4 sm:px-6 py-4 sm:py-4 rounded-lg font-semibold text-base hover:from-teal-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[56px]"
               >
                 {isGeneratingQr ? (
@@ -533,71 +406,32 @@ export default function BeneficiaryManagementPage() {
                   </button>
                 </div>
 
-                {/* Cashfree Results */}
-                {addResult.cashfree && (
-                  <div className={`mb-4 rounded-lg p-3 sm:p-4 ${addResult.cashfree.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                {/* Database Results */}
+                {addResult.data?.database && (
+                  <div className="rounded-lg p-3 sm:p-4 bg-blue-50 border border-blue-200">
                     <div className="flex items-start">
-                      {addResult.cashfree.success ? (
-                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
-                      )}
+                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
                       <div className="flex-1">
                         <h4 className="text-sm sm:text-base font-semibold mb-1 text-slate-900">
-                          PhonePe Registration
+                          Database Storage
                         </h4>
                         <p className="text-xs sm:text-sm text-slate-700 mb-2">
-                          {addResult.cashfree.message}
+                          Beneficiary stored successfully in database
                         </p>
-                        {addResult.cashfree.beneficiary && (
+                        <div className="space-y-1">
                           <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                            <strong>ID:</strong> {addResult.cashfree.beneficiary.beneficiary_id}
-                            {addResult.cashfree.beneficiary.beneficiary_status && (
-                              <span className="ml-2">
-                                <strong>Status:</strong> {addResult.cashfree.beneficiary.beneficiary_status}
-                              </span>
-                            )}
+                            <strong>Beneficiary ID:</strong> {addResult.data.database.beneficiaryId}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Local Storage Results */}
-                {addResult.localStorage && (
-                  <div className={`rounded-lg p-3 sm:p-4 ${addResult.localStorage.success ? 'bg-blue-50 border border-blue-200' : 'bg-orange-50 border border-orange-200'}`}>
-                    <div className="flex items-start">
-                      {addResult.localStorage.success ? (
-                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" />
-                      )}
-                      <div className="flex-1">
-                        <h4 className="text-sm sm:text-base font-semibold mb-1 text-slate-900">
-                          Local Database Storage
-                        </h4>
-                        <p className="text-xs sm:text-sm text-slate-700 mb-2">
-                          Beneficiary stored in local database
-                        </p>
-                        {addResult.localStorage && (
-                          <div className="space-y-1">
-                            <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                              <strong>Customer ID:</strong> {addResult.localStorage.customerId}
-                            </div>
-                            <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                              <strong>Name:</strong> {addResult.localStorage.name}
-                            </div>
-                            {addResult.localStorage.upiId && (
-                              <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                                <strong>UPI ID:</strong> {addResult.localStorage.upiId}
-                              </div>
-                            )}
-                            <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                              <strong>Beneficiary Added:</strong> {addResult.localStorage.isBeneficiaryAdded ? 'Yes' : 'No'}
-                            </div>
+                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                            <strong>Name:</strong> {addResult.data.database.name}
                           </div>
-                        )}
+                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                            <strong>UPI ID:</strong> {addResult.data.database.vpa}
+                          </div>
+                          <div className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                            <strong>Status:</strong> {addResult.data.database.isActive ? 'Active' : 'Inactive'}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -757,10 +591,10 @@ export default function BeneficiaryManagementPage() {
                     <span className="text-emerald-700 font-bold text-xs">1</span>
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Enter Beneficiary Details</h4>
+                    <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Enter Beneficiary Name</h4>
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                      Provide a unique Beneficiary ID and the full name. The ID should contain only alphanumeric characters,
-                      underscore (_), pipe (|), or dot (.) and will be used to identify this beneficiary in future transactions.
+                      Provide the full name of the beneficiary. This should be the merchant or person name who will receive payments.
+                      Maximum 100 characters allowed.
                     </p>
                   </div>
                 </div>
@@ -770,10 +604,10 @@ export default function BeneficiaryManagementPage() {
                     <span className="text-emerald-700 font-bold text-xs">2</span>
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Choose Payment Method</h4>
+                    <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Enter UPI ID</h4>
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                      Select one payment method: Either provide a UPI VPA address or complete both Bank Account Number and IFSC code.
-                      At least one payment method is required for beneficiary creation.
+                      Provide a valid UPI ID (VPA) in the format user@bank (e.g., merchant@paytm, user@ybl).
+                      This will be used for receiving UPI payments.
                     </p>
                   </div>
                 </div>
@@ -785,8 +619,8 @@ export default function BeneficiaryManagementPage() {
                   <div className="flex-1">
                     <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Validate & Submit</h4>
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                      Review all entered information, then click &quot;Add Beneficiary&quot; to register with Cashfree.
-                      The system will validate the data and provide feedback on the registration status.
+                      Review the entered information, then click &quot;Add Beneficiary&quot; to save the beneficiary.
+                      The system will validate the UPI ID format and store the data.
                     </p>
                   </div>
                 </div>
@@ -796,9 +630,9 @@ export default function BeneficiaryManagementPage() {
                     <span className="text-emerald-700 font-bold text-xs">4</span>
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Data Storage</h4>
+                    <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Database Storage</h4>
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                      Beneficiary data is automatically stored in your local database for future reference.
+                      Beneficiary data is automatically stored in your database with a unique MongoDB ObjectId.
                       You can track all beneficiaries and their transaction history through the system.
                     </p>
                   </div>
@@ -811,8 +645,8 @@ export default function BeneficiaryManagementPage() {
                   <div className="flex-1">
                     <h4 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">Use in Payouts</h4>
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                      Once successfully registered, use the Beneficiary ID in your payout API calls.
-                      The beneficiary will be available for instant transfers through Cashfree&apos;s network.
+                      Once successfully stored, the beneficiary can be used in payment flows.
+                      The UPI ID will be available for instant UPI transfers through PhonePe&apos;s network.
                     </p>
                   </div>
                 </div>
@@ -831,8 +665,8 @@ export default function BeneficiaryManagementPage() {
                     <span className="text-amber-800 font-bold text-xs">!</span>
                   </div>
                   <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
-                    <strong>Beneficiary ID Uniqueness:</strong> Each beneficiary ID must be unique across your Cashfree account.
-                    Use descriptive IDs for better organization.
+                    <strong>UPI ID Uniqueness:</strong> Each UPI ID must be unique in your system.
+                    If you try to add a duplicate UPI ID, the existing beneficiary will be updated with the new name.
                   </p>
                 </div>
 
@@ -841,8 +675,8 @@ export default function BeneficiaryManagementPage() {
                     <span className="text-amber-800 font-bold text-xs">!</span>
                   </div>
                   <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
-                    <strong>Bank Details Validation:</strong> Ensure bank account numbers and IFSC codes are accurate.
-                    Incorrect details may cause payout failures.
+                    <strong>UPI ID Validation:</strong> Ensure UPI IDs are in the correct format (user@bank).
+                    Invalid UPI IDs may cause payment failures during transactions.
                   </p>
                 </div>
 
@@ -851,8 +685,8 @@ export default function BeneficiaryManagementPage() {
                     <span className="text-amber-800 font-bold text-xs">!</span>
                   </div>
                   <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
-                    <strong>Dual Storage System:</strong> Beneficiaries are stored both in Cashfree&apos;s system and your local database.
-                    This ensures you have complete control over beneficiary data and transaction history.
+                    <strong>Database Storage:</strong> Beneficiaries are stored in your MongoDB database with automatic ObjectId generation.
+                    This ensures data integrity and enables efficient querying and transaction tracking.
                   </p>
                 </div>
 
@@ -861,7 +695,7 @@ export default function BeneficiaryManagementPage() {
                     <span className="text-amber-800 font-bold text-xs">!</span>
                   </div>
                   <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
-                    <strong>Test Environment:</strong> This interface uses Cashfree&apos;s sandbox environment.
+                    <strong>Test Environment:</strong> This interface uses PhonePe&apos;s sandbox environment.
                     Switch to production credentials for live transactions.
                   </p>
                 </div>
