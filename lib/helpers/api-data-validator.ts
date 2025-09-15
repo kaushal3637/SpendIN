@@ -204,7 +204,7 @@ export async function loadTestData(): Promise<{
   console.log("Loading test data...");
 
   // Use the beneficiary with UPI ID from your dashboard
-  const beneficiaryId = "1492218328b3o0m39jsCfkjeyFVBKdreP1";
+  const beneficiaryId = "success";
 
   // Fetch beneficiary details from backend PhonePe API
   const response = await fetch(
