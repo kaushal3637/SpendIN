@@ -16,8 +16,8 @@ export default function ConversionModal({
   isProcessingPayment,
   paymentStep,
   balanceError,
-  isTestMode,
-  beneficiaryDetails,
+  // isTestMode,
+  // beneficiaryDetails,
   connectedChain,
   isValidChainId
 }: ConversionModalProps) {
@@ -120,7 +120,7 @@ export default function ConversionModal({
                       <div>
                         <h4 className="font-medium text-teal-900 mb-1">What&apos;s included in this fee?</h4>
                         <p className="text-sm text-teal-800 leading-relaxed">
-                          This covers your <span className="font-semibold">ETH gas sponsorship</span> and upgrades your wallet to <span className="font-semibold">EIP-7702 compatible format</span> for seamless Web3 payments on <span className="font-semibold text-teal-700">{conversionResult!.networkName}</span>.
+                          This covers your <span className="font-semibold">ETH gas sponsorship</span> for seamless Web3 payments on <span className="font-semibold text-teal-700">{conversionResult!.networkName}</span>.
                         </p>
                       </div>
                     </div>
@@ -140,29 +140,9 @@ export default function ConversionModal({
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-emerald-700">Merchant:</span>
-                  <span className="font-medium text-emerald-900">{parsedData!.data.pn || 'Unknown Merchant'}</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-emerald-700">UPI ID:</span>
                   <span className="font-mono text-emerald-900">{parsedData!.data.pa}</span>
                 </div>
-                {isTestMode && beneficiaryDetails && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-emerald-700">Beneficiary ID:</span>
-                      <span className="font-mono text-emerald-900 text-xs">{beneficiaryDetails.beneficiaryId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-emerald-700">Beneficiary Name:</span>
-                      <span className="text-emerald-900 text-xs">{beneficiaryDetails.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-emerald-700">UPI ID:</span>
-                      <span className="font-mono text-emerald-900 text-xs">{beneficiaryDetails.vpa}</span>
-                    </div>
-                  </>
-                )}
                 <div className="flex justify-between">
                   <span className="text-emerald-700">Your USDC Balance:</span>
                   <span className={`font-medium ${parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ? 'text-red-600' : 'text-emerald-900'}`}>
@@ -174,7 +154,7 @@ export default function ConversionModal({
                   <span className="font-medium text-emerald-900">{conversionResult!.usdcAmount.toFixed(2)} USDC</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-emerald-700">Service Fee:</span>
+                  <span className="text-emerald-700">Network Fee:</span>
                   <span className="font-medium text-emerald-900">{conversionResult!.networkFee.toFixed(2)} USDC</span>
                 </div>
                 <div className="flex justify-between border-t border-emerald-200 pt-2 mt-2">
