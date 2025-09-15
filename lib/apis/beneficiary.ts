@@ -1,104 +1,48 @@
-import { BACKEND_URL, API_KEY } from '@/config/constant'
-import { BeneficiaryResponse, BeneficiaryRequest } from '@/types/api-helper'
+import { BACKEND_URL, API_KEY } from "@/config/constant";
+import { BeneficiaryResponse, BeneficiaryRequest } from "@/types/api-helper";
 
 /**
  * Add a new beneficiary for payouts
  * @param beneficiaryData - Beneficiary information (name and vpa only)
  * @returns Promise with beneficiary creation result
  */
-export async function addBeneficiary(beneficiaryData: BeneficiaryRequest): Promise<BeneficiaryResponse> {
+export async function addBeneficiary(
+  beneficiaryData: BeneficiaryRequest
+): Promise<BeneficiaryResponse> {
   try {
-    console.log('Adding beneficiary via API:', beneficiaryData.vpa)
+    console.log("Adding beneficiary via API:", beneficiaryData.vpa);
 
     const response = await fetch(`${BACKEND_URL}/api/phonepe/beneficiary/add`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY!
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY!,
       },
       body: JSON.stringify(beneficiaryData),
-    })
+    });
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      const errorData = await response.json();
+      throw new Error(
+        errorData.error || `HTTP ${response.status}: ${response.statusText}`
+      );
     }
 
-    const data = await response.json()
-    
-    console.log('✅ Beneficiary added successfully:', data)
-    
+    const data = await response.json();
+
     return {
       success: true,
       message: data.message || "Beneficiary added successfully",
-      data: data.data
-    }
-
+      data: data.data,
+    };
   } catch (error) {
-    console.error('❌ Error adding beneficiary:', error)
-    
     return {
       success: false,
-      message: `Failed to add beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }
-  }
-}
-
-/**
- * Get beneficiary details by VPA
- * @param vpa - VPA to search for
- * @returns Promise with beneficiary details
- */
-export async function getBeneficiaryByVpa(vpa: string): Promise<{
-  success: boolean
-  message: string
-  data?: {
-    beneficiaryId: string
-    name: string
-    vpa: string
-    isActive: boolean
-    totalReceived: number
-    totalPaid: number
-    transactionCount: number
-    createdAt: string
-    updatedAt: string
-  }
-  error?: string
-}> {
-  try {
-    console.log('Getting beneficiary details by VPA:', vpa)
-
-    const response = await fetch(`${BACKEND_URL}/api/phonepe/beneficiary/vpa/${encodeURIComponent(vpa)}`, {
-      method: 'GET',
-      headers: {
-        'x-api-key': API_KEY!
-      },
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    
-    console.log('✅ Beneficiary details retrieved:', data)
-    
-    return {
-      success: true,
-      message: data.message || "Beneficiary details retrieved successfully",
-      data: data.data
-    }
-
-  } catch (error) {
-    console.error('❌ Error getting beneficiary details:', error)
-    
-    return {
-      success: false,
-      message: `Failed to get beneficiary details: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }
+      message: `Failed to add beneficiary: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }
 
@@ -108,33 +52,96 @@ export async function getBeneficiaryByVpa(vpa: string): Promise<{
  * @returns Validation result with errors if any
  */
 export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
-  isValid: boolean
-  errors: string[]
+  isValid: boolean;
+  errors: string[];
 } {
-  const errors: string[] = []
+  const errors: string[] = [];
 
   // Required fields
   if (!data.name?.trim()) {
-    errors.push('Beneficiary name is required')
+    errors.push("Beneficiary name is required");
   }
 
   if (!data.vpa?.trim()) {
-    errors.push('VPA (UPI ID) is required')
+    errors.push("VPA (UPI ID) is required");
   }
 
   // VPA format validation
   if (data.vpa?.trim()) {
-    const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/
+    const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
     if (!vpaRegex.test(data.vpa)) {
-      errors.push('Invalid UPI ID format')
+      errors.push("Invalid UPI ID format");
     }
   }
 
   return {
     isValid: errors.length === 0,
-    errors
-  }
+    errors,
+  };
 }
+
+/**
+ * Get beneficiary details by VPA
+ * @param vpa - VPA to search for
+ * @returns Promise with beneficiary details
+ */
+// export async function getBeneficiaryByVpa(vpa: string): Promise<{
+//   success: boolean;
+//   message: string;
+//   data?: {
+//     beneficiaryId: string;
+//     name: string;
+//     vpa: string;
+//     isActive: boolean;
+//     totalReceived: number;
+//     totalPaid: number;
+//     transactionCount: number;
+//     createdAt: string;
+//     updatedAt: string;
+//   };
+//   error?: string;
+// }> {
+//   try {
+//     console.log("Getting beneficiary details by VPA:", vpa);
+
+//     const response = await fetch(
+//       `${BACKEND_URL}/api/phonepe/beneficiary/vpa/${encodeURIComponent(vpa)}`,
+//       {
+//         method: "GET",
+//         headers: {
+//           "x-api-key": API_KEY!,
+//         },
+//       }
+//     );
+
+//     if (!response.ok) {
+//       const errorData = await response.json();
+//       throw new Error(
+//         errorData.error || `HTTP ${response.status}: ${response.statusText}`
+//       );
+//     }
+
+//     const data = await response.json();
+
+//     console.log("✅ Beneficiary details retrieved:", data);
+
+//     return {
+//       success: true,
+//       message: data.message || "Beneficiary details retrieved successfully",
+//       data: data.data,
+//     };
+//   } catch (error) {
+//     console.error("❌ Error getting beneficiary details:", error);
+
+//     return {
+//       success: false,
+//       message: `Failed to get beneficiary details: ${
+//         error instanceof Error ? error.message : "Unknown error"
+//       }`,
+//       error: error instanceof Error ? error.message : "Unknown error",
+//     };
+//   }
+// }
 
 /**
  * Generate QR code for a beneficiary
@@ -160,9 +167,9 @@ export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
 //     }
 
 //     const data = await response.json()
-    
+
 //     console.log('✅ QR code generated successfully:', data.data?.qrCodeId)
-    
+
 //     return {
 //       success: true,
 //       message: data.message || "QR code generated successfully",
@@ -171,7 +178,7 @@ export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
 
 //   } catch (error) {
 //     console.error('❌ Error generating QR code:', error)
-    
+
 //     return {
 //       success: false,
 //       message: `Failed to generate QR code: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -202,9 +209,9 @@ export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
 //     }
 
 //     const data = await response.json()
-    
+
 //     console.log('✅ Beneficiary details retrieved:', data)
-    
+
 //     return data
 
 //   } catch (error) {
@@ -255,9 +262,9 @@ export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
 //     }
 
 //     const data = await response.json()
-    
+
 //     console.log('✅ Payment status retrieved:', data)
-    
+
 //     return data
 
 //   } catch (error) {
@@ -274,27 +281,27 @@ export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
  * @returns Promise with final payment status
  */
 // export async function pollPaymentStatus(
-//   transactionId: string, 
-//   maxAttempts: number = 10, 
+//   transactionId: string,
+//   maxAttempts: number = 10,
 //   intervalMs: number = 3000
 // ): Promise<PaymentStatusResponse> {
 //   console.log(`🔄 Starting payment status polling for ${transactionId}`)
-  
+
 //   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 //     try {
 //       const status = await checkPaymentStatus(transactionId)
-      
+
 //       console.log(`📊 Polling attempt ${attempt}/${maxAttempts}: ${status.code}`)
-      
+
 //       // If payment is completed (success or failure), return immediately
-//       if (status.code === 'PAYMENT_SUCCESS' || 
-//           status.code === 'PAYMENT_ERROR' || 
-//           status.code === 'PAYMENT_CANCELLED' || 
+//       if (status.code === 'PAYMENT_SUCCESS' ||
+//           status.code === 'PAYMENT_ERROR' ||
+//           status.code === 'PAYMENT_CANCELLED' ||
 //           status.code === 'PAYMENT_DECLINED') {
 //         console.log(`✅ Final status received: ${status.code}`)
 //         return status
 //       }
-      
+
 //       // If still pending and not the last attempt, wait before next poll
 //       if (attempt < maxAttempts && status.code === 'PAYMENT_PENDING') {
 //         console.log(`⏳ Payment still pending, waiting ${intervalMs}ms before next check...`)
@@ -303,20 +310,20 @@ export function validateBeneficiaryData(data: Partial<BeneficiaryRequest>): {
 //         console.log(`⏰ Polling timeout reached after ${maxAttempts} attempts`)
 //         return status
 //       }
-      
+
 //     } catch (error) {
 //       console.error(`❌ Polling attempt ${attempt} failed:`, error)
-      
+
 //       // If it's the last attempt, throw the error
 //       if (attempt === maxAttempts) {
 //         throw error
 //       }
-      
+
 //       // Otherwise, wait and try again
 //       await new Promise(resolve => setTimeout(resolve, intervalMs))
 //     }
 //   }
-  
+
 //   throw new Error('Payment status polling failed after maximum attempts')
 // }
 

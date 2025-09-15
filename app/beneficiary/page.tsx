@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Plus, CheckCircle, AlertCircle, X, QrCode, Download, Copy } from 'lucide-react'
 import Image from 'next/image'
-import { addBeneficiary } from '@/lib/apis/beneficiary'
+import { addBeneficiary, validateBeneficiaryData } from '@/lib/apis/beneficiary'
 import { BeneficiaryRequest, BeneficiaryResponse } from '@/types/api-helper'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
 
@@ -43,41 +43,32 @@ export default function BeneficiaryManagementPage() {
 
   const [isGeneratingQr, setIsGeneratingQr] = useState(false)
 
+  // To Add and validate beneficiary data
   const handleAddBeneficiary = async () => {
     // Reset previous result
     setAddResult(null)
 
-    // Validate required fields
-    if (!beneficiaryData.name.trim() || !beneficiaryData.vpa.trim()) {
-      setAddResult({
-        success: false,
-        message: 'Both Name and UPI ID are required',
-        error: 'Missing required fields'
-      })
-      return
-    }
+    const validation = validateBeneficiaryData(beneficiaryData);
 
-    // Basic VPA validation
-    const vpaPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/
-    if (!vpaPattern.test(beneficiaryData.vpa)) {
+    if (!validation.isValid) {
       setAddResult({
         success: false,
-        message: 'Please enter a valid UPI ID (e.g., user@bank)',
-        error: 'Invalid VPA format'
-      })
-      return
+        message: validation.errors.join(', '),
+        error: 'Validation failed'
+      });
+      return;
     }
 
     setIsLoading(true)
+
     try {
       const requestData: BeneficiaryRequest = {
         name: beneficiaryData.name.trim(),
         vpa: beneficiaryData.vpa.trim().toLowerCase()
       }
 
-      console.log('Adding beneficiary:', requestData)
-
       const result = await addBeneficiary(requestData)
+
       setAddResult(result)
 
       // Reset form on success
@@ -87,9 +78,7 @@ export default function BeneficiaryManagementPage() {
           vpa: ''
         })
       }
-
     } catch (error) {
-      console.error('Error adding beneficiary:', error)
       setAddResult({
         success: false,
         message: `Failed to add beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`,
