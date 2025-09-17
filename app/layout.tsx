@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/layout/Navbar";
 import PrivyProviderWrapper from "@/components/PrivyProvider";
 
 const geistSans = Geist({
@@ -38,10 +37,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <PrivyProviderWrapper>
-          <Navbar />
-          <main className="pt-16">
-            {children}
-          </main>
+          {children}
         </PrivyProviderWrapper>
       </body>
     </html>
