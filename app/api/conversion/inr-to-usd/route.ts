@@ -8,22 +8,8 @@ interface ConversionResponse {
   usdcAmount: number;
   exchangeRate: number;
   lastUpdated: string;
-  networkFee: number;
   networkName: string;
-  totalUsdcAmount: number;
 }
-
-// Network fee structure based on chain ID
-const getNetworkFee = (chainId: number): number => {
-  switch (chainId) {
-    case 421614: // Arbitrum Sepolia Testnet
-      return 0.5;
-    case 11155111: // Sepolia Testnet
-      return 1.0;
-    default:
-      return 0.5; // Default to 0.5 USDC for unknown networks
-  }
-};
 
 const getNetworkName = (chainId: number): string => {
   const chain = getChainById(chainId);
@@ -34,7 +20,7 @@ const getNetworkName = (chainId: number): string => {
  * POST /api/conversion/inr-to-usd
  * Converts INR amount to USDC using CoinGecko API with network fees
  * Body: { "amount": 1000, "chainId": 421614 } (optional chainId, defaults to 421614)
- * Response: { inrAmount, usdAmount, usdcAmount, exchangeRate, lastUpdated, networkFee, networkName, totalUsdcAmount }
+ * Response: { inrAmount, usdAmount, usdcAmount, exchangeRate, lastUpdated, networkName }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -52,8 +38,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get network fee and name
-    const networkFee = getNetworkFee(chainId);
     const networkName = getNetworkName(chainId);
 
     // Check for CoinGecko API key
@@ -113,9 +97,6 @@ export async function POST(request: NextRequest) {
     const usdcAmount = usdAmount; // 1 USDC = 1 USD
     const exchangeRate = 1 / inrPrice; // USD per INR
 
-    // Calculate total USDC amount including network fee
-    const totalUsdcAmount = usdcAmount + networkFee;
-
     const result: ConversionResponse = {
       inrAmount: amount,
       usdAmount: Number(usdAmount.toFixed(6)),
@@ -124,9 +105,7 @@ export async function POST(request: NextRequest) {
       lastUpdated: lastUpdated
         ? new Date(lastUpdated * 1000).toISOString()
         : new Date().toISOString(),
-      networkFee,
       networkName,
-      totalUsdcAmount: Number(totalUsdcAmount.toFixed(6)),
     };
 
     return NextResponse.json(result, { status: 200 });

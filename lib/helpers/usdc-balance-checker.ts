@@ -25,9 +25,8 @@ export async function checkUSDCBalance(
   try {
     // Get the wallet provider and signer
     const provider = await wallet.getEthereumProvider();
-    const ethersProvider = new ethers.BrowserProvider(
-      provider as ethers.Eip1193Provider
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ethersProvider = new ethers.providers.Web3Provider(provider as any);
     const signer = await ethersProvider.getSigner();
 
     // Get current chain ID if not provided
@@ -66,7 +65,7 @@ export async function checkUSDCBalance(
     const decimals = await usdcContract.decimals();
 
     // Convert to readable format
-    const formattedBalance = ethers.formatUnits(balance, decimals);
+    const formattedBalance = ethers.utils.formatUnits(balance, decimals);
 
     // Check if user has sufficient balance
     const requiredAmountFloat = parseFloat(requiredAmount.toString());
@@ -76,13 +75,12 @@ export async function checkUSDCBalance(
       hasSufficientBalance: currentBalanceFloat >= requiredAmountFloat,
       balance: formattedBalance,
     };
-  } catch (error) {
-    console.error("Error checking USDC balance:", error);
+  } catch {
+    console.error("Error checking USDC balance:");
     return {
       hasSufficientBalance: false,
       balance: "0",
-      error:
-        error instanceof Error ? error.message : "Failed to check USDC balance",
+      error: "Failed to check USDC balance",
     };
   }
 }

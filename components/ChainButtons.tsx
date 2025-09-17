@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useWallet } from "@/context/WalletContext";
 import { useWallets } from "@privy-io/react-auth";
-import { chains, getChainById } from "@/lib/chains";
+import { chains, getChainById } from "@/lib/chains"
 
 interface ChainButtonsProps {
   className?: string;
@@ -53,7 +53,7 @@ function ChainButtonComponent({
           {chain.name}
         </div>
         <div className="text-xs sm:text-sm mt-1 text-blue-600">
-          Testnet
+          {chain.testnet ? "Testnet" : "Mainnet"}
         </div>
       </div>
 

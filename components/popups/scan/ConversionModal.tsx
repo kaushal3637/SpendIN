@@ -11,13 +11,12 @@ export default function ConversionModal({
   parsedData,
   userAmount,
   conversionResult,
+  networkFeeUsdc,
   usdcBalance,
   isCheckingBalance,
   isProcessingPayment,
   paymentStep,
-  balanceError,
-  // isTestMode,
-  // beneficiaryDetails,
+  balanceError, 
   connectedChain,
   isValidChainId
 }: ConversionModalProps) {
@@ -25,7 +24,8 @@ export default function ConversionModal({
 
   if (!isOpen || !parsedData || !conversionResult) return null
 
-  const hasInsufficientBalance = parseFloat(usdcBalance) < conversionResult.totalUsdcAmount
+  const hasInsufficientBalance = parseFloat(usdcBalance) < conversionResult.usdcAmount
+  const effectiveNetworkFee = networkFeeUsdc;
   const isNetworkInvalid = !connectedChain || !isValidChainId?.(connectedChain)
 
   return (
@@ -92,7 +92,7 @@ export default function ConversionModal({
                 <div className="flex justify-between items-center">
                   <span className="text-teal-700 font-medium">Service Fee:</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-teal-900 font-semibold text-lg">{conversionResult!.networkFee.toFixed(2)} USDC</span>
+                    <span className="font-mono text-teal-900 font-semibold text-lg">{effectiveNetworkFee.toFixed(2)} USDC</span>
                     <button
                       onClick={() => setShowReason(prev => !prev)}
                       className="flex items-center justify-center w-6 h-6 bg-teal-100 hover:bg-teal-200 rounded-full transition-all duration-200 group hover:scale-105 shadow-sm"
@@ -145,7 +145,7 @@ export default function ConversionModal({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-emerald-700">Your USDC Balance:</span>
-                  <span className={`font-medium ${parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ? 'text-red-600' : 'text-emerald-900'}`}>
+                  <span className={`font-medium ${parseFloat(usdcBalance) < conversionResult!.usdcAmount ? 'text-red-600' : 'text-emerald-900'}`}>
                     {isCheckingBalance ? 'Checking...' : `${parseFloat(usdcBalance).toFixed(2)} USDC`}
                   </span>
                 </div>
@@ -155,11 +155,11 @@ export default function ConversionModal({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-emerald-700">Network Fee:</span>
-                  <span className="font-medium text-emerald-900">{conversionResult!.networkFee.toFixed(2)} USDC</span>
+                  <span className="font-medium text-emerald-900">{effectiveNetworkFee.toFixed(2)} USDC</span>
                 </div>
                 <div className="flex justify-between border-t border-emerald-200 pt-2 mt-2">
                   <span className="text-emerald-700 font-semibold">You Pay:</span>
-                  <span className="font-bold text-emerald-900 text-lg">{conversionResult!.totalUsdcAmount.toFixed(2)} USDC</span>
+                  <span className="font-bold text-emerald-900 text-lg">{Number(conversionResult!.usdcAmount.toFixed(2)) + Number(effectiveNetworkFee.toFixed(2))} USDC</span>
                 </div>
                 <div className="flex justify-between border-t border-emerald-200 pt-2 mt-2">
                   <span className="text-emerald-700 font-semibold">Merchant Receives:</span>

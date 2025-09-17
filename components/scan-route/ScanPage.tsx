@@ -4,11 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { QrCode, Wallet, CheckCircle, AlertCircle } from 'lucide-react'
 import { ParsedQrResponse } from '@/types/upi.types'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
-import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from '@/config/constant'
 import { useWallet } from '@/context/WalletContext'
-import { getChainInfo, isValidChainId } from '@/lib/chain-validation'
-import { prepareUSDCMetaTransaction } from '@/lib/abstractionkit'
-import { ethers } from 'ethers'
+import { isValidChainId, getChainInfo } from '@/lib/chain-validation'
 import Confetti from 'react-confetti'
 import { ScanningState } from '@/types/qr-service.types'
 import QrScanner from '@/components/scan-route/services/QrScanner'
@@ -18,7 +15,9 @@ import { convertInrToUsdc, loadTestData } from '@/lib/helpers/api-data-validator
 import ConfirmationModal from '@/components/popups/scan/ConfirmationModal'
 import ConversionModal from '@/components/popups/scan/ConversionModal'
 import { useScanState } from '@/hooks/useScanState'
+import { usePaymentProcessing } from '@/hooks/usePaymentProcessing'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
+import { ethers } from 'ethers'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -31,6 +30,7 @@ export default function ScanPage() {
     const [isVisible, setIsVisible] = useState(false)
     const [usdcBalance, setUsdcBalance] = useState<string>('0')
     const [isCheckingBalance, setIsCheckingBalance] = useState(false)
+    const [networkFeeUsdc, setNetworkFeeUsdc] = useState<number>(0)
     const [balanceError, setBalanceError] = useState<string | null>(null)
 
     // Use custom hook for scan state management
@@ -48,7 +48,6 @@ export default function ScanPage() {
         isConverting,
         isProcessingPayment,
         paymentStep,
-        isTestMode,
         scanningState,
         showConfetti,
         setShowModal,
@@ -61,7 +60,6 @@ export default function ScanPage() {
         setIsConverting,
         setIsProcessingPayment,
         setPaymentStep,
-        setIsTestMode,
         setScanningState,
         updateScanningState,
         resetScanState
@@ -69,15 +67,144 @@ export default function ScanPage() {
 
     const qrScannerRef = useRef<QrScannerRef>(null)
 
+    // Initialize payment processing hook
+    const { processPayment } = usePaymentProcessing({
+        parsedData,
+        userAmount,
+        conversionResult,
+        beneficiaryDetails,
+        connectedChain: connectedChain ?? undefined,
+        networkFeeUsdc: networkFeeUsdc,
+        onPaymentResult: setPaymentResult,
+        onPaymentStep: setPaymentStep,
+        onStoreTransaction: async (storeData) => {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/transactions/store`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': API_KEY!
+                    },
+                    body: JSON.stringify(storeData),
+                });
+                const json = await response.json().catch(() => null as unknown as { data?: unknown; error?: string });
+                if (!response.ok) {
+                    console.warn('Store transaction failed:', json?.error || response.statusText);
+                    return {
+                        transactionId: '',
+                        chain: String(storeData.chainId ?? '')
+                    };
+                }
+                const data = (json?.data ?? json ?? {}) as { transactionId?: string; _id?: string; chain?: string };
+                return {
+                    transactionId: data?.transactionId || data?._id || '',
+                    chain: data?.chain || String(storeData.chainId ?? '')
+                };
+            } catch (e) {
+                console.warn('Store transaction exception:', e);
+                return {
+                    transactionId: '',
+                    chain: String(storeData.chainId ?? '')
+                };
+            }
+        },
+        onUpdateTransaction: async (transactionId, txnHash, isSuccess, walletAddress) => {
+            await fetch(`${BACKEND_URL}/api/transactions/update`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': API_KEY!
+                },
+                body: JSON.stringify({
+                    transactionId,
+                    txnHash,
+                    isSuccess,
+                    walletAddress
+                }),
+            });
+            return true;
+        },
+        onSuccess: () => {
+            setShowConversionModal(false);
+            setShowConfetti(true);
+            setPaymentStep('');
+            setTimeout(() => {
+                setShowConfetti(false);
+            }, 5000);
+        }
+    });
+
     // Initialize component
     useEffect(() => {
         setIsVisible(true)
     }, [])
 
+
+    const fetchNetworkFee = async () => {
+        try {
+            // Use a default gas used for estimation (same as in payment hook)
+            const fixedGasUsed = BigInt(50000);
+
+            if (!window.ethereum) {
+                throw new Error('Ethereum provider or ethers.js not found. Please connect your wallet.');
+            }
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+            console.log('provider', provider, window.ethereum);
+
+            // Try to get the best available gas price (EIP-1559 or legacy)
+            let gasPrice: bigint | undefined;
+            let feeData;
+            try {
+                feeData = await provider.getFeeData();
+                // ethers.js getFeeData() returns BigNumber, so convert to bigint
+                const maxFeePerGas = feeData.maxFeePerGas ? BigInt(feeData.maxFeePerGas.toString()) : undefined;
+                const gasPriceLegacy = feeData.gasPrice ? BigInt(feeData.gasPrice.toString()) : undefined;
+                gasPrice = maxFeePerGas ?? gasPriceLegacy;
+                console.log('feeData', feeData, gasPrice);
+            } catch {
+                // fallback: try legacy gasPrice
+                // try {
+                //     gasPrice = await provider.getGasPrice() as bigint;
+                // } catch {
+                //     gasPrice = undefined;
+                // }
+            }
+
+            if (!gasPrice) {
+                throw new Error('Failed to fetch real-time gas price from provider.');
+            }
+            gasPrice = BigInt(gasPrice);
+
+            // Add 20% buffer
+            const rawFeeWei = gasPrice * fixedGasUsed;
+            const bufferedFeeWei = rawFeeWei * BigInt(120) / BigInt(100);
+            console.log('bufferedFeeWei', bufferedFeeWei);
+
+            // Call the backend API to convert to USDC
+            const feeResp = await fetch('/api/conversion/eth-to-usdc', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ wei: bufferedFeeWei.toString() })
+            });
+            if (feeResp.ok) {
+                const feeJson = await feeResp.json();
+                const usdcFeeEstimate = Number(feeJson.usdc || 0);
+                console.log('usdcFeeEstimate', usdcFeeEstimate);
+                setNetworkFeeUsdc(usdcFeeEstimate);
+            }
+        } catch {
+            // Optionally log error for debugging
+            // console.error('fetchNetworkFee error:', err);
+            // Do not set fee on error
+        }
+    };
+
     // Force re-render when validation state changes
     useEffect(() => {
         // This ensures the component re-renders when parsedData or userAmount changes
-        // which should update the disabled state of the confirm button
+        // which should update the disabled state of the confirm butto
     }, [parsedData, userAmount])
 
     // QR Service Methods
@@ -151,7 +278,6 @@ export default function ScanPage() {
                 })
             }
 
-            setIsTestMode(true)
             setShowModal(true)
         } catch (error) {
             console.error('Error loading test data:', error)
@@ -162,9 +288,9 @@ export default function ScanPage() {
     // Check USDC balance when conversion modal opens
     useEffect(() => {
         if (showConversionModal && conversionResult && wallet) {
-            checkUSDCBalanceLocal(conversionResult.totalUsdcAmount)
+            checkUSDCBalanceLocal(conversionResult.usdcAmount + networkFeeUsdc)
         }
-    }, [showConversionModal, conversionResult, wallet, checkUSDCBalanceLocal])
+    }, [showConversionModal, conversionResult, wallet, checkUSDCBalanceLocal, networkFeeUsdc])
 
     return (
         <>
@@ -379,6 +505,7 @@ export default function ScanPage() {
                     onConfirm={async (finalAmount: number) => {
                         try {
                             await convertInrToUsdcWrapper(finalAmount)
+                            await fetchNetworkFee()
                             setShowModal(false)
                             setShowConversionModal(true)
                         } catch (err) {
@@ -389,7 +516,6 @@ export default function ScanPage() {
                     parsedData={parsedData}
                     userAmount={userAmount}
                     isConverting={isConverting}
-                    isTestMode={isTestMode}
                     beneficiaryDetails={beneficiaryDetails}
                     connectedChain={connectedChain ?? undefined}
                     isValidChainId={isValidChainId}
@@ -409,152 +535,9 @@ export default function ScanPage() {
                         setPaymentStep('Processing payment...')
                         setPaymentResult(null)
 
-                        // Validate chain ID
-                        if (!connectedChain) {
-                            throw new Error('No connected chain found. Please ensure your wallet is connected to a supported network.')
-                        }
 
-                        if (!isValidChainId(connectedChain)) {
-                            const chainInfo = getChainInfo(connectedChain)
-                            throw new Error(`Unsupported network: ${chainInfo?.name || 'Unknown'} (Chain ID: ${connectedChain}). Please switch to a supported network.`)
-                        }
-
-                        // Prepare USDC meta transaction with user's wallet
-                        const provider = await wallet!.getEthereumProvider()
-                        const ethersProvider = new ethers.BrowserProvider(provider)
-                        const signer = await ethersProvider.getSigner()
-                        const userAddress = await signer.getAddress()
-                        const usdcAddress = USDC_CONTRACT_ADDRESSES[connectedChain as keyof typeof USDC_CONTRACT_ADDRESSES]
-
-                        // Prepare the meta transaction data (this will sign and prepare the transaction)
-                        const prepared = await prepareUSDCMetaTransaction({
-                            recipient: TREASURY_ADDRESS,
-                            usdcAddress,
-                            amountUsdc: conversionResult!.totalUsdcAmount.toString(),
-                            userSigner: signer,
-                            chainId: connectedChain,
-                            backendApiKey: API_KEY!,
-                            backendUrl: BACKEND_URL,
-                            upiMerchantDetails: {
-                                pa: parsedData?.data?.pa || "merchant@upi",
-                                pn: parsedData?.data?.pn || "Merchant",
-                                am: (conversionResult!.inrAmount || userAmount).toString(),
-                                cu: "INR",
-                                mc: parsedData?.data?.mc || "1234",
-                                tr: parsedData?.data?.tr || `TXN_${Date.now()}`
-                            }
-                        })
-
-                        // Execute the USDC transaction directly on frontend
-                        const receipt = await prepared.send()
-                        const txHash = receipt?.transactionHash
-                        const wasSuccess = !!(receipt?.success && txHash)
-
-                        if (!wasSuccess) {
-                            throw new Error('USDC transaction failed')
-                        }
-
-                        console.log('USDC transaction successful:', txHash)
-
-                        // Store transaction details in database
-                        console.log('Storing transaction details...');
-                        const storeResponse = await fetch(`${BACKEND_URL}/api/transactions/store`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'x-api-key': API_KEY!
-                            },
-                            body: JSON.stringify({
-                                upiId: parsedData?.data?.pa || "merchant@upi",
-                                merchantName: parsedData?.data?.pn || "Merchant",
-                                totalUsdToPay: conversionResult!.totalUsdcAmount.toString(),
-                                inrAmount: (conversionResult!.inrAmount || userAmount).toString(),
-                                walletAddress: userAddress,
-                                txnHash: txHash,
-                                chainId: connectedChain,
-                                isSuccess: true
-                            }),
-                        });
-
-                        let storedTransactionId = null;
-                        if (storeResponse.ok) {
-                            const storeResult = await storeResponse.json();
-                            storedTransactionId = storeResult.data?.transactionId;
-                            console.log('Transaction stored successfully:', storedTransactionId);
-                        } else {
-                            console.warn('Failed to store transaction details');
-                        }
-
-                        // Now send transaction details to backend for INR payout processing
-                        const payoutResponse = await fetch(`${BACKEND_URL}/api/payments/process-payout`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-API-Key': API_KEY!,
-                            },
-                            body: JSON.stringify({
-                                transactionHash: txHash,
-                                upiMerchantDetails: {
-                                    pa: parsedData?.data?.pa || "merchant@upi",
-                                    pn: parsedData?.data?.pn || "Merchant",
-                                    am: (conversionResult!.inrAmount || userAmount).toString(),
-                                    cu: "INR",
-                                    mc: parsedData?.data?.mc || "1234",
-                                    tr: parsedData?.data?.tr || `TXN_${Date.now()}`
-                                },
-                                chainId: connectedChain
-                            }),
-                        })
-
-                        if (!payoutResponse.ok) {
-                            const errorData = await payoutResponse.json()
-                            console.warn('INR payout failed, but USDC transaction succeeded:', errorData.error)
-                            // Don't throw error - USDC transaction was successful
-                        }
-
-                        const payoutResult = await payoutResponse.json()
-                        console.log('INR payout result:', payoutResult)
-
-                        // Update transaction with payout details if we have a stored transaction ID
-                        if (storedTransactionId && payoutResult.success) {
-                            console.log('Updating transaction with payout details...');
-                            await fetch(`${BACKEND_URL}/api/transactions/update`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'x-api-key': API_KEY!
-                                },
-                                body: JSON.stringify({
-                                    transactionId: storedTransactionId,
-                                    payoutTransferId: payoutResult.data?.upiPaymentId,
-                                    payoutStatus: payoutResult.data?.upiPaymentStatus,
-                                    payoutAmount: payoutResult.data?.upiPayoutDetails?.amount,
-                                    payoutRemarks: `Payout to ${parsedData?.data?.pn || "Merchant"}`,
-                                    isSuccess: true,
-                                    walletAddress: userAddress
-                                }),
-                            });
-                        }
-
-                        // Update local state with results
-                        setPaymentResult({
-                            success: true,
-                            status: 'completed',
-                            transactionHash: txHash,
-                            upiPaymentId: payoutResult.data?.upiPaymentId,
-                            upiPaymentStatus: payoutResult.data?.upiPaymentStatus,
-                            upiPayoutDetails: payoutResult.data?.upiPayoutDetails
-                        })
-
-                        // Payment completed successfully
-                        setShowConversionModal(false)
-                        setShowConfetti(true)
-                        setPaymentStep('')
-
-                        // Hide confetti after 5 seconds
-                        setTimeout(() => {
-                            setShowConfetti(false)
-                        }, 5000)
+                        // Use the payment processing hook that includes EIP-7702 delegation
+                        await processPayment()
 
                     } catch (error) {
                         console.error('Payment processing error:', error)
@@ -572,11 +555,11 @@ export default function ScanPage() {
                 userAmount={userAmount}
                 conversionResult={conversionResult}
                 usdcBalance={usdcBalance}
+                networkFeeUsdc={networkFeeUsdc}
                 isCheckingBalance={isCheckingBalance}
                 isProcessingPayment={isProcessingPayment}
                 paymentStep={paymentStep}
                 balanceError={balanceError}
-                isTestMode={isTestMode}
                 beneficiaryDetails={beneficiaryDetails}
                 connectedChain={connectedChain ?? undefined}
                 isValidChainId={isValidChainId}

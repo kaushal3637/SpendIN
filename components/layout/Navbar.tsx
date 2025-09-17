@@ -225,7 +225,7 @@ export default function Navbar() {
                                         <span>{chain.name}</span>
                                       </div>
                                       <div className="text-xs text-slate-500">
-                                        Testnet
+                                        {chain.testnet ? "Testnet" : "Mainnet"}
                                       </div>
                                     </button>
                                   )
@@ -325,7 +325,7 @@ export default function Navbar() {
                                     <span className="text-xs">{chain.name}</span>
                                   </div>
                                   <div className="text-xs text-slate-500">
-                                    Test
+                                    {chain.testnet ? "Testnet" : "Mainnet"}
                                   </div>
                                 </button>
                               )

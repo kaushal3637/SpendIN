@@ -8,7 +8,6 @@ export interface ConfirmationModalProps {
   parsedData: ParsedQrResponse | null;
   userAmount: string;
   isConverting: boolean;
-  isTestMode: boolean;
   beneficiaryDetails: BeneficiaryDetails | null;
   connectedChain?: number;
   isValidChainId?: (chainId: number) => boolean;

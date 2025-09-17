@@ -7,9 +7,7 @@ export interface ConversionResult {
   usdcAmount: number;
   exchangeRate: number;
   lastUpdated: string;
-  networkFee: number;
   networkName: string;
-  totalUsdcAmount: number;
 }
 
 export interface PaymentResult {

@@ -11,12 +11,12 @@ export interface ConversionModalProps {
   parsedData: ParsedQrResponse | null;
   userAmount: string;
   conversionResult: ConversionResult | null;
+  networkFeeUsdc: number;
   usdcBalance: string;
   isCheckingBalance: boolean;
   isProcessingPayment: boolean;
   paymentStep: string;
   balanceError: string | null;
-  isTestMode: boolean;
   beneficiaryDetails: BeneficiaryDetails | null;
   connectedChain?: number;
   isValidChainId?: (chainId: number) => boolean;

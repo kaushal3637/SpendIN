@@ -12,8 +12,6 @@ export default function ConfirmationModal({
   parsedData,
   userAmount,
   isConverting,
-  // isTestMode,
-  // beneficiaryDetails,
   connectedChain,
   isValidChainId
 }: ConfirmationModalProps) {

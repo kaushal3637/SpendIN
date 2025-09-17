@@ -20,20 +20,7 @@ export interface StoreTransactionResponse {
   chain: string;
 }
 
-export interface PayoutData {
-  customerId: string;
-  amount: number;
-  remarks: string;
-}
-
-export interface PayoutResponse {
-  success: boolean;
-  error?: string;
-  payout?: {
-    transferId: string;
-    status: string;
-  };
-}
+// Payout types removed: payout now handled entirely in backend via PhonePe
 
 export interface PaymentProcessingOptions {
   parsedData: ParsedQrResponse | null;
@@ -41,7 +28,7 @@ export interface PaymentProcessingOptions {
   conversionResult: ConversionResult | null;
   beneficiaryDetails: BeneficiaryDetails | null;
   connectedChain: number | undefined;
-  isTestMode: boolean;
+  networkFeeUsdc: number | undefined;
   onPaymentResult: (result: {
     success: boolean;
     status: string;
@@ -58,6 +45,5 @@ export interface PaymentProcessingOptions {
     isSuccess: boolean,
     walletAddress?: string
   ) => Promise<boolean>;
-  onPayout: (data: PayoutData) => Promise<PayoutResponse>;
   onSuccess: () => void;
 }

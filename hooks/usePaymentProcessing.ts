@@ -1,11 +1,20 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useWallets } from "@privy-io/react-auth";
 import { ethers } from "ethers";
-import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from "@/config/constant";
-import { prepareUSDCMetaTransaction } from "@/lib/abstractionkit";
+import { encodeFunctionData, parseAbi } from "viem";
+import { sendSponsoredUsdcTransferViaBackend } from "@/lib/aa";
+import {
+  get7702AccountAddress,
+  getTreasuryAddress,
+  getUSDCAddress
+} from "@/config/constant";
+// import { submitDelegation } from "@/lib/apis/delegation";
 import { isValidChainId, getChainInfo } from "@/lib/chain-validation";
 import { PaymentProcessingOptions } from "@/types/hooks/usePaymentProcessing";
 import { BACKEND_URL, API_KEY } from "@/config/constant";
+import { useEthersProvider } from "./useEthersProvider";
+import { useWallet } from "@/context/WalletContext";
+// import { getChainById } from "@/lib/chains";
 
 export function usePaymentProcessing({
   parsedData,
@@ -13,15 +22,16 @@ export function usePaymentProcessing({
   conversionResult,
   beneficiaryDetails,
   connectedChain,
+  networkFeeUsdc,
   onPaymentResult,
   onPaymentStep,
   onStoreTransaction,
   onUpdateTransaction,
-  onPayout,
   onSuccess,
-}: Omit<PaymentProcessingOptions, "isTestMode">) {
+}: PaymentProcessingOptions) {
   const { wallets } = useWallets();
   const wallet = wallets[0];
+  const { getProvider } = useEthersProvider()
 
   const processPayment = useCallback(async () => {
     try {
@@ -41,18 +51,18 @@ export function usePaymentProcessing({
       if (!isValidChainId(connectedChain)) {
         const chainInfo = getChainInfo(connectedChain);
         throw new Error(
-          `Unsupported network: ${
-            chainInfo?.name || "Unknown"
+          `Unsupported network: ${chainInfo?.name || "Unknown"
           } (Chain ID: ${connectedChain}). Please switch to a supported network.`
         );
       }
+      const totalUsdcAmount = conversionResult!.usdcAmount + networkFeeUsdc!;
 
       // Store transaction in database first
       const finalAmount = parsedData!.data.am || userAmount;
       const storeTransactionData = {
         upiId: parsedData!.data.pa,
         merchantName: parsedData!.data.pn || "Unknown Merchant",
-        totalUsdToPay: conversionResult!.totalUsdcAmount,
+        totalUsdToPay: totalUsdcAmount,
         inrAmount: finalAmount,
         walletAddress: undefined, // Will be updated after payment
         txnHash: undefined, // Will be updated after payment
@@ -75,40 +85,136 @@ export function usePaymentProcessing({
       // Use the validated chain ID from wallet context
       const chainId = connectedChain!;
 
-      // Step 1: Proceed with EIP-7702 transaction
-      console.log("Step 1: Proceeding with EIP-7702 transaction...");
-      onPaymentStep("Processing blockchain transaction...");
+      // Step 1: Proceed with ERC-4337 gasless USDC transfer via bundler/paymaster
+      console.log("Step 1: Proceeding with ERC-4337 gasless USDC transfer...");
+      onPaymentStep("Processing gasless transaction...");
 
-      // Use new client-side flow with user's wallet
-      const provider = await wallet!.getEthereumProvider();
-      const ethersProvider = new ethers.BrowserProvider(provider);
-      const signer = await ethersProvider.getSigner();
-      const usdcAddress =
-        USDC_CONTRACT_ADDRESSES[
-          chainId as keyof typeof USDC_CONTRACT_ADDRESSES
-        ];
+      const ethersProvider = await getProvider()
+      const signer = ethersProvider.getSigner()
+      const userAddress = await signer.getAddress()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // const ethersProvider = new ethers.providers.Web3Provider(provider as any);
+      // const signer = await ethersProvider.getSigner();
+      // const userAddress = await signer.getAddress();
+      const usdcAddress = getUSDCAddress(chainId);
 
-      const prepared = await prepareUSDCMetaTransaction({
-        recipient: TREASURY_ADDRESS,
-        usdcAddress,
-        amountUsdc: conversionResult!.totalUsdcAmount.toString(),
-        userSigner: signer,
-        chainId: chainId,
-        backendApiKey: API_KEY!,
+      // Get account contract for EIP-7702 delegation based on chain
+
+      const accountContract = get7702AccountAddress(chainId);
+
+      // Convert USDC amount to proper units (6 decimals)
+      console.log('totalUsdcAmount', totalUsdcAmount);
+      const usdcAmount = Math.round(totalUsdcAmount);
+      console.log('usdcAmount', usdcAmount);
+
+      // We do not adjust USDC transfer amount on the client; backend handles sponsorship/fees
+      const transferAmount = usdcAmount;
+
+      onPaymentStep("Creating EIP-7702 authorization...");
+
+      // We'll delegate the transaction to backend to avoid RPC limitations.
+
+      // Build ERC20 transfer calldata (viem) BEFORE signing (intent is clear)
+      // const transferData = encodeFunctionData({
+      //   abi: parseAbi(["function transfer(address to, uint256 value)"]),
+      //   functionName: 'transfer',
+      //   args: [getTreasuryAddress(chainId) as `0x${string}`, BigInt(transferAmount)],
+      // });
+
+      // Use AA path with Pimlico bundler + paymaster
+      const pimlicoApiKey = process.env.NEXT_PUBLIC_PIMLICO_API_KEY as string;
+      if (!pimlicoApiKey) throw new Error('Missing NEXT_PUBLIC_PIMLICO_API_KEY');
+      const smartAccountAddress = get7702AccountAddress(chainId) as `0x${string}`;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const eip1193: any = (ethersProvider.provider as any) || (window as any).ethereum;
+      const userOpHash = await sendSponsoredUsdcTransferViaBackend({
+        eip1193,
+        userAddress: userAddress as `0x${string}`,
+        smartAccountAddress,
+        chainId,
+        amount: BigInt(transferAmount),
+        pimlicoApiKey: pimlicoApiKey,
         backendUrl: BACKEND_URL,
-        upiMerchantDetails: {
-          pa: parsedData?.data?.pa || "merchant@upi",
-          pn: parsedData?.data?.pn || "Merchant",
-          am: (conversionResult!.totalUsdcAmount * 83).toFixed(2), // Convert USDC to INR
-          cu: "INR",
-          mc: parsedData?.data?.mc || "1234",
-          tr: parsedData?.data?.tr || `TXN_${Date.now()}`,
-        },
+        accountContract: accountContract as `0x${string}`,
       });
 
-      const receipt = await prepared.send();
-      const txHash = receipt?.transactionHash;
-      const wasSuccess = !!(receipt?.success && txHash);
+      // Prepare EIP-712 typed data for EIP-7702 Authorization and sign via JSON-RPC
+      const network = await ethersProvider.getNetwork();
+      const userNonce = await ethersProvider.getTransactionCount(userAddress);
+      const typedData = {
+        types: {
+          EIP712Domain: [
+            { name: 'name', type: 'string' },
+            { name: 'version', type: 'string' },
+            { name: 'chainId', type: 'uint256' },
+            { name: 'verifyingContract', type: 'address' },
+          ],
+          Authorization: [
+            { name: 'chainId', type: 'uint64' },
+            { name: 'address', type: 'address' },
+            { name: 'nonce', type: 'uint64' }
+          ],
+        },
+        primaryType: 'Authorization',
+        domain: {
+          name: 'arbitrum-sepolia',
+          version: '1',
+          chainId: Number(network.chainId),
+          verifyingContract: accountContract,
+        },
+        message: {
+          chainId: Number(network.chainId),
+          address: userAddress,
+          nonce: userNonce,
+        },
+      } as const;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rpc = (ethersProvider.provider as any) || (window as any).ethereum;
+      // const authSignature: string = await rpc.request({
+      //   method: 'eth_signTypedData_v4',
+      //   params: [userAddress, JSON.stringify(typedData)],
+      // });
+      // const { r, s, v } = ethers.utils.splitSignature(authSignature);
+      // const yParity = v === 27 ? 0 : 1;
+      // const authorization = {
+      //   chainId: Number(network.chainId),
+      //   address: userAddress as `0x${string}`,
+      //   nonce: Number(userNonce),
+      //   yParity,
+      //   r: r as `0x${string}`,
+      //   s: s as `0x${string}`,
+      // } as const;
+
+      // onPaymentStep("Submitting delegated transfer to backend...");
+      // // Send to backendStableUpi relayer, which supports EIP-7702 External tx
+      // const res = await fetch(`${BACKEND_URL}/api/delegate`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     authorization: {
+      //       chainId: authorization.chainId,
+      //       address: accountContract,
+      //       nonce: authorization.nonce,
+      //       signature: authSignature,
+      //       signer: userAddress,
+      //     },
+      //     transaction: {
+      //       to: userAddress,
+      //       data: executeData,
+      //       value: '0x0',
+      //       gasLimit: '0x7A120',
+      //       gasPrice: '0x0',
+      //     }
+      //   })
+      // });
+      // const data = await res.json();
+      // if (!res.ok || !data?.ok) {
+      //   throw new Error(data?.error || 'Delegation failed');
+      // }
+      // const txHash = data.txHash as string;
+      // const wasSuccess = !!txHash;
+      const txHash = userOpHash as string;
+      const wasSuccess = !!userOpHash;
 
       onPaymentResult({
         success: wasSuccess,
@@ -127,72 +233,8 @@ export function usePaymentProcessing({
         );
       }
 
-      // Step 2: Initiate Cashfree payout to beneficiary first
-      console.log("Step 2: Initiating Cashfree payout to beneficiary...");
-      onPaymentStep("Sending INR to beneficiary via Cashfree...");
-
-      // Create clean, short remarks for Cashfree (max ~50 chars, no special chars)
-      const merchantName = parsedData!.data.pn || "Merchant";
-      const cleanRemarks = `Pay ${merchantName.substring(0, 20)}`
-        .replace(/[^a-zA-Z0-9\s]/g, "")
-        .trim();
-
-      // Determine the customer identifier to use
-      let customerIdentifier = beneficiaryDetails?.beneficiaryId;
-
-      if (!customerIdentifier) {
-        // If we don't have beneficiary details, use the UPI ID from parsed QR data
-        // The payout API will handle the lookup
-        customerIdentifier = parsedData?.data?.pa || "success@upi";
-        console.log(
-          "No beneficiary details found, using UPI ID:",
-          customerIdentifier
-        );
-      }
-
-      const payoutData = {
-        customerId: customerIdentifier,
-        amount: parseFloat(finalAmount),
-        remarks: cleanRemarks,
-        fundsourceId: undefined, // Optional - will use default from config
-      };
-
-      console.log("🚀 Payout data being sent:");
-      console.log("- beneficiaryDetails:", beneficiaryDetails);
-      console.log("- beneficiary_id:", beneficiaryDetails?.beneficiaryId);
-      console.log("- final customerId:", payoutData.customerId);
-
-      console.log("Original merchant name:", merchantName);
-      console.log("Clean remarks:", cleanRemarks);
-      console.log("Payout data:", payoutData);
-      console.log("Beneficiary details:", beneficiaryDetails);
-      console.log("Final amount:", finalAmount);
-
-      const payoutResult = await onPayout(payoutData);
-      console.log("Cashfree payout initiated:", payoutResult);
-
-      if (!payoutResult.success) {
-        throw new Error(payoutResult.error || "Payout initiation failed");
-      }
-
-      // Update transaction with payout details
-      if (storedTransactionId) {
-        await fetch(`${BACKEND_URL}/api/transactions/update`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": API_KEY!,
-          },
-          body: JSON.stringify({
-            transactionId: storedTransactionId,
-            payoutTransferId: payoutResult.payout?.transferId,
-            payoutStatus: payoutResult.payout?.status,
-            isSuccess: true, // Both EIP-7702 and payout completed successfully
-          }),
-        });
-      }
-
-      // Payment completed successfully - close modal and show confetti
+      // Step 2: INR payout handled by backend (PhonePe). Frontend is done.
+      onPaymentStep("");
       onSuccess();
     } catch (error) {
       console.error("Payment processing error:", error);
@@ -214,7 +256,6 @@ export function usePaymentProcessing({
     onPaymentStep,
     onStoreTransaction,
     onUpdateTransaction,
-    onPayout,
     onSuccess,
   ]);
 

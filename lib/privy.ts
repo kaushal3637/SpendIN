@@ -31,6 +31,20 @@ export const privyConfig: PrivyClientConfig = {
       },
     },
     {
+      id: 42161, // Arbitrum One Mainnet
+      name: "Arbitrum One",
+      nativeCurrency: {
+        name: "Ether",
+        symbol: "ETH",
+        decimals: 18,
+      },
+      rpcUrls: {
+        default: {
+          http: [process.env.ARBITRUM_ONE_RPC_URL || "https://arbitrum-one-rpc.publicnode.com"],
+        },
+      },
+    },
+    {
       id: 11155111, // Sepolia Testnet
       name: "Sepolia",
       nativeCurrency: {
