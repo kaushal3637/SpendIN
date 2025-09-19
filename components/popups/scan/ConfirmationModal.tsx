@@ -11,6 +11,7 @@ export default function ConfirmationModal({
   onConfirm,
   parsedData,
   userAmount,
+  setUserAmount,
   isConverting,
   isTestMode,
   beneficiaryDetails,
@@ -119,9 +120,19 @@ export default function ConfirmationModal({
                     <input
                       type="number"
                       value={userAmount}
-                      readOnly
+                      onChange={(e) => {
+                        // Only allow changes if there's no amount in QR data
+                        if (!parsedData.data.am) {
+                          setUserAmount(e.target.value)
+                        }
+                      }}
+                      readOnly={!!parsedData.data.am}
                       placeholder="Enter amount (max ₹25,000)"
-                      className="w-full pl-8 pr-3 py-3 sm:py-2 text-base sm:text-sm text-slate-500 border border-slate-300 rounded-lg sm:rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 touch-manipulation"
+                      className={`w-full pl-8 pr-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg sm:rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 touch-manipulation ${
+                        parsedData.data.am 
+                          ? 'text-slate-500 bg-slate-50' 
+                          : 'text-slate-900 bg-white'
+                      }`}
                       min="1"
                       max="25000"
                       step="0.01"

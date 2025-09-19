@@ -7,6 +7,7 @@ export interface ConfirmationModalProps {
   onConfirm: (finalAmount: number) => void;
   parsedData: ParsedQrResponse | null;
   userAmount: string;
+  setUserAmount: (amount: string) => void;
   isConverting: boolean;
   isTestMode: boolean;
   beneficiaryDetails: BeneficiaryDetails | null;
