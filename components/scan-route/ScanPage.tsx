@@ -19,6 +19,7 @@ import ConfirmationModal from '@/components/popups/scan/ConfirmationModal'
 import ConversionModal from '@/components/popups/scan/ConversionModal'
 import { useScanState } from '@/hooks/useScanState'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
+import TransactionHistory from '@/components/scan-route/TransactionHistory'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -267,6 +268,8 @@ export default function ScanPage() {
                                     <p className="text-xs text-slate-500 mt-2">
                                         For development: Load test customer data
                                     </p>
+                                    {/* View Transaction History Button */}
+                                    <HistoryButton />
                                 </div>
                             </div>
 
@@ -582,5 +585,53 @@ export default function ScanPage() {
                 isValidChainId={isValidChainId}
             />
         </>
+    )
+}
+
+function HistoryButton() {
+    const { wallets } = useWallets()
+    const wallet = wallets[0]
+    const [showHistory, setShowHistory] = useState(false)
+    const [addr, setAddr] = useState<string | null>(null)
+
+    useEffect(() => {
+        const getAddress = async () => {
+            try {
+                if (!wallet) return
+                const provider = await wallet.getEthereumProvider()
+                const ethersProvider = new ethers.BrowserProvider(provider)
+                const signer = await ethersProvider.getSigner()
+                const a = await signer.getAddress()
+                setAddr(a)
+            } catch {
+                setAddr(null)
+            }
+        }
+        getAddress()
+    }, [wallet])
+
+    return (
+        <div className="mt-4">
+            <button
+                onClick={() => setShowHistory((s) => !s)}
+                disabled={!addr}
+                className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-medium transition-colors text-sm"
+            >
+                View Transaction History
+            </button>
+            {!addr && (
+                <div className="text-[11px] text-slate-500 mt-1">Connect wallet to view history</div>
+            )}
+            {showHistory && addr && (
+                <div className="mt-3">
+                    <TransactionHistory
+                        walletAddress={addr}
+                        backendUrl={BACKEND_URL}
+                        apiKey={API_KEY!}
+                        onClose={() => setShowHistory(false)}
+                    />
+                </div>
+            )}
+        </div>
     )
 }
