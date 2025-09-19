@@ -519,9 +519,14 @@ export default function ScanPage() {
                             // Trigger refund: refund amount = total paid - network fee at payment time
                             try {
                                 console.log('Refund calculation:', {
-                                    totalUsdcAmount: conversionResult!.totalUsdcAmount,
+                                    chainId: connectedChain,
+                                    to: userAddress,
+                                    amount: conversionResult!.totalUsdcAmount,
+                                    from: TREASURY_ADDRESS,
+                                    txHash: txHash,
                                     networkFee: conversionResult!.networkFee,
-                                    refundAmount: conversionResult!.totalUsdcAmount - conversionResult!.networkFee
+                                    totalPaid: conversionResult!.totalUsdcAmount,
+                                    reason: 'upi_payout_failed',
                                 });
                                 const refundAmountUsdc = (conversionResult!.totalUsdcAmount - conversionResult!.networkFee).toFixed(6)
                                 const refundResp = await fetch(`${BACKEND_URL}/api/payments/refund`, {
@@ -529,9 +534,9 @@ export default function ScanPage() {
                                     headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY! },
                                     body: JSON.stringify({ 
                                         chainId: connectedChain,
-                                        to: userAddress,
+                                        to: TREASURY_ADDRESS,
                                         amount: refundAmountUsdc,
-                                        from: TREASURY_ADDRESS,
+                                        from: userAddress,
                                         txHash: txHash,
                                         networkFee: conversionResult!.networkFee.toFixed(6),
                                         totalPaid: conversionResult!.totalUsdcAmount.toFixed(6),
