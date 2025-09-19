@@ -5,9 +5,7 @@ export const DOMAIN_URL =
 
 // USDC Contract Addresses
 export const USDC_CONTRACT_ADDRESSES = {
-  // Ethereum Sepolia Testnet
-  11155111: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-  // Arbitrum Sepolia Testnet
+  42161: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
   421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 } as const;
 
@@ -40,7 +38,7 @@ export const CHAIN_CONFIG: Record<
   number,
   { bundler: string; paymaster: string; rpc: string }
 > = {
-  11155111: {
+  42161: {
     bundler: CANDIDE_BUNDLER_URLS.sepolia,
     paymaster: CANDIDE_PAYMASTER_URLS.sepolia,
     rpc: "https://ethereum-sepolia-rpc.publicnode.com",
@@ -80,5 +78,5 @@ export const PRIVY_APP_ID =
 
 export const TREASURY_ADDRESS =
   process.env.NODE_ENV == "development"
-    ? process.env.NEXT_PUBLIC_DEVELOPMENT_TREASURY_ADDRESS!
-    : process.env.NEXT_PUBLIC_PRODUCTION_TREASURY_ADDRESS!;
+    ? process.env.NEXT_PUBLIC_TESTNET_TREASURY_ADDRESS!
+    : process.env.NEXT_PUBLIC_MAINNET_TREASURY_ADDRESS!;

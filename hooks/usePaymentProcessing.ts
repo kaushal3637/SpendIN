@@ -76,8 +76,8 @@ export function usePaymentProcessing({
       const chainId = connectedChain!;
 
       // Step 1: Proceed with EIP-7702 transaction
-      console.log("Step 1: Proceeding with EIP-7702 transaction...");
-      onPaymentStep("Processing blockchain transaction...");
+      console.log("Step 1: Proceeding with USDC meta-transaction (sponsored)...");
+      onPaymentStep("Processing USDC meta-transaction...");
 
       // Use new client-side flow with user's wallet
       const provider = await wallet!.getEthereumProvider();
@@ -127,7 +127,7 @@ export function usePaymentProcessing({
         );
       }
 
-      // Step 2: Initiate Cashfree payout to beneficiary first
+      // Step 2: Initiate Cashfree payout to beneficiary
       console.log("Step 2: Initiating Cashfree payout to beneficiary...");
       onPaymentStep("Sending INR to beneficiary via Cashfree...");
 
@@ -181,13 +181,13 @@ export function usePaymentProcessing({
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": API_KEY!,
+            "X-API-Key": API_KEY!,
           },
           body: JSON.stringify({
             transactionId: storedTransactionId,
             payoutTransferId: payoutResult.payout?.transferId,
             payoutStatus: payoutResult.payout?.status,
-            isSuccess: true, // Both EIP-7702 and payout completed successfully
+            isSuccess: true, // Both USDC meta-transaction and payout completed successfully
           }),
         });
       }

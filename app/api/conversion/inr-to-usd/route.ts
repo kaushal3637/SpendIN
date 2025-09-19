@@ -18,7 +18,7 @@ const getNetworkFee = (chainId: number): number => {
   switch (chainId) {
     case 421614: // Arbitrum Sepolia Testnet
       return 0.5;
-    case 11155111: // Sepolia Testnet
+    case 42161: // Arbitrum One
       return 1.0;
     default:
       return 0.5; // Default to 0.5 USDC for unknown networks
