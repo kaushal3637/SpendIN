@@ -1,4 +1,3 @@
-// utils/qrCodeApi.ts
 import { BACKEND_URL, API_KEY } from "@/config/constant";
 import { QRCodeRequest, QRCodeResponse } from "@/types/api-helpers/qr-generation";
 
