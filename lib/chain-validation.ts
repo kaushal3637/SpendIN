@@ -1,5 +1,5 @@
 // Valid chain IDs for StableUPI transactions
-export const VALID_CHAIN_IDS = [421614, 11155111] as const;
+export const VALID_CHAIN_IDS = [421614, 42161] as const;
 
 // Type for valid chain IDs
 export type ValidChainId = (typeof VALID_CHAIN_IDS)[number];
@@ -20,11 +20,11 @@ export const CHAIN_INFO: Record<ValidChainId, ChainInfo> = {
     symbol: "ETH",
     isTestnet: true,
   },
-  11155111: {
-    id: 11155111,
-    name: "Sepolia",
+  42161: {
+    id: 42161,
+    name: "Arbitrum One",
     symbol: "ETH",
-    isTestnet: true,
+    isTestnet: false,
   },
 };
 

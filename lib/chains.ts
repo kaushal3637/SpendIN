@@ -22,29 +22,29 @@ export const chains: Chain[] = [
     },
   },
   {
-    id: 11155111,
-    name: "Sepolia",
+    id: 42161,
+    name: "Arbitrum One",
     nativeCurrency: {
       decimals: 18,
-      name: "Sepolia Ether",
+      name: "Ethereum",
       symbol: "ETH",
     },
     rpcUrls: {
       default: {
-        http: ["https://1rpc.io/sepolia"],
+        http: ["	https://arb1.arbitrum.io/rpc"],
       },
       public: {
-        http: ["https://1rpc.io/sepolia"],
+        http: ["https://arb1.arbitrum.io/rpc"],
       },
     },
     blockExplorers: {
-      default: { name: "Etherscan", url: "https://sepolia.etherscan.io" },
+      default: { name: "Arbiscan", url: "https://arbiscan.io" },
     },
   },
 ];
 
 export const chainImages = {
-  11155111: "/sepolia-logo.png",
+  42161: "/arbitrum-logo.png",
   421614: "/arbitrum-sepolia-logo.png",
 };
 
@@ -66,10 +66,6 @@ export const getExplorerUrl = (
   if (!chainId) return "#";
 
   switch (chainId) {
-    case 1: // Ethereum Mainnet
-      return `https://etherscan.io/tx/${txHash}`;
-    case 11155111: // Sepolia Testnet
-      return `https://sepolia.etherscan.io/tx/${txHash}`;
     case 42161: // Arbitrum One
       return `https://arbiscan.io/tx/${txHash}`;
     case 421614: // Arbitrum Sepolia

@@ -31,16 +31,16 @@ export const privyConfig: PrivyClientConfig = {
       },
     },
     {
-      id: 11155111, // Sepolia Testnet
-      name: "Sepolia",
+      id: 42161, // Arbitrum One
+      name: "Arbitrum One",
       nativeCurrency: {
-        name: "Sepolia Ether",
+        name: "Ethereum",
         symbol: "ETH",
         decimals: 18,
       },
       rpcUrls: {
         default: {
-          http: [process.env.SEPOLIA_RPC_URL || "https://1rpc.io/sepolia"],
+          http: ["https://arb1.arbitrum.io/rpc"],
         },
       },
     },
