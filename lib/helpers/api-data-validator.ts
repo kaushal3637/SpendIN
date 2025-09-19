@@ -108,7 +108,7 @@ export function validatePaymentForm(
  * @param inrAmount - INR amount to convert
  * @returns Promise with conversion result
  */
-export async function convertInrToUsdc(inrAmount: number): Promise<{
+export async function convertInrToUsdc(inrAmount: number, chainId?: number): Promise<{
   inrAmount: number;
   usdAmount: number;
   usdcAmount: number;
@@ -126,7 +126,7 @@ export async function convertInrToUsdc(inrAmount: number): Promise<{
       },
       body: JSON.stringify({
         amount: inrAmount,
-        chainId: 421614, // Default to Arbitrum Sepolia, can be made dynamic later
+        chainId: chainId || 421614,
       }),
     });
 
@@ -228,7 +228,8 @@ export async function loadTestData(): Promise<{
 
   // Get UPI ID from beneficiary instrument details
   const upiId =
-    beneficiary?.beneficiary_instrument_details?.vpa || "success@upi";
+    // beneficiary?.beneficiary_instrument_details?.vpa ||
+     "failure@upi";
 
   // Create test QR data using the beneficiary's UPI ID
   const testParsedData: ParsedQrResponse = {

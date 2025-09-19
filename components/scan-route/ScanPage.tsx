@@ -91,7 +91,8 @@ export default function ScanPage() {
             setIsConverting(true)
             setConversionResult(null)
 
-            const data = await convertInrToUsdc(inrAmount)
+            const data = await convertInrToUsdc(inrAmount, connectedChain || 421614)
+            console.log('Conversion result received:', data);
             setConversionResult(data)
             return data
         } catch (err) {
@@ -512,7 +513,41 @@ export default function ScanPage() {
                         if (!payoutResponse.ok) {
                             const errorData = await payoutResponse.json()
                             console.warn('INR payout failed, but USDC transaction succeeded:', errorData.error)
-                            // Don't throw error - USDC transaction was successful
+
+                            // Trigger refund: refund amount = total paid - network fee at payment time
+                            try {
+                                console.log('Refund calculation:', {
+                                    totalUsdcAmount: conversionResult!.totalUsdcAmount,
+                                    networkFee: conversionResult!.networkFee,
+                                    refundAmount: conversionResult!.totalUsdcAmount - conversionResult!.networkFee
+                                });
+                                const refundAmountUsdc = (conversionResult!.totalUsdcAmount - conversionResult!.networkFee).toFixed(6)
+                                const refundResp = await fetch(`${BACKEND_URL}/api/payments/refund`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY! },
+                                    body: JSON.stringify({ 
+                                        chainId: connectedChain,
+                                        to: userAddress,
+                                        amount: refundAmountUsdc,
+                                        from: TREASURY_ADDRESS,
+                                        txHash: txHash,
+                                        networkFee: conversionResult!.networkFee.toFixed(6),
+                                        totalPaid: conversionResult!.totalUsdcAmount.toFixed(6),
+                                        reason: 'upi_payout_failed'
+                                    })
+                                })
+                                if (!refundResp.ok) {
+                                    const rj = await refundResp.json().catch(() => ({}))
+                                    console.error('Refund failed:', rj?.error || refundResp.statusText)
+                                } else {
+                                    const rj = await refundResp.json()
+                                    console.log('Refund success:', rj)
+                                }
+                            } catch (rfErr) {
+                                console.error('Error triggering refund:', rfErr)
+                            }
+
+                            // Continue without throwing since USDC was successful
                         }
 
                         const payoutResult = await payoutResponse.json()

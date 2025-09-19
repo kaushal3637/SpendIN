@@ -143,7 +143,7 @@ export function usePaymentProcessing({
       if (!customerIdentifier) {
         // If we don't have beneficiary details, use the UPI ID from parsed QR data
         // The payout API will handle the lookup
-        customerIdentifier = parsedData?.data?.pa || "success@upi";
+        customerIdentifier = parsedData?.data?.pa || "failed@upi";
         console.log(
           "No beneficiary details found, using UPI ID:",
           customerIdentifier

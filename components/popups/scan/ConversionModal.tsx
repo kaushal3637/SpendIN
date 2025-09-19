@@ -86,11 +86,11 @@ export default function ConversionModal({
                 <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm">⚡</span>
                 </div>
-                <span className="font-semibold text-teal-900">Network Service Fee</span>
+                <span className="font-semibold text-teal-900">Network Fee</span>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-teal-700 font-medium">Service Fee:</span>
+                  <span className="text-teal-700 font-medium">Network Fee:</span>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-teal-900 font-semibold text-lg">{conversionResult!.networkFee.toFixed(2)} USDC</span>
                     <button
@@ -170,7 +170,7 @@ export default function ConversionModal({
                   <span className="font-medium text-emerald-900">{conversionResult!.usdcAmount.toFixed(2)} USDC</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-emerald-700">Service Fee:</span>
+                  <span className="text-emerald-700">Network Fee:</span>
                   <span className="font-medium text-emerald-900">{conversionResult!.networkFee.toFixed(2)} USDC</span>
                 </div>
                 <div className="flex justify-between border-t border-emerald-200 pt-2 mt-2">

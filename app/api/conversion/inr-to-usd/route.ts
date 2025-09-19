@@ -13,17 +13,70 @@ interface ConversionResponse {
   totalUsdcAmount: number;
 }
 
-// Network fee structure based on chain ID
-const getNetworkFee = (chainId: number): number => {
-  switch (chainId) {
-    case 421614: // Arbitrum Sepolia Testnet
-      return 0.5;
-    case 42161: // Arbitrum One
-      return 1.0;
-    default:
-      return 0.5; // Default to 0.5 USDC for unknown networks
+// Estimate network fee dynamically using gas price and approximate gas usage
+async function estimateNetworkFeeUsdc(chainId: number): Promise<{ feeUsdc: number; networkName: string }>{
+  const chain = getChainById(chainId);
+  const rpcUrl = chain?.rpcUrls?.default?.http?.[0];
+  const networkName = chain?.name || "Unknown Network";
+
+  // Fallback: if RPC not found, default minimal fee
+  if (!rpcUrl) {
+    return { feeUsdc: 0.5, networkName };
   }
-};
+
+  try {
+    // 1) Fetch current gas price
+    const gasResp = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_gasPrice", params: [] }),
+      // Do not cache
+      next: { revalidate: 0 },
+    });
+
+    if (!gasResp.ok) throw new Error(`RPC gas price fetch failed: ${gasResp.status}`);
+    const gasJson = await gasResp.json();
+    const gasPriceWeiHex = gasJson?.result as string;
+    if (!gasPriceWeiHex) throw new Error("Invalid gas price response");
+
+    // Approximate gas used for our flow
+    const gasUsed = 87000; // as provided
+    const gasPriceWei = parseInt(gasPriceWeiHex, 16);
+    const feeWei = gasUsed * gasPriceWei; // fits safely in Number for typical L2 gas
+
+    // Convert wei -> ETH
+    const feeEth = feeWei / 1e18;
+
+    // 2) Fetch ETH price in USD using CoinGecko
+    if (!COINGECKO_API_KEY) throw new Error("CoinGecko API key missing");
+    const pricesResp = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_last_updated_at=true`,
+      {
+        headers: { Authorization: `Bearer ${COINGECKO_API_KEY}`, Accept: "application/json" },
+        next: { revalidate: 30 },
+      }
+    );
+    if (!pricesResp.ok) throw new Error(`CoinGecko price fetch failed: ${pricesResp.status}`);
+    const prices = await pricesResp.json();
+    const ethUsd = prices?.ethereum?.usd as number | undefined;
+    if (!ethUsd) throw new Error("ETH USD price unavailable");
+
+    // 3) Convert ETH fee -> USD -> USDC (1:1)
+    const feeUsd = feeEth * ethUsd;
+    const feeUsdc = Number(feeUsd.toFixed(6));
+
+    console.log(`Gas fee calculation: gasUsed=${gasUsed}, gasPriceWei=${gasPriceWei}, feeWei=${feeWei}, feeEth=${feeEth}, ethUsd=${ethUsd}, feeUsd=${feeUsd}, feeUsdc=${feeUsdc}`);
+
+    // Safety floor/ceiling to avoid zero or extreme values
+    const bounded = Math.min(Math.max(feeUsdc, 0.05), 5.0);
+    console.log(`Final bounded fee: ${bounded}`);
+    return { feeUsdc: bounded, networkName };
+  } catch (err) {
+    console.error("Dynamic fee estimation failed, using fallback:", err);
+    // Fallback fee
+    return { feeUsdc: 0.5, networkName };
+  }
+}
 
 const getNetworkName = (chainId: number): string => {
   const chain = getChainById(chainId);
@@ -52,9 +105,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get network fee and name
-    const networkFee = getNetworkFee(chainId);
-    const networkName = getNetworkName(chainId);
+    // Get dynamic network fee (USDC) and network name
+    const { feeUsdc: networkFee, networkName } = await estimateNetworkFeeUsdc(chainId);
 
     // Check for CoinGecko API key
     if (!COINGECKO_API_KEY) {
@@ -67,15 +119,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get INR to USD exchange rate from CoinGecko
+    // Get INR:USD via USDT and ETH USD concurrently
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=inr&include_last_updated_at=true`,
+      `https://api.coingecko.com/api/v3/simple/price?ids=tether,ethereum&vs_currencies=inr,usd&include_last_updated_at=true`,
       {
         headers: {
           Authorization: `Bearer ${COINGECKO_API_KEY}`,
           Accept: "application/json",
         },
-        next: { revalidate: 60 }, // Cache for 1 minute
+        next: { revalidate: 60 },
       }
     );
 
@@ -94,8 +146,8 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
 
     // Extract the INR price of USDT (which is pegged to USD)
-    const inrPrice = data.tether?.inr;
-    const lastUpdated = data.tether?.last_updated_at;
+    const inrPrice = data.tether?.inr; // INR per USDT (~USD)
+    const lastUpdated = data.tether?.last_updated_at || data.ethereum?.last_updated_at;
 
     if (!inrPrice) {
       console.error("Invalid response from CoinGecko:", data);
