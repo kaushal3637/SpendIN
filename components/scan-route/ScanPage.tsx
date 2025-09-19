@@ -56,6 +56,7 @@ export default function ScanPage() {
         setShowConversionModal,
         setShowConfetti,
         setParsedData,
+        setUserAmount,
         setConversionResult,
         setPaymentResult,
         setBeneficiaryDetails,
@@ -391,6 +392,7 @@ export default function ScanPage() {
                     }}
                     parsedData={parsedData}
                     userAmount={userAmount}
+                    setUserAmount={setUserAmount}
                     isConverting={isConverting}
                     isTestMode={isTestMode}
                     beneficiaryDetails={beneficiaryDetails}
