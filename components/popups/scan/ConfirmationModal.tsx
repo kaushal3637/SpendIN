@@ -45,62 +45,11 @@ export default function ConfirmationModal({
             <div className="flex items-center gap-2 mb-2">
               <QrCode className="w-5 h-5 text-emerald-600" />
               <span className="font-medium text-slate-900">QR Type</span>
-              {isTestMode && (
-                <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
-                  TEST MODE
-                </span>
-              )}
             </div>
             <p className="text-slate-600 capitalize">
               {parsedData.qrType.replace('_', ' ')}
-              {isTestMode && (
-                <span className="text-orange-600 text-sm ml-2">(Test Data)</span>
-              )}
             </p>
           </div>
-
-          {/* Cashfree Beneficiary Details (only shown in test mode) */}
-          {isTestMode && beneficiaryDetails && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">💰</span>
-                </div>
-                <span className="font-medium text-blue-900">Cashfree Beneficiary Details</span>
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
-                  VERIFIED
-                </span>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-blue-700">Beneficiary ID:</span>
-                  <span className="font-mono text-blue-900 text-xs">{beneficiaryDetails.beneficiary_id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-blue-700">Name:</span>
-                  <span className="font-medium text-blue-900">{beneficiaryDetails.beneficiary_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-blue-700">Email:</span>
-                  <span className="text-blue-900">{beneficiaryDetails.beneficiary_email}</span>
-                </div>
-                {beneficiaryDetails.beneficiary_instrument_details?.vpa && (
-                  <div className="flex justify-between">
-                    <span className="text-blue-700">UPI ID:</span>
-                    <span className="font-mono text-blue-900">{beneficiaryDetails.beneficiary_instrument_details.vpa}</span>
-                  </div>
-                )}
-                {beneficiaryDetails.beneficiary_instrument_details?.bank_account_number && (
-                  <div className="flex justify-between">
-                    <span className="text-blue-700">Bank Account:</span>
-                    <span className="font-mono text-blue-900 text-xs">
-                      {beneficiaryDetails.beneficiary_instrument_details.bank_account_number} / {beneficiaryDetails.beneficiary_instrument_details.bank_ifsc}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Account Details */}
           <div className="space-y-3">
@@ -257,8 +206,27 @@ export default function ConfirmationModal({
           >
             {isConverting ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Converting...
+                <svg
+                  className="animate-spin h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  />
+                </svg>
+                <span className="ml-2">Converting...</span>
               </>
             ) : (
               <>
