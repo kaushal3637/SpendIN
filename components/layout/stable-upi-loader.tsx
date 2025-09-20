@@ -14,85 +14,56 @@ export default function StableUPILoader({
 }: StableUPILoaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
-  const progressBarRef = useRef<HTMLDivElement>(null);
-  const progressFillRef = useRef<HTMLDivElement>(null);
-  const percentageRef = useRef<HTMLDivElement>(null);
-  const [percentage, setPercentage] = useState(0);
 
   useEffect(() => {
     if (!containerRef.current || !isLoading) return;
 
     const tl = gsap.timeline();
 
-    gsap.set([logoRef.current, progressBarRef.current, percentageRef.current], {
+    // Set initial states - start from bottom at medium size
+    gsap.set(logoRef.current, {
       opacity: 0,
       y: 200,
+      scale: 0.7,
     });
-    gsap.set(progressFillRef.current, { width: "0%" });
 
+    // Entrance from bottom at medium size
     tl.to(logoRef.current, {
       opacity: 1,
       y: 0,
-      duration: 0.5,
+      scale: 0.7,
+      duration: 0.3,
       ease: "power2.out",
-      delay: 0.1,
     });
 
-    tl.to(
-      progressBarRef.current,
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.2,
-        ease: "power2.out",
-      },
-      "-=0.4"
-    );
+    // Zoom in effect
+    tl.to(logoRef.current, {
+      scale: 1.1,
+      duration: 0.2,
+      ease: "power2.out",
+    });
 
-    tl.to(
-      percentageRef.current,
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.2,
-        ease: "power2.out",
-      },
-      "-=0.6"
-    );
-
-    tl.to(
-      {},
-      {
-        duration: 1,
-        ease: "power2.out",
-        onUpdate: function () {
-          const progress = this.progress();
-          const currentPercentage = Math.round(progress * 100);
-
-          if (progressFillRef.current) {
-            progressFillRef.current.style.width = `${currentPercentage}%`;
-          }
-
-          setPercentage(currentPercentage);
-        },
-      }
-    );
-
-    tl.to([logoRef.current, progressBarRef.current, percentageRef.current], {
-      opacity: 0,
-      y: -100,
+    // Brief pause at zoomed size
+    tl.to({}, {
       duration: 0.4,
-      ease: "power2.in",
-      delay: 0,
     });
 
-    tl.to(containerRef.current, {
+    // Reduce size and go to top
+    tl.to(logoRef.current, {
+      scale: 0.5,
+      y: -200,
       opacity: 0,
       duration: 0.4,
       ease: "power2.in",
       onComplete: () => {
         if (onComplete) onComplete();
       },
+    });
+
+    tl.to(containerRef.current, {
+      opacity: 0,
+      duration: 0.2,
+      ease: "power2.in",
     });
 
     return () => {
@@ -105,14 +76,35 @@ export default function StableUPILoader({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-2 p-4 pb-20"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-white"
       style={{ width: "100vw", height: "100vh" }}
     >
-      <div ref={logoRef} className="w-full text-center">
-        <h1 className={`text-[13vw] text-center tracking-tight text- select-none`}>
-          SPENDIN
-        </h1>
+      {/* Subtle background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-emerald-50 opacity-30"></div>
+
+      <div ref={logoRef} className="text-center relative z-10">
+        {/* Modern logo styling */}
+        <div className="relative">
+          <h1 className="text-[13vw] text-center tracking-tight text-emerald-600 select-none font-bold">
+            SPENDIN
+          </h1>
+        </div>
+        
+        {/* Modern tagline */}
+        <div className="mt-6 space-y-4">
+          <p className="text-lg md:text-xl text-gray-600 font-light tracking-wide">
+            The future of Web3 payments in India
+          </p>
+          
+          {/* Modern loading indicator */}
+          <div className="flex items-center justify-center space-x-1">
+            <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></div>
+            <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+          </div>
+        </div>
       </div>
-      </div>
+
+    </div>
   );
 }
