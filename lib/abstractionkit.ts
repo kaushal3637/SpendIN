@@ -88,6 +88,7 @@ export async function prepareUSDCMetaTransaction({
 
   // Step 1: Prepare the meta transaction via backend
   console.log('Step 1: Preparing USDC meta transaction via backend...');
+  console.log("recipient", recipient);
   const prepareResponse = await fetch(`${backendUrl}/api/payments/prepare-meta-transaction`, {
     method: 'POST',
     headers: {
