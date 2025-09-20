@@ -91,14 +91,8 @@ export default function Features() {
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (container) {
-      const handleScroll = () => {
-        const cardWidth = container.offsetWidth * 0.85; // Account for 85% width
-        const newSlide = Math.round(container.scrollLeft / cardWidth);
-        setCurrentSlide(newSlide);
-      };
-
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
+      container.addEventListener('scroll', handleScrollUpdate);
+      return () => container.removeEventListener('scroll', handleScrollUpdate);
     }
   }, [isMobile]);
 
@@ -120,54 +114,20 @@ export default function Features() {
     });
   };
 
-  // Handle touch scroll
+  // Handle touch scroll - simplified approach
   const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    const startX = touch.clientX;
-    const startScrollLeft = scrollContainerRef.current?.scrollLeft || 0;
-    let isScrolling = false;
+    // Let the browser handle native scrolling
+    // We'll just update the current slide based on scroll position
+  };
 
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const currentX = touch.clientX;
-      const diff = startX - currentX;
-
-      // Add resistance to prevent over-scrolling
-      const resistance = 0.5; // Reduce sensitivity
-      const adjustedDiff = diff * resistance;
-
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollLeft = startScrollLeft + adjustedDiff;
-        isScrolling = true;
-      }
-    };
-
-    const handleTouchEnd = () => {
-      if (isScrolling && scrollContainerRef.current) {
-        const container = scrollContainerRef.current;
-        const cardWidth = container.offsetWidth * 0.85; // Account for 85% width
-        const scrollLeft = container.scrollLeft;
-
-        // Calculate which slide we're closest to
-        const slideIndex = Math.round(scrollLeft / cardWidth);
-        const clampedSlide = Math.max(0, Math.min(slideIndex, features.length - 1));
-
-        setCurrentSlide(clampedSlide);
-
-        // Smooth scroll to the nearest slide
-        container.scrollTo({
-          left: clampedSlide * cardWidth,
-          behavior: "smooth",
-        });
-      }
-
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
-    };
-
-    document.addEventListener("touchmove", handleTouchMove, { passive: false });
-    document.addEventListener("touchend", handleTouchEnd);
+  // Update current slide based on scroll position
+  const handleScrollUpdate = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const cardWidth = container.offsetWidth * 0.85;
+      const newSlide = Math.round(container.scrollLeft / cardWidth);
+      setCurrentSlide(Math.max(0, Math.min(newSlide, features.length - 1)));
+    }
   };
 
   return (
@@ -190,10 +150,18 @@ export default function Features() {
           -webkit-overflow-scrolling: touch;
           scroll-snap-type: x mandatory;
           scroll-behavior: smooth;
+          overscroll-behavior-x: contain;
+          touch-action: pan-x;
         }
         
         .scroll-container::-webkit-scrollbar {
           display: none;
+        }
+        
+        /* Ensure smooth scrolling on all devices */
+        .scroll-container {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
         }
       `}</style>
       <section
@@ -349,12 +317,14 @@ export default function Features() {
               <div
                 ref={scrollContainerRef}
                 className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory gap-4 pb-4 scroll-container"
-                onTouchStart={handleTouchStart}
+                onScroll={handleScrollUpdate}
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",
                   scrollBehavior: "smooth",
-                  overscrollBehavior: "contain"
+                  overscrollBehavior: "contain",
+                  touchAction: "pan-x",
+                  WebkitOverflowScrolling: "touch"
                 }}
               >
                 {features.map((feature, index) => {
