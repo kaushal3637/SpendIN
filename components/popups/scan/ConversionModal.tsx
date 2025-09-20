@@ -16,8 +16,8 @@ export default function ConversionModal({
   isProcessingPayment,
   paymentStep,
   balanceError,
-  isTestMode,
-  beneficiaryDetails,
+  // isTestMode,
+  // beneficiaryDetails,
   connectedChain,
   isValidChainId
 }: ConversionModalProps) {

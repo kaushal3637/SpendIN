@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { QrCode, Wallet, CheckCircle, AlertCircle } from 'lucide-react'
+import { QrCode, CheckCircle, AlertCircle } from 'lucide-react'
 import { ParsedQrResponse } from '@/types/upi.types'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
 import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from '@/config/constant'
@@ -20,6 +20,7 @@ import ConversionModal from '@/components/popups/scan/ConversionModal'
 import { useScanState } from '@/hooks/useScanState'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
 import TransactionHistory from '@/components/scan-route/TransactionHistory'
+import toast from 'react-hot-toast'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -66,7 +67,6 @@ export default function ScanPage() {
         setIsTestMode,
         setScanningState,
         updateScanningState,
-        resetScanState
     } = scanState
 
     const qrScannerRef = useRef<QrScannerRef>(null)
@@ -82,22 +82,15 @@ export default function ScanPage() {
         // which should update the disabled state of the confirm button
     }, [parsedData, userAmount])
 
-    // QR Service Methods
-    const resetScan = useCallback(() => {
-        resetScanState()
-    }, [resetScanState])
-
     const convertInrToUsdcWrapper = async (inrAmount: number) => {
         try {
             setIsConverting(true)
             setConversionResult(null)
 
             const data = await convertInrToUsdc(inrAmount, connectedChain || 421614)
-            console.log('Conversion result received:', data);
             setConversionResult(data)
             return data
         } catch (err) {
-            console.error('Error converting INR to USDC:', err)
             throw err
         } finally {
             setIsConverting(false)
@@ -124,7 +117,6 @@ export default function ScanPage() {
             return result.hasSufficientBalance
 
         } catch (error) {
-            console.error('Error checking USDC balance:', error)
             setBalanceError(error instanceof Error ? error.message : 'Failed to check USDC balance')
             return false
         } finally {
@@ -156,8 +148,8 @@ export default function ScanPage() {
 
             setIsTestMode(true)
             setShowModal(true)
-        } catch (error) {
-            console.error('Error loading test data:', error)
+        } catch {
+            toast.error('Failed to load test data')
         }
     }
 
@@ -200,7 +192,7 @@ export default function ScanPage() {
                                 <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-xs sm:max-w-sm md:max-w-xl mx-auto px-2 sm:px-4 leading-relaxed">
                                     {isWalletConnected
                                         ? "Scan the payer's QR to start payment."
-                                        : "Connect your wallet to start scanning QR codes for payment."
+                                        : "Connect your wallet to start payment."
                                     }
                                 </p>
 
@@ -225,7 +217,7 @@ export default function ScanPage() {
                                         </div>
                                         {!isValidChainId(connectedChain) && (
                                             <p className="text-xs text-red-600 mt-1">
-                                                Please switch to Arbitrum Sepolia or Sepolia network
+                                                Please switch to Arbitrum Sepolia network
                                             </p>
                                         )}
                                     </div>
@@ -239,18 +231,11 @@ export default function ScanPage() {
                                     isWalletConnected={isWalletConnected}
                                     onConnectWallet={login}
                                     onQrDetected={useCallback((qrData: string, parsedData: ParsedQrResponse) => {
-                                        console.log('QR Code detected:', qrData)
                                         setParsedData(parsedData)
-
-                                        // Log current beneficiary details state
-                                        console.log('Current beneficiaryDetails state:', beneficiaryDetails)
-                                        console.log('Parsed QR data UPI ID:', parsedData.data?.pa)
-
                                         setShowModal(true)
-                                    }, [setParsedData, setShowModal, beneficiaryDetails])}
-                                    onError={useCallback((error: string) => {
-                                        console.error('QR scanning error:', error)
-                                        // Error state is now managed by QrScanner component
+                                    }, [setParsedData, setShowModal])}
+                                    onError={useCallback(() => {
+                                        toast.error('Failed to scan QR Code')
                                     }, [])}
                                     onScanningStateChange={useCallback((state: ScanningState) => {
                                         updateScanningState(state)
@@ -281,7 +266,7 @@ export default function ScanPage() {
                                     <div className="flex items-center justify-center gap-3 mb-2">
                                         <CheckCircle className="w-8 h-8 text-green-600 animate-pulse" />
                                         <h3 className="text-xl sm:text-2xl font-bold text-green-900">
-                                            Payment Completed Successfully! 🎉
+                                            Payment Successful!
                                         </h3>
                                     </div>
                                     <div className="text-center space-y-2">
@@ -290,89 +275,21 @@ export default function ScanPage() {
                                         </p>
                                         {paymentResult.transactionHash && (
                                             <div className="text-center">
-                                                <p className="text-xs text-green-700 font-mono bg-green-100 px-2 py-1 rounded inline-block">
-                                                    USDC TX: {paymentResult.transactionHash.substring(0, 10)}...{paymentResult.transactionHash.substring(paymentResult.transactionHash.length - 8)}
+                                                <p className="text-sm text-green-700">
+                                                    USDC Payment Status: {paymentResult.transactionHash ? '✅ Completed' : '❌ Failed'}
                                                 </p>
-                                                <a
-                                                    href={`${BACKEND_URL}/api/payments/explorer/${connectedChain}/${paymentResult.transactionHash}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-block ml-2 text-xs text-blue-600 hover:text-blue-800 underline"
-                                                >
-                                                    🔗 View on Explorer
-                                                </a>
                                             </div>
                                         )}
                                         {paymentResult.upiPaymentId && (
                                             <div className="mt-2 text-center">
                                                 <p className="text-sm text-green-700">
-                                                    INR payout: {paymentResult.upiPaymentStatus === 'SUCCESS' ? '✅ Completed' : paymentResult.upiPaymentStatus === 'PENDING' ? '⏳ Processing' : '❌ ' + paymentResult.upiPaymentStatus}
-                                                </p>
-                                                <p className="text-xs text-green-700 font-mono bg-green-100 px-2 py-1 rounded mt-1">
-                                                    Transfer ID: {paymentResult.upiPaymentId}
+                                                    INR Payment Status: {paymentResult.upiPaymentStatus === 'RECEIVED' ? '✅ Completed' : paymentResult.upiPaymentStatus === 'PENDING' ? '⏳ Processing' : '❌ ' + paymentResult.upiPaymentStatus}
                                                 </p>
                                             </div>
                                         )}
-                                        {paymentResult.upiPayoutDetails && (
-                                            <p className="text-xs text-green-700 mt-1">
-                                                Amount: ₹{paymentResult.upiPayoutDetails.amount}
-                                            </p>
-                                        )}
-                                        <button
-                                            onClick={resetScan}
-                                            className="mt-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                                        >
-                                            Scan Another QR
-                                        </button>
                                     </div>
                                 </div>
                             )}
-
-                            {/* Next Steps */}
-                            <div className="bg-white/50 backdrop-blur-sm rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 lg:p-8 border border-emerald-100 mx-2 sm:mx-0">
-                                {scanningState.scanResult ? (
-                                    <>
-                                        <div className="flex items-center justify-center gap-3">
-                                            <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-green-600" />
-                                            <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                                                QR Scanned Successfully!
-                                            </h3>
-                                        </div>
-                                        {userAmount && (
-                                            <p className="text-sm text-slate-600 mt-2">
-                                                Ready to process payment...
-                                            </p>
-                                        )}
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="flex items-center justify-center gap-3">
-                                            <Wallet className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 mb-2" />
-                                            <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                                                Connect Wallet
-                                            </h3>
-                                        </div>
-                                        <p className="text-sm sm:text-base text-slate-600 mb-4 text-center">
-                                            Connect your wallet to start scanning QR codes for payment.
-                                        </p>
-                                        <hr className="my-4 text-slate-200" />
-                                        <div className="flex items-center justify-center gap-3">
-                                            <QrCode className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 mb-2" />
-                                            <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
-                                                Ready to Scan
-                                            </h3>
-                                        </div>
-                                        <p className="text-sm sm:text-base text-slate-600 mb-1 text-center">
-                                            Position your camera at the QR code to begin payment process.
-                                        </p>
-                                        <div className="text-center">
-                                            <p className="text-xs sm:text-sm text-slate-500">
-                                                Make sure your camera is enabled and pointed at the QR code
-                                            </p>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -386,9 +303,8 @@ export default function ScanPage() {
                             await convertInrToUsdcWrapper(finalAmount)
                             setShowModal(false)
                             setShowConversionModal(true)
-                        } catch (err) {
-                            console.error('Conversion failed:', err)
-                            // Could show error toast here
+                        } catch {
+                            toast.error('Conversation failed')
                         }
                     }}
                     parsedData={parsedData}
@@ -422,7 +338,7 @@ export default function ScanPage() {
 
                         if (!isValidChainId(connectedChain)) {
                             const chainInfo = getChainInfo(connectedChain)
-                            throw new Error(`Unsupported network: ${chainInfo?.name || 'Unknown'} (Chain ID: ${connectedChain}). Please switch to a supported network.`)
+                            throw new Error(`Unsupported network: ${chainInfo?.name || 'Unknown'} (Chain ID: ${connectedChain}). Please switch to arbitrum sepolia network.`)
                         }
 
                         // Prepare USDC meta transaction with user's wallet
@@ -460,10 +376,7 @@ export default function ScanPage() {
                             throw new Error('USDC transaction failed')
                         }
 
-                        console.log('USDC transaction successful:', txHash)
-
                         // Store transaction details in database
-                        console.log('Storing transaction details...');
                         const storeResponse = await fetch(`${BACKEND_URL}/api/transactions/store`, {
                             method: 'POST',
                             headers: {
@@ -486,7 +399,6 @@ export default function ScanPage() {
                         if (storeResponse.ok) {
                             const storeResult = await storeResponse.json();
                             storedTransactionId = storeResult.data?.transactionId;
-                            console.log('Transaction stored successfully:', storedTransactionId);
                         } else {
                             console.warn('Failed to store transaction details');
                         }
@@ -518,21 +430,11 @@ export default function ScanPage() {
 
                             // Trigger refund: refund amount = total paid - network fee at payment time
                             try {
-                                console.log('Refund calculation:', {
-                                    chainId: connectedChain,
-                                    to: userAddress,
-                                    amount: conversionResult!.totalUsdcAmount,
-                                    from: TREASURY_ADDRESS,
-                                    txHash: txHash,
-                                    networkFee: conversionResult!.networkFee,
-                                    totalPaid: conversionResult!.totalUsdcAmount,
-                                    reason: 'upi_payout_failed',
-                                });
                                 const refundAmountUsdc = (conversionResult!.totalUsdcAmount - conversionResult!.networkFee).toFixed(6)
                                 const refundResp = await fetch(`${BACKEND_URL}/api/payments/refund`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY! },
-                                    body: JSON.stringify({ 
+                                    body: JSON.stringify({
                                         chainId: connectedChain,
                                         to: TREASURY_ADDRESS,
                                         amount: refundAmountUsdc,
@@ -553,16 +455,12 @@ export default function ScanPage() {
                             } catch (rfErr) {
                                 console.error('Error triggering refund:', rfErr)
                             }
-
-                            // Continue without throwing since USDC was successful
                         }
 
                         const payoutResult = await payoutResponse.json()
-                        console.log('INR payout result:', payoutResult)
 
                         // Update transaction with payout details if we have a stored transaction ID
                         if (storedTransactionId && payoutResult.success) {
-                            console.log('Updating transaction with payout details...');
                             await fetch(`${BACKEND_URL}/api/transactions/update`, {
                                 method: 'PUT',
                                 headers: {
@@ -602,10 +500,9 @@ export default function ScanPage() {
                         }, 5000)
 
                     } catch (error) {
-                        console.error('Payment processing error:', error)
                         setPaymentResult({
                             success: false,
-                            error: error instanceof Error ? error.message : 'Payment processing failed',
+                            error: error instanceof Error ? error.message : 'Payment data update failed',
                             status: 'failed'
                         })
                         setPaymentStep('')

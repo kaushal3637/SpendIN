@@ -13,8 +13,8 @@ export default function ConfirmationModal({
   userAmount,
   setUserAmount,
   isConverting,
-  isTestMode,
-  beneficiaryDetails,
+  // isTestMode,
+  // beneficiaryDetails,
   connectedChain,
   isValidChainId
 }: ConfirmationModalProps) {
@@ -128,11 +128,10 @@ export default function ConfirmationModal({
                       }}
                       readOnly={!!parsedData.data.am}
                       placeholder="Enter amount (max ₹25,000)"
-                      className={`w-full pl-8 pr-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg sm:rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 touch-manipulation ${
-                        parsedData.data.am 
-                          ? 'text-slate-500 bg-slate-50' 
+                      className={`w-full pl-8 pr-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg sm:rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 touch-manipulation ${parsedData.data.am
+                          ? 'text-slate-500 bg-slate-50'
                           : 'text-slate-900 bg-white'
-                      }`}
+                        }`}
                       min="1"
                       max="25000"
                       step="0.01"
