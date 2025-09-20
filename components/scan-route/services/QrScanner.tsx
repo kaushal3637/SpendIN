@@ -57,6 +57,16 @@ const QrScanner = forwardRef<QrScannerRef, QrScannerProps>(({
                 await qrServiceRef.current.toggleScanning(videoRef.current)
             }
         },
+        startScanning: async () => {
+            if (qrServiceRef.current && videoRef.current && !scanningState.isScanning) {
+                await qrServiceRef.current.toggleScanning(videoRef.current)
+            }
+        },
+        stopScanning: async () => {
+            if (qrServiceRef.current && videoRef.current && scanningState.isScanning) {
+                await qrServiceRef.current.toggleScanning(videoRef.current)
+            }
+        },
         reset: () => {
             if (qrServiceRef.current) {
                 qrServiceRef.current.reset()
@@ -66,15 +76,15 @@ const QrScanner = forwardRef<QrScannerRef, QrScannerProps>(({
     }))
 
     return (
-        <div className={`relative w-full max-w-[85vw] sm:max-w-sm md:max-w-md mx-auto ${className}`}>
+        <div className={`relative w-full mx-auto ${className}`}>
             {/* Scanner Frame */}
             <div className="relative bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-lg border-2 border-emerald-200 p-3 sm:p-4 md:p-6 lg:p-8 overflow-hidden">
                 {/* Video Element for Camera Feed */}
                 <div className={`relative bg-slate-900 rounded-lg overflow-hidden ${scanningState.isScanning ? 'border-2 border-emerald-300' : 'border-0'}`}>
                     <video
                         ref={videoRef}
-                        className={`w-full h-48 sm:h-56 md:h-64 lg:h-80 object-cover ${!scanningState.isScanning ? 'hidden' : ''}`}
-                        playsInline
+                        className={`w-full h-70 sm:h-[560px]  object-cover ${!scanningState.isScanning ? 'hidden' : ''}`}
+                        playsInline 
                         muted
                     />
 

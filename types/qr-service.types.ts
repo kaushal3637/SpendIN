@@ -21,6 +21,8 @@ export interface QrScanningServiceConfig {
 
 export interface QrScannerRef {
   toggleScanning: () => Promise<void>;
+  startScanning: () => Promise<void>;
+  stopScanning: () => Promise<void>;
   reset: () => void;
   getScanningState: () => ScanningState;
 }

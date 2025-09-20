@@ -174,158 +174,98 @@ export default function ScanPage() {
                 />
             )}
 
-            <div className="min-h-screen bg-transparent">
+            <div className="bg-gradient-to-br from-emerald-50 via-white to-teal-50">
+                {/* Header */}
+                <div className={`transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+                    {/* Scanner Section */}
+                    <div className="px-4 py-6">
+                        <div className="text-center mb-6">
+                            <h2 className="text-xl font-medium text-slate-800 mb-2">
+                                Scan QR Code
+                            </h2>
+                            <p className="text-sm text-slate-600">
+                                {isWalletConnected
+                                    ? "Point your camera at the QR code to pay"
+                                    : "Connect wallet to start scanning"
+                                }
+                            </p>
+                        </div>
 
-                <div className={`relative z-10 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+                        {/* QR Scanner Frame */}
+                        <div className="relative mx-auto mb-6 w-full">
+                            <QrScanner
+                                ref={qrScannerRef}
+                                isWalletConnected={isWalletConnected}
+                                onConnectWallet={login}
+                                onQrDetected={useCallback((qrData: string, parsedData: ParsedQrResponse) => {
+                                    console.log('QR Code detected:', qrData)
+                                    setParsedData(parsedData)
+                                    // Directly show modal without any delay
+                                    setShowModal(true)
+                                }, [setParsedData, setShowModal])}
+                                onError={useCallback(() => {
+                                    toast.error('QR scanning error')
+                                }, [])}
+                                onScanningStateChange={useCallback((state: ScanningState) => {
+                                    updateScanningState(state)
+                                }, [updateScanningState])}
+                                className="w-full"
+                            />
+                        </div>
 
-                    {/* Main Content */}
-                    <div className="flex items-center justify-center px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 lg:py-12 min-h-[calc(100vh-4rem)]">
-                        <div className="w-full max-w-[90vw] sm:max-w-sm md:max-w-md lg:max-w-2xl mx-auto text-center">
-                            {/* Header */}
-                            <div className="mb-6 sm:mb-8">
-                                <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 mb-4 sm:mb-6">
-                                    <QrCode className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+
+                    </div>
+
+                    {/* Payment Success */}
+                    {paymentResult?.success && !showConversionModal && (
+                        <div className="px-4 mb-4">
+                            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                                        <CheckCircle className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-green-900">Payment Successful!</h3>
+                                        <p className="text-sm text-green-700">Transaction completed</p>
+                                    </div>
                                 </div>
-                                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-slate-900 mb-3 sm:mb-4 leading-tight">
-                                    Pay Smarter with QR
-                                </h1>
-                                <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-xs sm:max-w-sm md:max-w-xl mx-auto px-2 sm:px-4 leading-relaxed">
-                                    {isWalletConnected
-                                        ? "Scan the payer's QR to start payment."
-                                        : "Connect your wallet to start payment."
-                                    }
-                                </p>
+                            </div>
+                        </div>
+                    )}
 
-                                {/* Chain Status Indicator */}
-                                {isWalletConnected && connectedChain && (
-                                    <div className="mt-4 text-center">
-                                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${isValidChainId(connectedChain)
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-red-100 text-red-800'
-                                            }`}>
-                                            {isValidChainId(connectedChain) ? (
-                                                <>
-                                                    <CheckCircle className="w-4 h-4" />
-                                                    <span>{getChainInfo(connectedChain)?.name} Network</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <AlertCircle className="w-4 h-4" />
-                                                    <span>Unsupported Network (ID: {connectedChain})</span>
-                                                </>
-                                            )}
-                                        </div>
-                                        {!isValidChainId(connectedChain) && (
-                                            <p className="text-xs text-red-600 mt-1">
-                                                Please switch to Arbitrum Sepolia network
+                    {/* Refund Message */}
+                    {paymentResult?.status === 'refunded' && !showConversionModal && (
+                        <div className="mb-4 sm:mb-6 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg sm:rounded-xl p-4 mx-2 sm:mx-0 shadow-lg">
+                            <div className="flex items-center justify-center gap-3 mb-2">
+                                <AlertCircle className="w-8 h-8 text-orange-600" />
+                                <h3 className="text-xl sm:text-2xl font-bold text-orange-900">
+                                    Payment Refunded
+                                </h3>
+                            </div>
+                            <div className="text-center space-y-2">
+                                <p className="text-orange-800 font-medium">
+                                    {paymentResult.error || 'UPI payout failed; USDC refunded'}
+                                </p>
+                                {paymentResult.refund && (
+                                    <div className="text-center space-y-1">
+                                        <p className="text-sm text-orange-700">
+                                            Refund Amount: {paymentResult.refund.amount} USDC
+                                        </p>
+                                        {paymentResult.refund.fee && (
+                                            <p className="text-xs text-orange-600">
+                                                Fee Deducted: {paymentResult.refund.fee} USDC
+                                            </p>
+                                        )}
+                                        {paymentResult.refund.transactionHash && (
+                                            <p className="text-xs text-orange-600">
+                                                Refund TX: {paymentResult.refund.transactionHash.slice(0, 10)}...
                                             </p>
                                         )}
                                     </div>
                                 )}
                             </div>
-
-                            {/* QR Scanner */}
-                            <div className="mb-4 sm:mb-6 md:mb-8 lg:mb-12">
-                                <QrScanner
-                                    ref={qrScannerRef}
-                                    isWalletConnected={isWalletConnected}
-                                    onConnectWallet={login}
-                                    onQrDetected={useCallback((qrData: string, parsedData: ParsedQrResponse) => {
-                                        setParsedData(parsedData)
-                                        setShowModal(true)
-                                    }, [setParsedData, setShowModal])}
-                                    onError={useCallback(() => {
-                                        toast.error('Failed to scan QR Code')
-                                    }, [])}
-                                    onScanningStateChange={useCallback((state: ScanningState) => {
-                                        updateScanningState(state)
-                                    }, [updateScanningState])}
-                                />
-
-                                {/* Test Button for Development */}
-                                <div className="mt-4 text-center">
-                                    <button
-                                        onClick={loadTestDataWrapper}
-                                        className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors text-sm mx-auto"
-                                        disabled={!isWalletConnected}
-                                    >
-                                        <QrCode className="w-4 h-4" />
-                                        Load Test Data
-                                    </button>
-                                    <p className="text-xs text-slate-500 mt-2">
-                                        For development: Load test customer data
-                                    </p>
-                                    {/* View Transaction History Button */}
-                                    <HistoryButton />
-                                </div>
-                            </div>
-
-                            {/* Payment Success Message */}
-                            {paymentResult?.success && !showConversionModal && (
-                                <div className="mb-4 sm:mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg sm:rounded-xl p-4 mx-2 sm:mx-0 shadow-lg">
-                                    <div className="flex items-center justify-center gap-3 mb-2">
-                                        <CheckCircle className="w-8 h-8 text-green-600 animate-pulse" />
-                                        <h3 className="text-xl sm:text-2xl font-bold text-green-900">
-                                            Payment Successful!
-                                        </h3>
-                                    </div>
-                                    <div className="text-center space-y-2">
-                                        <p className="text-green-800 font-medium">
-                                            Your payment has been processed successfully!
-                                        </p>
-                                        {paymentResult.transactionHash && (
-                                            <div className="text-center">
-                                                <p className="text-sm text-green-700">
-                                                    USDC Payment Status: {paymentResult.transactionHash ? '✅ Completed' : '❌ Failed'}
-                                                </p>
-                                            </div>
-                                        )}
-                                        {paymentResult.upiPaymentId && (
-                                            <div className="mt-2 text-center">
-                                                <p className="text-sm text-green-700">
-                                                    INR Payment Status: {paymentResult.upiPaymentStatus === 'RECEIVED' ? '✅ Completed' : paymentResult.upiPaymentStatus === 'PENDING' ? '⏳ Processing' : '❌ ' + paymentResult.upiPaymentStatus}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Refund Message */}
-                            {paymentResult?.status === 'refunded' && !showConversionModal && (
-                                <div className="mb-4 sm:mb-6 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg sm:rounded-xl p-4 mx-2 sm:mx-0 shadow-lg">
-                                    <div className="flex items-center justify-center gap-3 mb-2">
-                                        <AlertCircle className="w-8 h-8 text-orange-600" />
-                                        <h3 className="text-xl sm:text-2xl font-bold text-orange-900">
-                                            Payment Refunded
-                                        </h3>
-                                    </div>
-                                    <div className="text-center space-y-2">
-                                        <p className="text-orange-800 font-medium">
-                                            {paymentResult.error || 'UPI payout failed; USDC refunded'}
-                                        </p>
-                                        {paymentResult.refund && (
-                                            <div className="text-center space-y-1">
-                                                <p className="text-sm text-orange-700">
-                                                    Refund Amount: {paymentResult.refund.amount} USDC
-                                                </p>
-                                                {paymentResult.refund.fee && (
-                                                    <p className="text-xs text-orange-600">
-                                                        Fee Deducted: {paymentResult.refund.fee} USDC
-                                                    </p>
-                                                )}
-                                                {paymentResult.refund.transactionHash && (
-                                                    <p className="text-xs text-orange-600">
-                                                        Refund TX: {paymentResult.refund.transactionHash.slice(0, 10)}...
-                                                    </p>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Confirmation Modal */}
@@ -591,17 +531,14 @@ function HistoryButton() {
     }, [wallet])
 
     return (
-        <div className="mt-4">
+        <div>
             <button
                 onClick={() => setShowHistory((s) => !s)}
                 disabled={!addr}
-                className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-medium transition-colors text-sm"
+                className="w-full py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             >
                 View Transaction History
             </button>
-            {!addr && (
-                <div className="text-[11px] text-slate-500 mt-1">Connect wallet to view history</div>
-            )}
             {showHistory && addr && (
                 <div className="mt-3">
                     <TransactionHistory

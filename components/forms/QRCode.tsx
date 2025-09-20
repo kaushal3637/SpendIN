@@ -192,7 +192,7 @@ export default function QRCodeForm() {
                                     alt="UPI QR Code"
                                     width={224}
                                     height={224}
-                                    className="w-48 h-48 sm:w-56 sm:h-56"
+                                    className="w-48 sm:w-56 h-70"
                                     unoptimized={true}
                                 />
                             </div>

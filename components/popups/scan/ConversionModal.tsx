@@ -29,164 +29,132 @@ export default function ConversionModal({
   const isNetworkInvalid = !connectedChain || !isValidChainId?.(connectedChain)
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-3 md:p-4">
-      <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-sm md:max-w-md lg:max-w-lg max-h-[96vh] sm:max-h-[92vh] md:max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-gradient-to-br from-emerald-900/80 via-teal-900/60 to-emerald-800/70 backdrop-blur-sm flex items-end justify-center z-50">
+      <div className="bg-white rounded-t-2xl shadow-2xl w-full max-w-md mx-auto max-h-[85vh] flex flex-col overflow-hidden animate-slide-up">
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-slate-200">
-          <h3 className="text-base sm:text-lg md:text-xl font-bold text-slate-900">
-            Payment Conversion
+        <div className="flex items-center justify-between p-3 border-b border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900">
+            Review Payment
           </h3>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-full transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
           >
-            <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
         {/* Modal Content */}
-        <div className="p-3 sm:p-4 md:p-6">
-          {/* Payment Flow Info */}
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-6">
-            <div className="flex items-center gap-2 text-sm text-emerald-800">
-              <span className="text-emerald-600">💱</span>
-              <span className="font-medium">You pay in USDC • Merchant receives in INR</span>
-            </div>
-          </div>
-
-          {/* Unified Payment Details Container */}
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-            {/* Currency Conversion Section */}
-            <div className="p-4 bg-gradient-to-r from-emerald-50/30 to-teal-50/30">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 bg-emerald-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">$</span>
+        <div className="p-3 flex-1 overflow-y-auto">
+          {/* Currency Conversion - Prominent Display */}
+          <div className="text-center mb-4">
+            <div className="bg-emerald-50 rounded-lg p-3 mb-3">
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-slate-900">₹{parseFloat(parsedData!.data.am || userAmount).toFixed(2)}</div>
+                  <div className="text-xs text-slate-500">INR Amount</div>
                 </div>
-                <span className="font-semibold text-emerald-900">Currency Conversion Details</span>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="font-mono text-emerald-900 font-semibold text-lg">{parseFloat(parsedData!.data.am || userAmount).toFixed(2)} ₹</span>
-                  <span className="text-emerald-700 font-medium"><ArrowBigRight className="w-4 h-4" /></span>
-                  <span className="font-mono text-emerald-900 font-bold text-xl">{conversionResult!.usdcAmount.toFixed(6)} $</span>
+                <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center">
+                  <ArrowBigRight className="w-4 h-4 text-white" />
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-emerald-700 text-sm">Exchange Rate:</span>
-                  <span className="font-mono text-emerald-900 text-sm">1 $ = {(1 / conversionResult!.exchangeRate).toFixed(2)} ₹</span>
+                <div className="text-left">
+                  <div className="text-2xl font-bold text-emerald-600">${conversionResult!.usdcAmount.toFixed(2)}</div>
+                  <div className="text-xs text-slate-500">USDC</div>
                 </div>
               </div>
-            </div>
-
-            {/* Horizontal Separator */}
-            <div className="h-px bg-gradient-to-r from-transparent via-emerald-200 to-transparent"></div>
-
-            {/* Network Service Fee Section */}
-            <div className="p-4 bg-gradient-to-r from-teal-50/30 to-emerald-50/30">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 bg-teal-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm">⚡</span>
-                </div>
-                <span className="font-semibold text-teal-900">Network Fee</span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-teal-700 font-medium">Network Fee:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-teal-900 font-semibold text-lg">{conversionResult!.networkFee.toFixed(2)} USDC</span>
-                    <button
-                      onClick={() => setShowReason(prev => !prev)}
-                      className="flex items-center justify-center w-6 h-6 bg-teal-100 hover:bg-teal-200 rounded-full transition-all duration-200 group hover:scale-105 shadow-sm"
-                      title={showReason ? "Hide details" : "Show details"}
-                    >
-                      <svg
-                        className={`w-3 h-3 text-teal-600 transition-transform duration-300 ${showReason ? 'rotate-180' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Expandable Reason Section */}
-                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${showReason ? 'max-h-40 opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
-                  <div className="p-4 bg-gradient-to-r from-white/80 to-teal-50/80 rounded-lg border border-teal-200 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <span className="text-teal-600 text-sm">💡</span>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-teal-900 mb-1">What&apos;s included in this fee?</h4>
-                        <p className="text-sm text-teal-800 leading-relaxed">
-                          This covers your <span className="font-semibold">ETH gas sponsorship</span> for seamless Web3 payments on <span className="font-semibold text-teal-700">{conversionResult!.networkName}</span>.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Horizontal Separator */}
-            <div className="h-px bg-gradient-to-r from-transparent via-teal-200 to-transparent"></div>
-
-            {/* Payment Summary Section */}
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Banknote className="w-5 h-5 text-emerald-600" />
-                <span className="font-medium text-emerald-900">Payment Summary</span>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-emerald-700">Merchant:</span>
-                  <span className="font-medium text-emerald-900">{parsedData!.data.pn || 'Unknown Merchant'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-emerald-700">UPI ID:</span>
-                  <span className="font-mono text-emerald-900">{parsedData!.data.pa}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-emerald-700">Your USDC Balance:</span>
-                  <span className={`font-medium ${parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ? 'text-red-600' : 'text-emerald-900'}`}>
-                    {isCheckingBalance ? 'Checking...' : `${parseFloat(usdcBalance).toFixed(2)} USDC`}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-emerald-700">Payment Amount:</span>
-                  <span className="font-medium text-emerald-900">{conversionResult!.usdcAmount.toFixed(2)} USDC</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-emerald-700">Network Fee:</span>
-                  <span className="font-medium text-emerald-900">{conversionResult!.networkFee.toFixed(2)} USDC</span>
-                </div>
-                <div className="flex justify-between border-t border-emerald-200 pt-2 mt-2">
-                  <span className="text-emerald-700 font-semibold">You Pay:</span>
-                  <span className="font-bold text-emerald-900 text-lg">{conversionResult!.totalUsdcAmount.toFixed(2)} USDC</span>
-                </div>
-                <div className="flex justify-between border-t border-emerald-200 pt-2 mt-2">
-                  <span className="text-emerald-700 font-semibold">Merchant Receives:</span>
-                  <span className="font-bold text-emerald-900 text-lg">₹{parseFloat(parsedData!.data.am || userAmount).toFixed(2)}</span>
-                </div>
-                {balanceError && (
-                  <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-700 text-xs">{balanceError}</p>
-                  </div>
-                )}
+              <div className="text-xs text-emerald-700">
+                Rate: 1 USD = ₹{(1 / conversionResult!.exchangeRate).toFixed(2)}
               </div>
             </div>
           </div>
+
+          {/* Cost Breakdown */}
+          <div className="space-y-2 mb-4">
+            <h4 className="font-medium text-slate-900">Payment Breakdown</h4>
+            
+            <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">Payment Amount</span>
+                <span className="font-medium text-slate-900">${conversionResult!.usdcAmount.toFixed(2)} USDC</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-slate-600">Network Fee</span>
+                  <button
+                    onClick={() => setShowReason(prev => !prev)}
+                    className="w-4 h-4 bg-slate-200 hover:bg-slate-300 rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <svg className={`w-2 h-2 text-slate-600 transition-transform ${showReason ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+                <span className="font-medium text-slate-900">${conversionResult!.networkFee.toFixed(2)} USDC</span>
+              </div>
+
+              {/* Expandable Fee Details */}
+              {showReason && (
+                <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                  <p className="text-xs text-blue-800">
+                    Covers gas sponsorship on {conversionResult!.networkName}
+                  </p>
+                </div>
+              )}
+              
+              <div className="border-t border-slate-200 pt-2 flex justify-between items-center">
+                <span className="font-medium text-slate-900">Total</span>
+                <span className="font-bold text-lg text-slate-900">${conversionResult!.totalUsdcAmount.toFixed(2)} USDC</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Balance Check */}
+          <div className="mb-4">
+            <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+              <span className="text-sm text-slate-600">Your USDC Balance</span>
+              <span className={`font-medium ${parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ? 'text-red-600' : 'text-green-600'}`}>
+                {isCheckingBalance ? 'Checking...' : `$${parseFloat(usdcBalance).toFixed(2)} USDC`}
+              </span>
+            </div>
+            {hasInsufficientBalance && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700 text-sm">Insufficient USDC balance for this transaction</p>
+              </div>
+            )}
+          </div>
+
+          {/* Transaction Details */}
+          <div className="space-y-2 mb-4">
+            <h4 className="font-medium text-slate-900">Transaction Details</h4>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-600">To</span>
+                <span className="font-medium text-slate-900">{parsedData!.data.pn || 'Merchant'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">UPI ID</span>
+                <span className="font-mono text-slate-900 text-xs">{parsedData!.data.pa}</span>
+              </div>
+              {parsedData!.data.tr && (
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Reference</span>
+                  <span className="font-mono text-slate-900 text-xs">{parsedData!.data.tr}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Error Messages */}
+          {balanceError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{balanceError}</p>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 border-t border-slate-200">
-          <button
-            onClick={onClose}
-            className="w-full sm:flex-1 px-4 py-3 sm:py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors touch-manipulation min-h-[44px] text-sm sm:text-base"
-          >
-            Cancel
-          </button>
+        <div className="p-3 border-t border-slate-200 flex-shrink-0">
           <button
             onClick={onPay}
             disabled={
@@ -195,14 +163,15 @@ export default function ConversionModal({
               hasInsufficientBalance ||
               isNetworkInvalid
             }
-            className={`w-full sm:flex-1 px-4 py-3 sm:py-2 rounded-lg transition-colors flex items-center justify-center gap-2 touch-manipulation min-h-[44px] text-sm sm:text-base ${isCheckingBalance || isProcessingPayment
-              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-              : hasInsufficientBalance
-                ? 'bg-red-500 text-white cursor-not-allowed'
-                : isNetworkInvalid
-                  ? 'bg-orange-500 text-white cursor-not-allowed'
-                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
-              }`}
+            className={`w-full py-3 rounded-xl transition-colors flex items-center justify-center gap-2 font-medium ${
+              isCheckingBalance || isProcessingPayment
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : hasInsufficientBalance
+                  ? 'bg-red-500 text-white cursor-not-allowed'
+                  : isNetworkInvalid
+                    ? 'bg-orange-500 text-white cursor-not-allowed'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
           >
             {isCheckingBalance ? (
               <>
@@ -228,20 +197,43 @@ export default function ConversionModal({
                 </svg>
                 Checking Balance...
               </>
+            ) : isProcessingPayment ? (
+              <>
+               <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  />
+                </svg>
+                {paymentStep || 'Processing...'}
+              </>
             ) : hasInsufficientBalance ? (
               <>
-                <AlertCircle className="w-4 h-4" />
+                <AlertCircle className="w-5 h-5" />
                 Insufficient USDC
               </>
             ) : isNetworkInvalid ? (
               <>
-                <AlertCircle className="w-4 h-4" />
+                <AlertCircle className="w-5 h-5" />
                 Unsupported Network
               </>
             ) : (
               <>
-                <DollarSign className="w-4 h-4" />
-                {paymentStep || 'Pay Now'}
+                Pay ${conversionResult!.totalUsdcAmount.toFixed(2)} USDC
               </>
             )}
           </button>
