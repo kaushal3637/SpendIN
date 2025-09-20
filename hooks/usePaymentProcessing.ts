@@ -141,13 +141,14 @@ export function usePaymentProcessing({
       let customerIdentifier = beneficiaryDetails?.beneficiary_id;
 
       if (!customerIdentifier) {
-        // If we don't have beneficiary details, use the UPI ID from parsed QR data
-        // The payout API will handle the lookup
+        // If we don't have beneficiary details, this should not happen with auto-beneficiary system
+        // But as a fallback, use the UPI ID from parsed QR data
         customerIdentifier = parsedData?.data?.pa || "failed@upi";
-        console.log(
-          "No beneficiary details found, using UPI ID:",
+        console.warn(
+          "No beneficiary details found, using UPI ID as fallback:",
           customerIdentifier
         );
+        console.warn("This should not happen with the auto-beneficiary system enabled");
       }
 
       const payoutData = {

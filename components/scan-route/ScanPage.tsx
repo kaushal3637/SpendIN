@@ -21,6 +21,7 @@ import { useScanState } from '@/hooks/useScanState'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
 import TransactionHistory from '@/components/scan-route/TransactionHistory'
 import toast from 'react-hot-toast'
+import { createBeneficiaryFromQR } from '@/api-helpers/auto-beneficiary'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -197,12 +198,63 @@ export default function ScanPage() {
                                 ref={qrScannerRef}
                                 isWalletConnected={isWalletConnected}
                                 onConnectWallet={login}
-                                onQrDetected={useCallback((qrData: string, parsedData: ParsedQrResponse) => {
+                                onQrDetected={useCallback(async (qrData: string, parsedData: ParsedQrResponse) => {
                                     console.log('QR Code detected:', qrData)
                                     setParsedData(parsedData)
+                                    
+                                    // Auto-create fresh beneficiary (skip DB check)
+                                    if (parsedData.isValid && parsedData.data.pa) {
+                                        try {
+                                            console.log('🆕 Creating fresh beneficiary for UPI ID (skipping DB check):', parsedData.data.pa)
+                                            
+                                            // Always create fresh auto-beneficiary (skip database check)
+                                            const createResult = await createBeneficiaryFromQR(parsedData)
+                                            
+                                            if (createResult.success && createResult.data) {
+                                                console.log('✅ Fresh auto-beneficiary created successfully:', createResult.data.beneficiaryId)
+                                                setBeneficiaryDetails({
+                                                    beneficiary_id: createResult.data.beneficiaryId,
+                                                    beneficiary_name: createResult.data.merchantName,
+                                                    beneficiary_instrument_details: {
+                                                        vpa: parsedData.data.pa
+                                                    }
+                                                })
+                                                
+                                                toast.success(`Merchant "${createResult.data.merchantName}" added automatically!`)
+                                            } else {
+                                                console.warn('⚠️ Failed to create auto-beneficiary:', createResult.error)
+                                                toast.error(`Failed to add merchant: ${createResult.error || 'Unknown error'}`)
+                                                
+                                                // Still set basic beneficiary details for fallback
+                                                setBeneficiaryDetails({
+                                                    beneficiary_id: parsedData.data.pa, // Use UPI ID as fallback
+                                                    beneficiary_name: parsedData.data.pn || 'Merchant',
+                                                    beneficiary_instrument_details: {
+                                                        vpa: parsedData.data.pa
+                                                    }
+                                                })
+                                            }
+                                        } catch (error) {
+                                            console.error('❌ Error handling auto-beneficiary:', error)
+                                            toast.error('Error processing merchant details')
+                                            
+                                            // Set basic beneficiary details for fallback
+                                            setBeneficiaryDetails({
+                                                beneficiary_id: parsedData.data.pa, // Use UPI ID as fallback
+                                                beneficiary_name: parsedData.data.pn || 'Merchant',
+                                                beneficiary_instrument_details: {
+                                                    vpa: parsedData.data.pa
+                                                }
+                                            })
+                                        }
+                                    } else {
+                                        console.warn('⚠️ Invalid QR data or missing UPI ID')
+                                        toast.error('Invalid QR code - missing UPI ID')
+                                    }
+                                    
                                     // Directly show modal without any delay
                                     setShowModal(true)
-                                }, [setParsedData, setShowModal])}
+                                }, [setParsedData, setShowModal, setBeneficiaryDetails])}
                                 onError={useCallback(() => {
                                     toast.error('QR scanning error')
                                 }, [])}
