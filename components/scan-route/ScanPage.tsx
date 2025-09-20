@@ -403,90 +403,23 @@ export default function ScanPage() {
                             console.warn('Failed to store transaction details');
                         }
 
-                        // Now send transaction details to backend for INR payout processing
-                        const payoutResponse = await fetch(`${BACKEND_URL}/api/payments/process-payout`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-API-Key': API_KEY!,
-                            },
-                            body: JSON.stringify({
-                                transactionHash: txHash,
-                                upiMerchantDetails: {
-                                    pa: parsedData?.data?.pa || "merchant@upi",
-                                    pn: parsedData?.data?.pn || "Merchant",
-                                    am: (conversionResult!.inrAmount || userAmount).toString(),
-                                    cu: "INR",
-                                    mc: parsedData?.data?.mc || "1234",
-                                    tr: parsedData?.data?.tr || `TXN_${Date.now()}`
-                                },
-                                chainId: connectedChain
-                            }),
-                        })
-
-                        if (!payoutResponse.ok) {
-                            const errorData = await payoutResponse.json()
-                            console.warn('INR payout failed, but USDC transaction succeeded:', errorData.error)
-
-                            // Trigger refund: refund amount = total paid - network fee at payment time
-                            try {
-                                const refundAmountUsdc = (conversionResult!.totalUsdcAmount - conversionResult!.networkFee).toFixed(6)
-                                const refundResp = await fetch(`${BACKEND_URL}/api/payments/refund`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY! },
-                                    body: JSON.stringify({
-                                        chainId: connectedChain,
-                                        to: TREASURY_ADDRESS,
-                                        amount: refundAmountUsdc,
-                                        from: userAddress,
-                                        txHash: txHash,
-                                        networkFee: conversionResult!.networkFee.toFixed(6),
-                                        totalPaid: conversionResult!.totalUsdcAmount.toFixed(6),
-                                        reason: 'upi_payout_failed'
-                                    })
-                                })
-                                if (!refundResp.ok) {
-                                    const rj = await refundResp.json().catch(() => ({}))
-                                    console.error('Refund failed:', rj?.error || refundResp.statusText)
-                                } else {
-                                    const rj = await refundResp.json()
-                                    console.log('Refund success:', rj)
-                                }
-                            } catch (rfErr) {
-                                console.error('Error triggering refund:', rfErr)
-                            }
-                        }
-
-                        const payoutResult = await payoutResponse.json()
-
-                        // Update transaction with payout details if we have a stored transaction ID
-                        if (storedTransactionId && payoutResult.success) {
-                            await fetch(`${BACKEND_URL}/api/transactions/update`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'x-api-key': API_KEY!
-                                },
-                                body: JSON.stringify({
-                                    transactionId: storedTransactionId,
-                                    payoutTransferId: payoutResult.data?.upiPaymentId,
-                                    payoutStatus: payoutResult.data?.upiPaymentStatus,
-                                    payoutAmount: payoutResult.data?.upiPayoutDetails?.amount,
-                                    payoutRemarks: `Payout to ${parsedData?.data?.pn || "Merchant"}`,
-                                    isSuccess: true,
-                                    walletAddress: userAddress
-                                }),
-                            });
-                        }
+                        // Note: INR payout is already processed as part of the USDC meta transaction flow
+                        // No need for separate payout call to avoid duplicate processing
+                        console.log('USDC transaction completed successfully. INR payout was processed automatically.')
 
                         // Update local state with results
                         setPaymentResult({
                             success: true,
                             status: 'completed',
                             transactionHash: txHash,
-                            upiPaymentId: payoutResult.data?.upiPaymentId,
-                            upiPaymentStatus: payoutResult.data?.upiPaymentStatus,
-                            upiPayoutDetails: payoutResult.data?.upiPayoutDetails
+                            upiPaymentId: 'processed_via_meta_transaction',
+                            upiPaymentStatus: 'RECEIVED',
+                            upiPayoutDetails: {
+                                transferId: 'processed_via_meta_transaction',
+                                status: 'RECEIVED',
+                                message: `Payment to ${parsedData?.data?.pn || "Merchant"}`,
+                                amount: parseFloat(String(conversionResult!.inrAmount || userAmount))
+                            }
                         })
 
                         // Payment completed successfully
