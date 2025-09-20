@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { CheckCircle, AlertCircle } from 'lucide-react'
+import { CheckCircle, AlertCircle, TrendingUp } from 'lucide-react'
 import { ParsedQrResponse } from '@/types/upi.types'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
 import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from '@/config/constant'
@@ -167,19 +167,19 @@ export default function ScanPage() {
                                 onQrDetected={useCallback(async (qrData: string, parsedData: ParsedQrResponse) => {
                                     console.log('QR Code detected:', qrData)
                                     setParsedData(parsedData)
-                                    
+
                                     // Auto-create beneficiary with success@upi logic
                                     if (parsedData.isValid && parsedData.data.pa) {
                                         try {
                                             const originalUpiId = parsedData.data.pa
                                             console.log('🔄 Processing QR with success@upi logic for UPI ID:', originalUpiId)
-                                            
+
                                             // Create auto-beneficiary with success@upi logic
                                             const createResult = await createBeneficiaryFromQR(parsedData)
-                                            
+
                                             if (createResult.success && createResult.data) {
                                                 console.log('✅ Auto-beneficiary created with success@upi logic:', createResult.data)
-                                                
+
                                                 // Set beneficiary details using processing UPI ID
                                                 setBeneficiaryDetails({
                                                     beneficiary_id: createResult.data.beneficiaryId,
@@ -188,14 +188,14 @@ export default function ScanPage() {
                                                         vpa: createResult.data.processingUpiId || 'success@upi'
                                                     }
                                                 })
-                                                
+
                                                 // Show appropriate success message
                                                 if (createResult.data.isFailureMode) {
                                                     // toast.error(`Testing failure mode with "${createResult.data.merchantName}"`)
                                                 } else {
                                                     // toast.success(`Merchant "${createResult.data.merchantName}" added with success@upi!`)
                                                 }
-                                                
+
                                                 console.log('📊 UPI Processing Summary:', {
                                                     originalUpiId: originalUpiId,
                                                     processingUpiId: createResult.data.processingUpiId,
@@ -205,7 +205,7 @@ export default function ScanPage() {
                                             } else {
                                                 console.warn('⚠️ Failed to create auto-beneficiary:', createResult.error)
                                                 // toast.error(`Failed to add merchant: ${createResult.error || 'Unknown error'}`)
-                                                
+
                                                 // Still set basic beneficiary details for fallback
                                                 setBeneficiaryDetails({
                                                     beneficiary_id: 'success@upi', // Use success@upi as fallback
@@ -218,7 +218,7 @@ export default function ScanPage() {
                                         } catch (error) {
                                             console.error('❌ Error handling auto-beneficiary:', error)
                                             // toast.error('Error processing merchant details')
-                                            
+
                                             // Set basic beneficiary details for fallback with success@upi
                                             setBeneficiaryDetails({
                                                 beneficiary_id: 'success@upi', // Use success@upi as fallback
@@ -232,7 +232,7 @@ export default function ScanPage() {
                                         console.warn('⚠️ Invalid QR data or missing UPI ID')
                                         // toast.error('Invalid QR code - missing UPI ID')
                                     }
-                                    
+
                                     // Directly show modal without any delay
                                     setShowModal(true)
                                 }, [setParsedData, setShowModal, setBeneficiaryDetails])}
@@ -246,7 +246,7 @@ export default function ScanPage() {
                             />
                         </div>
 
-
+                        <HistoryButton />
                     </div>
 
                     {/* Payment Success */}
@@ -335,7 +335,7 @@ export default function ScanPage() {
                 onPay={async () => {
                     let txHash: string | undefined
                     let userAddress: string | undefined
-                    
+
                     try {
                         setIsProcessingPayment(true)
                         setPaymentStep('Processing payment...')
@@ -460,7 +460,7 @@ export default function ScanPage() {
 
                     } catch (error) {
                         console.error('Payment processing error:', error)
-                        
+
                         // If USDC transaction succeeded but something else failed, attempt manual refund
                         if (txHash && conversionResult && userAddress) {
                             console.log('Attempting manual refund due to payment processing error...')
@@ -480,7 +480,7 @@ export default function ScanPage() {
                                         reason: 'payment_processing_error'
                                     })
                                 })
-                                
+
                                 if (refundResp.ok) {
                                     const refundData = await refundResp.json()
                                     console.log('Manual refund successful:', refundData)
@@ -567,9 +567,9 @@ function HistoryButton() {
             <button
                 onClick={() => setShowHistory((s) => !s)}
                 disabled={!addr}
-                className="w-full py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 justify-center w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             >
-                View Transaction History
+                View Transaction History <TrendingUp className="w-4 h-4" />
             </button>
             {showHistory && addr && (
                 <div className="mt-3">
