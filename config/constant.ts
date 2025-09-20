@@ -21,6 +21,8 @@ export const CHAIN_CONFIG: Record<
   },
 };
 
+export const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TESTNET_TREASURY_ADDRESS!;
+
 
 export const getRpcUrlForChain = (chainId: number): string =>
   CHAIN_CONFIG[chainId]?.rpc;
@@ -41,8 +43,3 @@ export const PRIVY_APP_ID =
   process.env.NODE_ENV == "development"
     ? process.env.NEXT_PUBLIC_DEVELOPMENT_PRIVY_APP_ID!
     : process.env.NEXT_PUBLIC_PRODUCTION_PRIVY_APP_ID!;
-
-export const TREASURY_ADDRESS =
-  process.env.NODE_ENV == "development"
-    ? process.env.NEXT_PUBLIC_TESTNET_TREASURY_ADDRESS!
-    : process.env.NEXT_PUBLIC_MAINNET_TREASURY_ADDRESS!;
