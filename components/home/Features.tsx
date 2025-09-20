@@ -1,128 +1,432 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useRef } from 'react'
-import { Fuel, Zap, QrCode, Shield } from 'lucide-react'
+import { useState, useEffect, useRef } from "react";
+import {
+  Fuel,
+  Zap,
+  QrCode,
+  Shield,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 const features = [
-    {
-        icon: Fuel,
-        title: "Gas Sponsorship",
-        description: "We sponsor ETH for smooth transactions, so you don't need to hold ETH. Payment covers all costs in USDC.",
-        color: "from-emerald-500 to-teal-500"
-    },
-    {
-        icon: Zap,
-        title: "Instant Conversion",
-        description: "Real-time INR to USDC conversion with live market rates for transparent pricing.",
-        color: "from-teal-500 to-emerald-500"
-    },
-    {
-        icon: QrCode,
-        title: "QR Payments",
-        description: "Simple scan-and-pay experience. No complex wallet addresses or manual entry required.",
-        color: "from-emerald-500 to-teal-500"
-    },
-    {
-        icon: Shield,
-        title: "Secure Integration",
-        description: "High security with Web3 wallet integration. Your funds remain in your control.",
-        color: "from-emerald-500 to-teal-500"
-    }
-]
+  {
+    icon: Fuel,
+    title: "Gas Sponsorship",
+    description:
+      "We sponsor ETH for smooth transactions, so you don't need to hold ETH. Payment covers all costs in USDC.",
+    gradient: "from-emerald-500 to-teal-500",
+    bgGradient: "from-emerald-50 to-teal-50",
+  },
+  {
+    icon: Zap,
+    title: "Instant Conversion",
+    description:
+      "Real-time INR to USDC conversion with live market rates for transparent pricing.",
+    gradient: "from-teal-500 to-cyan-500",
+    bgGradient: "from-teal-50 to-cyan-50",
+  },
+  {
+    icon: QrCode,
+    title: "QR Payments",
+    description:
+      "Simple scan-and-pay experience. No complex wallet addresses or manual entry required.",
+    gradient: "from-emerald-600 to-teal-600",
+    bgGradient: "from-emerald-50 to-teal-50",
+  },
+  {
+    icon: Shield,
+    title: "Secure Integration",
+    description:
+      "High security with Web3 wallet integration. Your funds remain in your control.",
+    gradient: "from-teal-600 to-emerald-600",
+    bgGradient: "from-teal-50 to-emerald-50",
+  },
+];
 
 export default function Features() {
-    const [visibleCards, setVisibleCards] = useState<number[]>([])
-    const sectionRef = useRef<HTMLElement>(null)
+  const [visibleCards, setVisibleCards] = useState<number[]>([]);
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        // Animate cards with stagger effect
-                        features.forEach((_, index) => {
-                            setTimeout(() => {
-                                setVisibleCards(prev => [...prev, index])
-                            }, index * 200)
-                        })
-                    }
-                })
-            },
-            { threshold: 0.1 }
-        )
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            features.forEach((_, index) => {
+              setTimeout(() => {
+                setVisibleCards((prev) => [...prev, index]);
+              }, index * 150);
+            });
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
 
-        if (sectionRef.current) {
-            observer.observe(sectionRef.current)
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Handle scroll events for pagination dots
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const handleScroll = () => {
+        const cardWidth = container.offsetWidth * 0.85; // Account for 85% width
+        const newSlide = Math.round(container.scrollLeft / cardWidth);
+        setCurrentSlide(newSlide);
+      };
+      
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [isMobile]);
+
+  // Handle horizontal scroll
+  const handleScroll = (direction: "left" | "right") => {
+    if (!scrollContainerRef.current) return;
+
+    const container = scrollContainerRef.current;
+    const cardWidth = container.offsetWidth * 0.85; // Account for 85% width
+    const newSlide =
+      direction === "right"
+        ? Math.min(currentSlide + 1, features.length - 1)
+        : Math.max(currentSlide - 1, 0);
+
+    setCurrentSlide(newSlide);
+    container.scrollTo({
+      left: newSlide * cardWidth,
+      behavior: "smooth",
+    });
+  };
+
+  // Handle touch scroll
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const startX = touch.clientX;
+    const startScrollLeft = scrollContainerRef.current?.scrollLeft || 0;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      const currentX = touch.clientX;
+      const diff = startX - currentX;
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft = startScrollLeft + diff;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      // Update current slide based on scroll position
+      if (scrollContainerRef.current) {
+        const container = scrollContainerRef.current;
+        const cardWidth = container.offsetWidth * 0.85; // Account for 85% width
+        const newSlide = Math.round(container.scrollLeft / cardWidth);
+        setCurrentSlide(newSlide);
+      }
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
+    };
+
+    document.addEventListener("touchmove", handleTouchMove);
+    document.addEventListener("touchend", handleTouchEnd);
+  };
+
+  return (
+    <>
+      <style jsx>{`
+        @keyframes shine {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
         }
+        .animate-shine {
+          animation: shine 1.5s ease-in-out;
+        }
+      `}</style>
+      <section
+        ref={sectionRef}
+        className="relative py-20 lg:py-32 px-4 sm:px-6 lg:px-8 overflow-hidden"
+      >
+      {/* Background Elements */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-emerald-50/30"></div>
+      <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-200/20 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-teal-200/20 rounded-full blur-3xl"></div>
 
-        return () => observer.disconnect()
-    }, [])
+      <div className="relative max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12 lg:mb-16">
+          <div className="inline-flex items-center px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium mb-6">
+            <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
+            Meet SpendIN 🔥
+          </div>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 leading-tight">
+            Built for the{" "}
+            <span className="block sm:inline bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+              Future of Payments
+            </span>
+          </h2>
+          <p className="text-base sm:text-lg text-slate-600 max-w-[90%] mx-auto leading-relaxed">
+            Experience seamless cryptocurrency payments that feel as natural as
+            traditional UPI
+          </p>
+        </div>
 
-    return (
-        <section ref={sectionRef} className="min-h-screen flex flex-col justify-center items-center pt-16 sm:pt-20 pb-8 sm:pb-12 md:pb-16 lg:pb-20 px-3 sm:px-4 md:px-6 lg:px-8 bg-transparent">
-            <div className="max-w-7xl mx-auto w-full">
-                {/* Section Header */}
-                <div className="text-center mb-8 sm:mb-12 md:mb-16 lg:mb-20">
-                    <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-3 sm:mb-4 md:mb-6 px-2">
-                        Why Choose <span className="text-emerald-600">StableUPI</span>
-                    </h2>
-                    <p className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-3xl mx-auto px-3 sm:px-4 leading-relaxed">
-                        Experience the next generation of payments with StableUPI
-                        that makes cryptocurrency payments as easy as traditional UPI.
-                    </p>
-                </div>
-
-                {/* Features Grid */}
-                <div className="relative flex-1 flex flex-col justify-center">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
-                        {features.map((feature, index) => {
-                            const Icon = feature.icon
-                            const isVisible = visibleCards.includes(index)
-
-                            return (
-                                <div
-                                    key={index}
-                                    className={`group relative transition-all duration-700 ${isVisible
-                                        ? 'opacity-100 translate-y-0'
-                                        : 'opacity-0 translate-y-10'
-                                        }`}
-                                    style={{ transitionDelay: `${index * 100}ms` }}
-                                >
-                                    {/* Card */}
-                                    <div className="relative h-full p-4 sm:p-6 md:p-8 rounded-2xl bg-white shadow-md border border-emerald-100 transition-all duration-500 hover:shadow-lg hover:scale-105 hover:shadow-emerald-200/50 min-h-[180px] sm:min-h-[200px] md:min-h-[220px] flex flex-col touch-manipulation">
-                                        {/* Gradient overlay on hover */}
-                                        <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${feature.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500`}></div>
-
-                                        {/* Icon */}
-                                        <div className={`inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-r ${feature.color} mb-3 sm:mb-4 md:mb-6 transition-transform duration-500 group-hover:scale-110 flex-shrink-0`}>
-                                            <Icon className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white" />
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="flex-1 flex flex-col">
-                                            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 mb-2 sm:mb-3 md:mb-4 group-hover:text-emerald-600 transition-all duration-500">
-                                                {feature.title}
-                                            </h3>
-                                            <p className="text-xs sm:text-sm md:text-base text-slate-600 leading-relaxed group-hover:text-slate-700 transition-colors duration-500 flex-1">
-                                                {feature.description}
-                                            </p>
-                                        </div>
-
-                                        {/* Hover glow effect */}
-                                        <div className={`absolute -inset-1 rounded-2xl bg-gradient-to-r ${feature.color} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500 -z-10`}></div>
-                                    </div>
-
-                                    {/* Floating particles effect */}
-                                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-ping"></div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-
-                {/* Spacer to ensure full height utilization */}
-                <div className="flex-grow min-h-[2rem] sm:min-h-[3rem] md:min-h-[4rem]"></div>
+        {/* Features Grid - Desktop */}
+        {!isMobile && (
+          <div className="relative">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-5">
+              <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-teal-500 rounded-full blur-3xl"></div>
             </div>
-        </section>
-    )
+            
+            {/* Asymmetric Grid Layout */}
+            <div className="relative grid grid-cols-12 gap-6 lg:gap-8">
+              {features.map((feature, index) => {
+                const Icon = feature.icon;
+                const isVisible = visibleCards.includes(index);
+                const isHovered = hoveredCard === index;
+
+                // Create asymmetric layout
+                const getGridClasses = (index: number) => {
+                  switch (index) {
+                    case 0: return "col-span-12 md:col-span-6 lg:col-span-5";
+                    case 1: return "col-span-12 md:col-span-6 lg:col-span-7";
+                    case 2: return "col-span-12 md:col-span-7 lg:col-span-6";
+                    case 3: return "col-span-12 md:col-span-5 lg:col-span-6";
+                    default: return "col-span-12";
+                  }
+                };
+
+                return (
+                  <div
+                    key={index}
+                    className={`group relative transition-all duration-700 ${getGridClasses(index)} ${
+                      isVisible
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-8"
+                    }`}
+                    style={{ transitionDelay: `${index * 150}ms` }}
+                    onMouseEnter={() => setHoveredCard(index)}
+                    onMouseLeave={() => setHoveredCard(null)}
+                  >
+                    {/* Card with different styles based on position */}
+                    <div
+                      className={`relative h-full transition-all duration-500 ${
+                        index === 0 
+                          ? 'rounded-3xl bg-gradient-to-br from-slate-50 to-emerald-50/30 border-2 border-emerald-300/60' 
+                          : index === 1
+                          ? 'rounded-2xl bg-white/95 backdrop-blur-sm border-2 border-emerald-300/60 shadow-lg'
+                          : index === 2
+                          ? 'rounded-3xl bg-gradient-to-br from-slate-50 to-emerald-50/30 border-2 border-emerald-300/60'
+                          : 'rounded-2xl bg-white/95 backdrop-blur-sm border-2 border-emerald-300/60 shadow-lg'
+                      } p-6 lg:p-8 hover:bg-white hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-1`}
+                    >
+                    {/* Shining Border Animation */}
+                    <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                      {/* Shining effect only */}
+                      <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-700 ${
+                        isHovered ? 'animate-shine' : ''
+                      }`} style={{
+                        background: index === 2 
+                          ? 'linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent)'
+                          : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)',
+                        transform: 'translateX(-100%)',
+                        animation: isHovered ? 'shine 1.5s ease-in-out' : 'none'
+                      }}></div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="relative z-10">
+                      {/* Icon Container with different styles */}
+                      <div className={`mb-4 ${index === 1 ? 'flex justify-end' : index === 3 ? 'flex justify-center' : ''}`}>
+                        <div
+                          className={`inline-flex items-center justify-center transition-all duration-500 group-hover:shadow-lg group-hover:shadow-emerald-500/20 ${
+                            isHovered
+                              ? "scale-105"
+                              : "group-hover:scale-105"
+                          } ${
+                            index === 0 
+                              ? 'w-16 h-16 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 shadow-lg'
+                              : index === 1
+                              ? 'w-12 h-12 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 shadow-md'
+                              : index === 2
+                              ? 'w-14 h-14 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 shadow-lg'
+                              : 'w-15 h-15 rounded-3xl bg-gradient-to-r from-teal-600 to-emerald-600 shadow-lg'
+                          }`}
+                        >
+                          <Icon
+                            className={`text-white transition-all duration-300 ${
+                              index === 0 ? 'w-8 h-8' : index === 1 ? 'w-6 h-6' : 'w-7 h-7'
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Text Content with different alignments */}
+                      <div className={`space-y-3 ${
+                        index === 1 ? 'text-right' : index === 3 ? 'text-center' : ''
+                      }`}>
+                        <h3
+                          className={`font-bold text-slate-900 transition-all duration-300 ${
+                            index === 0 ? 'text-2xl lg:text-3xl' : 
+                            index === 1 ? 'text-lg lg:text-xl' :
+                            index === 2 ? 'text-xl lg:text-2xl' :
+                            'text-lg lg:text-xl'
+                          }`}
+                        >
+                          {feature.title}
+                        </h3>
+                        <p
+                          className={`text-slate-600 leading-relaxed transition-all duration-300 ${
+                            index === 0 ? 'text-base' :
+                            index === 1 ? 'text-sm' :
+                            index === 2 ? 'text-sm' :
+                            'text-sm'
+                          }`}
+                        >
+                          {feature.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Horizontal Scroll */}
+        {isMobile && (
+          <div className="relative">
+            {/* Scroll Container */}
+            <div
+              ref={scrollContainerRef}
+              className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory gap-4 pb-4"
+              onTouchStart={handleTouchStart}
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              {features.map((feature, index) => {
+                const Icon = feature.icon;
+                const isVisible = visibleCards.includes(index);
+
+                return (
+                  <div
+                    key={index}
+                    className={`flex-shrink-0 w-[85%] snap-center transition-all duration-700 ${
+                      isVisible
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-8"
+                    }`}
+                    style={{ transitionDelay: `${index * 150}ms` }}
+                  >
+                    {/* Mobile Card */}
+                    <div
+                      className={`relative h-full rounded-3xl bg-white/90 backdrop-blur-sm border border-slate-200/50 transition-all duration-700 p-6 active:scale-95`}
+                    >
+                      {/* Mobile Background Effects */}
+                      <div className="absolute inset-0 rounded-3xl overflow-hidden">
+                        <div
+                          className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${
+                            feature.bgGradient
+                          } opacity-0 transition-all duration-500`}
+                        ></div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="relative z-10">
+                        {/* Icon */}
+                        <div className="mb-4">
+                          <div
+                            className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-r ${
+                              feature.gradient
+                            } shadow-lg transition-all duration-500`}
+                          >
+                            <Icon className="w-7 h-7 text-white" />
+                          </div>
+                        </div>
+
+                        {/* Text */}
+                        <div className="space-y-3">
+                          <h3
+                            className={`text-xl font-bold text-slate-900 transition-all duration-500`}
+                          >
+                            {feature.title}
+                          </h3>
+                          <p
+                            className={`text-slate-600 leading-relaxed transition-all duration-500 text-sm`}
+                          >
+                            {feature.description}
+                          </p>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Pagination Dots */}
+            <div className="flex justify-center mt-2 space-x-2">
+              {features.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setCurrentSlide(index);
+                    if (scrollContainerRef.current) {
+                      const cardWidth = scrollContainerRef.current.offsetWidth * 0.85;
+                      scrollContainerRef.current.scrollTo({
+                        left: index * cardWidth,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    currentSlide === index
+                      ? "bg-emerald-500 w-8"
+                      : "bg-slate-300 hover:bg-slate-400"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bottom CTA */}
+        <div className="text-center mt-20">
+          <div className="inline-flex items-center space-x-2 text-slate-600">
+            <div className="w-8 h-px bg-gradient-to-r from-transparent to-emerald-500"></div>
+            <span className="text-sm font-medium">Ready to get started?</span>
+            <div className="w-8 h-px bg-gradient-to-l from-transparent to-teal-500"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    </>
+  );
 }

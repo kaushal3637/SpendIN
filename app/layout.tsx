@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Albert_Sans, Nunito_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/layout/Navbar";
 import PrivyProviderWrapper from "@/components/PrivyProvider";
 import { Toaster } from "react-hot-toast";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const albertSans = Albert_Sans({
+  variable: "--font-albert-sans",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const nunitoSans = Nunito_Sans({
+  variable: "--font-nunito-sans",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -16,8 +22,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StableUPI - Web3 Payments Made Simple",
-  description: "Pay with USDC, merchants get INR seamlessly. Zero gas fees for users with instant conversions.",
+  title: "SpendIN - Spend in India",
+  description: "Pay with USDC, merchants get INR seamlessly.",
 };
 
 export const viewport = {
@@ -34,14 +40,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="font-sans">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${nunitoSans.variable} ${albertSans.variable} ${geistMono.variable} antialiased`}
       >
         <PrivyProviderWrapper>
-          <Navbar />
-          <main className="pt-16">
-            {children}
+          {children}
             <Toaster
               position="top-center"
               toastOptions={{
@@ -51,7 +55,6 @@ export default function RootLayout({
                 },
               }}
             />
-          </main>
         </PrivyProviderWrapper>
       </body>
     </html>

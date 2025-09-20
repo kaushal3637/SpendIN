@@ -1,122 +1,295 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { ChevronRight, Wallet, QrCode, Banknote, InfoIcon } from 'lucide-react'
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 
-export default function Hero() {
-  const [isVisible, setIsVisible] = useState(false)
+type Feature = {
+  image: string;
+  title: string;
+  description: string;
+};
 
-  useEffect(() => {
-    setIsVisible(true)
-  }, [])
+function FeatureCard({ feature }: { feature: Feature }) {
+  return (
+    <div className="flex items-center group">
+      {/* Text content */}
+      <div className="w-[150px] sm:w-[200px] md:w-[280px] text-left mx-4">
+        <h3 className="text-sm sm:text-base font-bold text-[#0b3d2e] mb-1 sm:mb-2 group-hover:text-emerald-600 transition-colors duration-300">
+          {feature.title}
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-600 group-hover:text-slate-700 transition-colors duration-300">
+          {feature.description}
+        </p>
+      </div>
+      
+      {/* Enhanced pill-shaped image card with hover effects */}
+      <div className="mx-6 w-[170px] sm:w-[200px] md:w-[280px] h-max rounded-full overflow-hidden bg-white flex items-center justify-center border border-teal-200 group-hover:border-emerald-300 group-hover:shadow-lg group-hover:shadow-emerald-100 transition-all duration-300 group-hover:scale-105">
+        <Image
+          src={feature.image}
+          alt={feature.title}
+          width={100}
+          height={100}
+          className="!w-full h-auto object-cover group-hover:scale-110 transition-transform duration-300"
+        />
+      </div>
+    </div>
+  );
+}
+
+function MarqueeRow({
+  items,
+  speed = 30,
+  direction = "left",
+  className = "",
+}: {
+  items: Feature[];
+  speed?: number; // seconds
+  direction?: "left" | "right";
+  className?: string;
+}) {
+  // Duplicate content for seamless loop
+  const track = useMemo(() => [...items, ...items, ...items], [items]);
+
+  const animationName = direction === "left" ? "marqueeLeft" : "marqueeRight";
 
   return (
-    <section className="min-h-screen flex flex-col justify-center items-center px-3 sm:px-4 md:px-6 lg:px-8 overflow-hidden relative">
-      {/* Animated background elements - Optimized for mobile */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-12 -right-8 w-32 h-32 sm:w-40 sm:h-40 md:w-80 md:h-80 rounded-full bg-gradient-to-r from-emerald-400/8 to-teal-400/8 blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-12 -left-8 w-32 h-32 sm:w-40 sm:h-40 md:w-80 md:h-80 rounded-full bg-gradient-to-r from-teal-400/8 to-emerald-400/8 blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-24 sm:w-48 sm:h-48 md:w-96 md:h-96 rounded-full bg-gradient-to-r from-emerald-400/3 to-teal-400/3 blur-3xl animate-pulse delay-500"></div>
+    <div className={`w-full overflow-hidden ${className}`}>
+      <div
+        className="flex will-change-transform hover:[animation-play-state:paused]"
+        style={{
+          animation: `${animationName} ${speed}s linear infinite`,
+          width: "fit-content",
+        }}
+      >
+        {track.map((f, i) => (
+          <FeatureCard key={`${f.title}-${i}`} feature={f} />
+        ))}
       </div>
+    </div>
+  );
+}
 
-      {/* Floating icons - Mobile optimized positioning */}
-      <div className="absolute inset-0 pointer-events-none">
-        <Wallet className="absolute top-12 sm:top-16 md:top-20 left-2 sm:left-4 md:left-10 w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-black/30 sm:text-black/40 md:text-black/60 animate-float" />
-        <QrCode className="absolute top-16 sm:top-20 md:top-24 right-2 sm:right-4 md:right-8 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-black/30 sm:text-black/40 md:text-black/60 animate-float-delayed" />
-        <Banknote className="absolute bottom-16 sm:bottom-20 md:bottom-24 left-2 sm:left-4 md:left-8 w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-black/30 sm:text-black/40 md:text-black/60 animate-float" />
-      </div>
+// Floating decorative elements
+function FloatingElement({ 
+  className = "", 
+  children, 
+  delay = 0 
+}: { 
+  className?: string; 
+  children: React.ReactNode; 
+  delay?: number;
+}) {
+  return (
+    <div 
+      className={`absolute animate-float ${className}`}
+      style={{ animationDelay: `${delay}s` }}
+    >
+      {children}
+    </div>
+  );
+}
 
-      <div className={`relative z-10 max-w-4xl mx-auto text-center transition-all duration-1000 w-full ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-        }`}>
-        {/* Logo/Brand - Mobile optimized */}
-        <div className="mb-4 sm:mb-6 md:mb-8">
-          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-slate-900 animate-gradient-x leading-tight px-2">
-            StableUPI
+export default function Hero() {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  const rowOne: Feature[] = [
+    {
+      image: "/herosection/1.png",
+      title: "Pay any UPI QR",
+      description: "Scan existing merchant QRs across India.",
+    },
+    {
+      image: "/herosection/2.png",
+      title: "USDC → INR",
+      description: "Automatic conversion at checkout.",
+    },
+    {
+      image: "/herosection/3.png",
+      title: "Zero gas fees",
+      description: "No ETH gas required to complete payments.",
+    },
+    {
+      image: "/herosection/4.png",
+      title: "Instant & secure",
+      description: "Fast confirmations with strong security through Arbitrum.",
+    },
+  ];
+
+  const rowTwo: Feature[] = [
+    {
+      image: "/herosection/5.png",
+      title: "Fast settlement",
+      description: "Typical end-to-end completion time.",
+    },
+    {
+      image: "/herosection/6.png",
+      title: "No Surprises Pricing",
+      description: "What you see is exactly what you pay — no hidden fees.",
+    },
+    {
+      image: "/herosection/7.png",
+      title: "Everywhere in India",
+      description: "From high streets to hidden gems, make payments anywhere.",
+    },
+    {
+      image: "/herosection/8.png",
+      title: "Travel-friendly",
+      description: "Perfect for international visitors in India.",
+    },
+  ];
+
+  return (
+    <section className="relative w-full flex items-center justify-center overflow-hidden pt-[170px]">
+      {/* Animated background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 animate-gradient-x"></div>
+      
+      {/* Floating decorative elements */}
+      <FloatingElement 
+        className="top-20 left-10 w-16 h-16 bg-emerald-200 rounded-full opacity-20" 
+        delay={0}
+      >
+        <div className="w-full h-full bg-emerald-200 rounded-full"></div>
+      </FloatingElement>
+      <FloatingElement 
+        className="top-40 right-20 w-12 h-12 bg-teal-200 rounded-full opacity-30" 
+        delay={1}
+      >
+        <div className="w-full h-full bg-teal-200 rounded-full"></div>
+      </FloatingElement>
+      <FloatingElement 
+        className="bottom-40 left-20 w-20 h-20 bg-cyan-200 rounded-full opacity-25" 
+        delay={2}
+      >
+        <div className="w-full h-full bg-cyan-200 rounded-full"></div>
+      </FloatingElement>
+      <FloatingElement 
+        className="bottom-20 right-10 w-14 h-14 bg-emerald-300 rounded-full opacity-20" 
+        delay={0.5}
+      >
+        <div className="w-full h-full bg-emerald-300 rounded-full"></div>
+      </FloatingElement>
+
+      {/* Main content */}
+      <div
+        className={`relative z-10 w-full transition-all duration-1000 ${
+          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+        }`}
+      >
+        <div className="w-[90%] mx-auto text-center">
+          {/* Enhanced main heading with gradient text */}
+          <h1 className="text-[5vw] font-black mb-6 bg-gradient-to-r from-[#0b3d2e] via-emerald-600 to-teal-600 bg-clip-text text-transparent animate-gradient-x">
+            SpendIN - Spend in India
           </h1>
-        </div>
+          
+          {/* Enhanced subtitle with better typography */}
+          <p className="mt-4 text-slate-700 text-sm md:text-lg w-[90%] md:w-[70%] mx-auto leading-relaxed font-medium">
+            Seamlessly convert your USDC to INR and pay any merchant via
+            UPI—instant, secure, and zero gas fees. Perfect for international
+            visitors exploring India.
+          </p>
 
-        {/* Tagline - Mobile optimized */}
-        <p className="text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl text-slate-600 mb-4 sm:mb-6 md:mb-8 leading-relaxed px-2 sm:px-4">
-          Pay with <span className="text-emerald-600 font-semibold">USDC</span>,<br className="sm:hidden" />
-          merchants get <span className="text-teal-600 font-semibold">INR</span> seamlessly
-        </p>
-
-        {/* Description - Mobile optimized */}
-        <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-700 mb-6 sm:mb-8 md:mb-10 lg:mb-12 max-w-2xl mx-auto px-3 sm:px-4 md:px-0 leading-relaxed">
-          The future of Web3 payments. No gas fees in ETH for users, instant conversions,
-          and seamless merchant integration through simple QR codes.
-        </p>
-
-        {/* CTA Buttons - Mobile optimized */}
-        <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 justify-center items-center px-3 sm:px-4 md:px-0 w-full max-w-lg mx-auto">
-          {/* Primary CTA Button */}
-          <Link href="/scan" className="w-full max-w-sm sm:max-w-xs">
-            <button className="group relative w-full inline-flex items-center justify-center px-6 sm:px-8 md:px-10 py-4 sm:py-4 md:py-5 text-base sm:text-lg md:text-xl font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/30 active:scale-95 min-h-[56px] touch-manipulation">
-              <span className="mr-2 sm:mr-3">Get Started</span>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 transition-transform group-hover:translate-x-1 group-active:translate-x-0 flex-shrink-0" />
-              {/* Enhanced hover overlay */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-700 to-teal-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10"></div>
-              {/* Subtle glow effect */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-400/20 to-teal-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl -z-20"></div>
-            </button>
-          </Link>
-
-          {/* Secondary CTA Button */}
-          <Link href="#features" className="w-full max-w-sm sm:max-w-xs">
-            <button className="group relative w-full inline-flex items-center justify-center px-6 sm:px-8 md:px-10 py-4 sm:py-4 md:py-5 text-base sm:text-lg md:text-xl font-bold text-slate-700 bg-white border-2 border-emerald-300 rounded-2xl transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-xl hover:shadow-emerald-200/50 active:scale-95 min-h-[56px] touch-manipulation">
-              <InfoIcon className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 mr-2 flex-shrink-0" />
-              <span>Learn More</span>
-              {/* Subtle hover effect */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-50/0 to-teal-50/0 group-hover:from-emerald-50/50 group-hover:to-teal-50/50 transition-all duration-300"></div>
-            </button>
-          </Link>
-        </div>
-
-        {/* Stats - Mobile optimized */}
-        <div className="mt-8 sm:mt-10 md:mt-12 lg:mt-16 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-2xl mx-auto px-3 sm:px-4 md:px-0">
-          <div className="text-center py-2 sm:py-0">
-            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-emerald-600 mb-1 sm:mb-2">No</div>
-            <div className="text-xs sm:text-sm md:text-base text-slate-600">ETH Gas Fees</div>
-          </div>
-          <div className="text-center py-2 sm:py-0">
-            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-teal-600 mb-1 sm:mb-2">1 Minute</div>
-            <div className="text-xs sm:text-sm md:text-base text-slate-600">Transaction Time</div>
-          </div>
-          <div className="text-center py-2 sm:py-0">
-            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-emerald-700 mb-1 sm:mb-2">100%</div>
-            <div className="text-xs sm:text-sm md:text-base text-slate-600">Secure</div>
+          {/* Enhanced CTA section */}
+          <div className="my-8 sm:my-12">
+            <Link href="/scan">
+              <button className="group relative inline-flex items-center justify-center gap-3 sm:px-8 px-6 sm:py-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 text-white font-bold sm:text-lg text-base shadow-2xl hover:shadow-emerald-500/40 hover:scale-[1.05] active:scale-95 transition-all duration-300 overflow-hidden">
+                {/* Animated background effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                
+                {/* Button content */}
+                <span className="relative z-10">Start Spending</span>
+                <svg
+                  className="h-6 w-6 transition-transform group-hover:translate-x-2 group-hover:scale-110"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+                
+                {/* Shine effect */}
+                <div className="absolute inset-0 -top-2 -left-2 w-0 h-full bg-gradient-to-r from-transparent via-white to-transparent opacity-30 group-hover:w-full transition-all duration-700 skew-x-12"></div>
+              </button>
+            </Link>
           </div>
         </div>
 
-        {/* Spacer to ensure full height utilization */}
-        <div className="flex-grow min-h-[2rem] sm:min-h-[4rem] md:min-h-[6rem]"></div>
+        {/* Enhanced marquee section with better spacing and effects */}
+        <div className="relative">
+          {/* Gradient overlays for smooth fade effect */}
+          <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white to-transparent z-10"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white to-transparent z-10"></div>
+          
+          <MarqueeRow
+            items={rowOne}
+            speed={32}
+            direction="left"
+            className="py-6"
+          />
+
+          <MarqueeRow
+            items={rowTwo}
+            speed={28}
+            direction="right"
+            className="py-6"
+          />
+        </div>
       </div>
 
       <style jsx>{`
+        @keyframes marqueeLeft {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-33.3333%);
+          }
+        }
+        @keyframes marqueeRight {
+          0% {
+            transform: translateX(-33.3333%);
+          }
+          100% {
+            transform: translateX(0);
+          }
+        }
+        
         @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
+          0%, 100% { 
+            transform: translateY(0px) rotate(0deg); 
+          }
+          50% { 
+            transform: translateY(-20px) rotate(5deg); 
+          }
         }
-        @keyframes float-delayed {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-15px); }
-        }
+        
         @keyframes gradient-x {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
+          0%, 100% { 
+            background-position: 0% 50%; 
+          }
+          50% { 
+            background-position: 100% 50%; 
+          }
         }
+        
         .animate-float {
           animation: float 6s ease-in-out infinite;
         }
-        .animate-float-delayed {
-          animation: float-delayed 8s ease-in-out infinite;
-        }
+        
         .animate-gradient-x {
           background-size: 400% 400%;
-          animation: gradient-x 3s ease infinite;
+          animation: gradient-x 4s ease infinite;
         }
       `}</style>
     </section>
-  )
+  );
 }
