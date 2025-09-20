@@ -149,7 +149,7 @@ export default function QRCodeForm() {
                     className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-4 sm:px-6 py-4 sm:py-4 rounded-lg font-semibold text-base hover:from-teal-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[56px]"
                 >
                     {isGeneratingQr ? (
-                        <div className="flex items-center justify-center mr-2">
+                        <div className="flex items-center justify-center">
                             <svg
                                 className="animate-spin h-4 w-4 text-white"
                                 xmlns="http://www.w3.org/2000/svg"
@@ -170,7 +170,7 @@ export default function QRCodeForm() {
                                     d="M4 12a8 8 0 018-8v8z"
                                 />
                             </svg>
-                            <span className="text-sm sm:text-base">Generating QR Code...</span>
+                            <span className="text-sm sm:text-base ml-2">Generating QR Code...</span>
                         </div>
                     ) : (
                         <div className="flex items-center justify-center">
