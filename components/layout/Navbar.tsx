@@ -5,7 +5,8 @@ import { ChevronDown, Wallet, LogOut, Copy } from "lucide-react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useWallet } from "@/context/WalletContext";
 import { chains, getChainById } from "@/lib/chains";
-import { stableBold } from "@/lib/fonts";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function Navbar() {
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
@@ -73,13 +74,16 @@ export default function Navbar() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex-shrink-0">
-            {/* <Link href="/" className="flex items-center">
-              <span
-                className={`${stableBold.className} text-xl sm:text-2xl font-bold text-white`}
-              >
-                StableUPI
-              </span>
-            </Link> */}
+            <Link href="/" className="flex items-center w-[100px] md:w-[180px] h-max">
+              <Image
+                src="/logo.svg"
+                alt="StableUPI Logo"
+                width={120}
+                height={40}
+                className="w-full h-auto"
+                priority
+              />
+            </Link>
           </div>
 
           {/* Desktop Wallet Connection */}

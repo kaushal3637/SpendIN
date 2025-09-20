@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
-import { stableBold } from "@/lib/fonts";
 
 interface StableUPILoaderProps {
   isLoading?: boolean;
@@ -110,8 +109,8 @@ export default function StableUPILoader({
       style={{ width: "100vw", height: "100vh" }}
     >
       <div ref={logoRef} className="w-full text-center">
-        <h1 className={`${stableBold.className} text-[13vw] text-center tracking-tight text- select-none`}>
-          STABLEUPI
+        <h1 className={`text-[13vw] text-center tracking-tight text- select-none`}>
+          SPENDIN
         </h1>
       </div>
       </div>

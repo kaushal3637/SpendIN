@@ -81,6 +81,7 @@ export default function HowItWorks() {
   useEffect(() => {
     if (!isVisible) return;
     if (autoplayRef.current) clearTimeout(autoplayRef.current);
+    
     autoplayRef.current = setTimeout(() => {
       setContentVisible(false);
       setTimeout(() => {
@@ -98,27 +99,27 @@ export default function HowItWorks() {
   return (
     <section
       ref={sectionRef}
-      className="w-full flex items-center justify-center px-4 sm:px-6 md:px-8 py-16 md:py-24"
+      className="w-full flex items-center justify-center px-3 sm:px-4 md:px-6 lg:px-8 py-12 sm:py-16 md:py-20 lg:py-24"
     >
       <div
-        className={`relative w-[95%] max-w-6xl mx-auto rounded-3xl bg-white text-slate-800 border border-black/5 shadow-md overflow-hidden transition-all duration-700 ${
+        className={`relative w-full max-w-7xl mx-auto rounded-2xl sm:rounded-3xl bg-white text-slate-800 border border-black/5 shadow-md overflow-hidden transition-all duration-700 ${
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
         }`}
       >
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-12 min-h-[420px]">
+        <div className="grid grid-cols-1 md:grid-cols-12 min-h-[400px] ">
           {/* Left panel */}
-          <div className="md:col-span-6 p-6 sm:p-8 lg:p-12 flex flex-col justify-between bg-gradient-to-br from-emerald-50 to-teal-50">
+          <div className="md:col-span-5 p-8 lg:p-10 xl:p-12 flex flex-col justify-between bg-gradient-to-br from-emerald-50 to-teal-50">
             <div>
-              <h1 className="text-7xl font-extrabold uppercase tracking-widest text-emerald-600">
-                How
-                <br />
-                it works
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-[3.5vw] xl:text-[3vw] font-extrabold uppercase tracking-wider sm:tracking-widest text-emerald-600 leading-tight">
+                How{" "}
+                <br className="hidden md:block"/>
+                it works?
               </h1>
             </div>
-            <div className="mt-6 flex items-center gap-4">
+            <div className="mt-4 sm:mt-6 flex items-center gap-3 sm:gap-4">
               <Link href="/scan">
-                <button className="inline-flex items-center justify-center px-5 py-3 rounded-2xl bg-emerald-600 text-white font-semibold shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-95 transition">
+                <button className="inline-flex items-center justify-center px-6 sm:px-8 lg:px-9 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-emerald-600 text-white font-semibold text-sm sm:text-base shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-95 transition-all duration-200">
                   Try it now
                 </button>
               </Link>
@@ -126,30 +127,30 @@ export default function HowItWorks() {
           </div>
 
           {/* Right panel */}
-          <div className="relative md:col-span-6 p-6 sm:p-8 lg:p-12 pb-24 flex flex-col justify-between bg-white">
+          <div className="relative md:col-span-7 p-8 lg:p-10 xl:p-12 pb-20 sm:pb-24 lg:pb-24 flex flex-col justify-between bg-white">
             <div
-              className={`flex flex-col items-start gap-4 transition-all duration-500 ${
+              className={`flex flex-col items-start gap-0.5 md:gap-3 transition-all duration-500 ${
                 contentVisible
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-2"
               }`}
             >
               <h3
-                className="mt-3 text-3xl sm:text-4xl font-extrabold leading-tight flex items-center gap-2"
+                className="mt-2 sm:mt-3 text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold leading-tight flex items-center gap-3 md:gap-3"
                 style={{ color: "#0b3d2e" }}
               >
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <StepIcon className="h-6 w-6" />
+                <div className="inline-flex h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 items-center justify-center rounded-lg sm:rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex-shrink-0">
+                  <StepIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
                 </div>
-                {steps[activeStep].title}
+                <span className="break-words">{steps[activeStep].title}</span>
               </h3>
 
               <div>
-                <p className="text-base sm:text-lg leading-relaxed text-slate-700 py-5">
+                <p className="text-sm sm:text-base md:text-lg leading-relaxed text-slate-700 py-1 sm:py-4 lg:py-5">
                   {steps[activeStep].description}
                 </p>
                 {steps[activeStep].details && (
-                  <p className="mt-2 text-sm text-slate-500">
+                  <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-slate-500">
                     {steps[activeStep].details}
                   </p>
                 )}
@@ -158,28 +159,62 @@ export default function HowItWorks() {
 
             {/* Bottom controls - full width arrows pinned */}
             <div className="absolute left-0 right-0 bottom-0">
+            <div className="w-full">
+                <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden flex">
+                  {/* Step 1 */}
+                  <div 
+                    className={`h-full transition-all duration-300 ${
+                      activeStep >= 0 ? 'bg-emerald-500' : 'bg-gray-300'
+                    }`}
+                    style={{ 
+                      width: '33.33%',
+                      opacity: activeStep === 0 ? 1 : activeStep > 0 ? 1 : 0.5
+                    }}
+                  />
+                  {/* Step 2 */}
+                  <div 
+                    className={`h-full transition-all duration-300 ${
+                      activeStep >= 1 ? 'bg-emerald-500' : 'bg-gray-300'
+                    }`}
+                    style={{ 
+                      width: '33.33%',
+                      opacity: activeStep === 1 ? 1 : activeStep > 1 ? 1 : 0.5
+                    }}
+                  />
+                  {/* Step 3 */}
+                  <div 
+                    className={`h-full transition-all duration-300 ${
+                      activeStep >= 2 ? 'bg-emerald-500' : 'bg-gray-300'
+                    }`}
+                    style={{ 
+                      width: '33.34%',
+                      opacity: activeStep === 2 ? 1 : 0.5
+                    }}
+                  />
+                </div>
+              </div>
               <div className="w-full border-t border-black/10">
                 <div className="grid grid-cols-2">
                   <button
                     aria-label="Previous step"
                     onClick={() => goPrev(true)}
-                    className="h-14 sm:h-16 w-full inline-flex items-center justify-center bg-white hover:bg-black/5 transition"
+                    className="h-12 w-full inline-flex items-center justify-center bg-white hover:bg-black/5 transition-colors duration-200"
                   >
-                    <ChevronLeft className="h-5 w-5" />
+                    <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                   </button>
                   <button
                     aria-label="Next step"
                     onClick={() => goNext(true)}
-                    className="h-14 sm:h-16 w-full inline-flex items-center justify-center bg-white hover:bg-black/5 transition border-l border-black/10"
+                    className="h-12 w-full inline-flex items-center justify-center bg-white hover:bg-black/5 transition-colors duration-200 border-l border-black/10"
                   >
-                    <ChevronRight className="h-5 w-5" />
+                    <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Big counter */}
-            <div className="pointer-events-none absolute bottom-6 right-6 select-none text-5xl sm:text-6xl md:text-7xl font-black text-black/5">
+            <div className="pointer-events-none absolute bottom-14 right-3  select-none text-4xl font-black text-black/5">
               {activeStep + 1}/{steps.length}
             </div>
           </div>

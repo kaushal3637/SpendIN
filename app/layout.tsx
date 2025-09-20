@@ -41,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="font-sans">
       <body
-        className={`${albertSans.variable} ${nunitoSans.variable} ${geistMono.variable} antialiased`}
+        className={`${nunitoSans.variable} ${albertSans.variable} ${geistMono.variable} antialiased`}
       >
         <PrivyProviderWrapper>
           {children}

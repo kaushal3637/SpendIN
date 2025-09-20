@@ -70,30 +70,22 @@ function MarqueeRow({
   );
 }
 
-// Floating elements component
-function FloatingElements() {
+// Floating decorative elements
+function FloatingElement({ 
+  className = "", 
+  children, 
+  delay = 0 
+}: { 
+  className?: string; 
+  children: React.ReactNode; 
+  delay?: number;
+}) {
   return (
-    <>
-      {/* Floating circles */}
-      <div className="absolute top-20 left-10 w-4 h-4 bg-emerald-400 rounded-full animate-pulse"></div>
-      <div className="absolute top-40 right-20 w-6 h-6 bg-teal-300 rounded-full animate-bounce"></div>
-      <div className="absolute bottom-40 left-20 w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
-      <div className="absolute bottom-20 right-10 w-5 h-5 bg-teal-400 rounded-full animate-pulse"></div>
-      
-      {/* Floating geometric shapes */}
-      <div className="absolute top-32 right-1/4 w-0 h-0 border-l-[8px] border-r-[8px] border-b-[16px] border-l-transparent border-r-transparent border-b-emerald-300 animate-float "></div>
-      <div className="absolute bottom-32 left-1/3 w-8 h-8 bg-gradient-to-br from-teal-200 to-emerald-200 rounded-lg rotate-45 animate-pulse"></div>
-    </>
-  );
-}
-
-// Animated background gradient
-function AnimatedBackground() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-emerald-200 to-teal-200 rounded-full opacity-20 animate-pulse"></div>
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-teal-100 to-emerald-100 rounded-full opacity-30 animate-pulse" style={{ animationDelay: '1s' }}></div>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
+    <div 
+      className={`absolute animate-float ${className}`}
+      style={{ animationDelay: `${delay}s` }}
+    >
+      {children}
     </div>
   );
 }
@@ -124,14 +116,14 @@ export default function Hero() {
     {
       image: "/herosection/4.png",
       title: "Instant & secure",
-      description: "Fast confirmations with strong security.",
+      description: "Fast confirmations with strong security through Arbitrum.",
     },
   ];
 
   const rowTwo: Feature[] = [
     {
       image: "/herosection/5.png",
-      title: "1-minute settlement",
+      title: "Fast settlement",
       description: "Typical end-to-end completion time.",
     },
     {
@@ -152,13 +144,37 @@ export default function Hero() {
   ];
 
   return (
-    <section className="relative w-full flex items-center justify-center overflow-hidden py-[170px] min-h-screen">
-      {/* Animated background */}
-      <AnimatedBackground />
+    <section className="relative w-full flex items-center justify-center overflow-hidden pt-[170px]">
+      {/* Animated background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 animate-gradient-x"></div>
       
-      {/* Floating elements */}
-      <FloatingElements />
-      
+      {/* Floating decorative elements */}
+      <FloatingElement 
+        className="top-20 left-10 w-16 h-16 bg-emerald-200 rounded-full opacity-20" 
+        delay={0}
+      >
+        <div className="w-full h-full bg-emerald-200 rounded-full"></div>
+      </FloatingElement>
+      <FloatingElement 
+        className="top-40 right-20 w-12 h-12 bg-teal-200 rounded-full opacity-30" 
+        delay={1}
+      >
+        <div className="w-full h-full bg-teal-200 rounded-full"></div>
+      </FloatingElement>
+      <FloatingElement 
+        className="bottom-40 left-20 w-20 h-20 bg-cyan-200 rounded-full opacity-25" 
+        delay={2}
+      >
+        <div className="w-full h-full bg-cyan-200 rounded-full"></div>
+      </FloatingElement>
+      <FloatingElement 
+        className="bottom-20 right-10 w-14 h-14 bg-emerald-300 rounded-full opacity-20" 
+        delay={0.5}
+      >
+        <div className="w-full h-full bg-emerald-300 rounded-full"></div>
+      </FloatingElement>
+
+      {/* Main content */}
       <div
         className={`relative z-10 w-full transition-all duration-1000 ${
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
@@ -166,81 +182,52 @@ export default function Hero() {
       >
         <div className="w-[90%] mx-auto text-center">
           {/* Enhanced main heading with gradient text */}
-          <div className="relative">
-            <h1 
-              className="text-[5vw] font-black bg-gradient-to-r from-[#0b3d2e] via-emerald-600 to-teal-600 bg-clip-text text-transparent animate-gradient-x"
-              style={{ 
-                backgroundSize: '200% 200%',
-                animation: 'gradient-x 3s ease infinite'
-              }}
-            >
-              SpendIn - Spend in India
-            </h1>
-            
-            {/* Decorative underline */}
-            <div className="w-32 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 mx-auto mt-4 rounded-full animate-pulse"></div>
-          </div>
+          <h1 className="text-[5vw] font-black mb-6 bg-gradient-to-r from-[#0b3d2e] via-emerald-600 to-teal-600 bg-clip-text text-transparent animate-gradient-x">
+            SpendIN - Spend in India
+          </h1>
           
           {/* Enhanced subtitle with better typography */}
-          <p className="mt-6 text-slate-700 text-sm md:text-lg w-[90%] md:w-[70%] mx-auto leading-relaxed font-medium">
-            Seamlessly convert your <span className="font-bold text-emerald-600">USDC to INR</span> and pay any merchant via
-            <span className="font-bold text-teal-600"> UPI</span>—instant, secure, and zero gas fees. Perfect for international
+          <p className="mt-4 text-slate-700 text-sm md:text-lg w-[90%] md:w-[70%] mx-auto leading-relaxed font-medium">
+            Seamlessly convert your USDC to INR and pay any merchant via
+            UPI—instant, secure, and zero gas fees. Perfect for international
             visitors exploring India.
           </p>
 
           {/* Enhanced CTA section */}
           <div className="my-8 sm:my-12">
             <Link href="/scan">
-              <button className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 text-white font-bold shadow-xl hover:shadow-2xl hover:shadow-emerald-500/30 hover:scale-[1.05] active:scale-95 transition-all duration-300 overflow-hidden">
-                {/* Button background animation */}
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-gradient-x"></div>
+              <button className="group relative inline-flex items-center justify-center gap-3 sm:px-8 px-6 sm:py-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 text-white font-bold sm:text-lg text-base shadow-2xl hover:shadow-emerald-500/40 hover:scale-[1.05] active:scale-95 transition-all duration-300 overflow-hidden">
+                {/* Animated background effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 
                 {/* Button content */}
-                <span className="relative z-10 flex items-center gap-2">
-                  Start Spending
-                  <svg
-                    className="h-5 w-5 transition-transform group-hover:translate-x-1 group-hover:scale-110"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </span>
+                <span className="relative z-10">Start Spending</span>
+                <svg
+                  className="h-6 w-6 transition-transform group-hover:translate-x-2 group-hover:scale-110"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
                 
                 {/* Shine effect */}
-                <div className="absolute inset-0 -top-2 -left-2 w-8 h-8 bg-white opacity-20 rounded-full group-hover:animate-ping"></div>
+                <div className="absolute inset-0 -top-2 -left-2 w-0 h-full bg-gradient-to-r from-transparent via-white to-transparent opacity-30 group-hover:w-full transition-all duration-700 skew-x-12"></div>
               </button>
             </Link>
-            
-            {/* Trust indicators */}
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>Live on Polygon</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <span>Audited & Secure</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                <span>Zero Gas Fees</span>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Enhanced marquee section */}
+        {/* Enhanced marquee section with better spacing and effects */}
         <div className="relative">
-          {/* Gradient overlays for marquee */}
-          <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
-          <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+          {/* Gradient overlays for smooth fade effect */}
+          <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white to-transparent z-10"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white to-transparent z-10"></div>
           
           <MarqueeRow
             items={rowOne}
@@ -275,24 +262,32 @@ export default function Hero() {
             transform: translateX(0);
           }
         }
-        @keyframes gradient-x {
-          0%, 100% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-        }
+        
         @keyframes float {
-          0%, 100% {
-            transform: translateY(0px);
+          0%, 100% { 
+            transform: translateY(0px) rotate(0deg); 
           }
-          50% {
-            transform: translateY(-10px);
+          50% { 
+            transform: translateY(-20px) rotate(5deg); 
           }
         }
+        
+        @keyframes gradient-x {
+          0%, 100% { 
+            background-position: 0% 50%; 
+          }
+          50% { 
+            background-position: 100% 50%; 
+          }
+        }
+        
         .animate-float {
-          animation: float 4s ease-in-out infinite;
+          animation: float 6s ease-in-out infinite;
+        }
+        
+        .animate-gradient-x {
+          background-size: 400% 400%;
+          animation: gradient-x 4s ease infinite;
         }
       `}</style>
     </section>
