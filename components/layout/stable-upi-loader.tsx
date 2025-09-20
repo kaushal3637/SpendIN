@@ -92,7 +92,7 @@ export default function StableUPILoader({
         
         {/* Modern tagline */}
         <div className="mt-6 space-y-4">
-          <p className="text-lg md:text-xl text-gray-600 font-light tracking-wide">
+          <p className="text-xs md:text-base text-gray-600 font-light tracking-wide">
             The future of Web3 payments in India
           </p>
           

@@ -74,10 +74,10 @@ export default function Navbar() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/" className="flex items-center w-[100px] md:w-[180px] h-max">
+            <Link href="/" className="flex items-center w-[80px] md:w-[180px] h-max">
               <Image
                 src="/logo.svg"
-                alt="StableUPI Logo"
+                alt="SpendIN Logo"
                 width={120}
                 height={40}
                 className="w-full h-auto"
@@ -96,7 +96,7 @@ export default function Navbar() {
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg text-xs sm:text-base"
                   >
                     <Wallet className="w-4 h-4" />
-                    <span className="inline">
+                    <span className="hidden sm:inline">
                       {user?.wallet?.address
                         ? `${user.wallet.address.slice(
                             0,

@@ -22,8 +22,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StableUPI - Web3 Payments Made Simple",
-  description: "Pay with USDC, merchants get INR seamlessly. Zero gas fees for users with instant conversions.",
+  title: "SpendIN - Spend in India",
+  description: "Pay with USDC, merchants get INR seamlessly.",
 };
 
 export const viewport = {

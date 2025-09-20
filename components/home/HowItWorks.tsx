@@ -35,16 +35,55 @@ export default function HowItWorks() {
   const [activeStep, setActiveStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [contentVisible, setContentVisible] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+  const [stepProgress, setStepProgress] = useState([0, 0, 0]);
   const sectionRef = useRef<HTMLElement>(null);
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
+  const progressRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number>(0);
 
   const AUTO_ADVANCE_MS = 5000;
   const INTERACTION_PAUSE_MS = 7000;
+  const PROGRESS_UPDATE_INTERVAL = 50; // Update progress every 50ms
+
+  const startProgressAnimation = (stepIndex: number) => {
+    if (progressRef.current) clearInterval(progressRef.current);
+    
+    // Calculate the correct start time based on current progress
+    const currentProgress = stepProgress[stepIndex];
+    const duration = AUTO_ADVANCE_MS;
+    const elapsedTime = (currentProgress / 100) * duration;
+    const startTime = Date.now() - elapsedTime;
+    startTimeRef.current = startTime;
+    
+    progressRef.current = setInterval(() => {
+      if (isPaused) return;
+      
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / duration) * 100, 100);
+      
+      setStepProgress(prev => {
+        const newProgress = [...prev];
+        newProgress[stepIndex] = progress;
+        return newProgress;
+      });
+      
+      if (progress >= 100) {
+        if (progressRef.current) clearInterval(progressRef.current);
+        if (!isPaused) {
+          animateTo((stepIndex + 1) % steps.length);
+        }
+      }
+    }, PROGRESS_UPDATE_INTERVAL);
+  };
 
   const scheduleNext = (delay: number) => {
+    if (isPaused) return; // Don't schedule if paused
     if (autoplayRef.current) clearTimeout(autoplayRef.current);
     autoplayRef.current = setTimeout(() => {
-      animateTo((activeStep + 1) % steps.length);
+      if (!isPaused) { // Double check before animating
+        animateTo((activeStep + 1) % steps.length);
+      }
     }, delay);
   };
 
@@ -53,16 +92,49 @@ export default function HowItWorks() {
     setTimeout(() => {
       setActiveStep(index);
       setContentVisible(true);
+      
+      // Reset progress for all steps and start progress for current step
+      setStepProgress(prev => prev.map((_, i) => i < index ? 100 : 0));
+      
+      if (!isPaused) {
+        startProgressAnimation(index);
+      }
     }, 180);
   };
 
   const goNext = (manual = false) => {
     animateTo((activeStep + 1) % steps.length);
-    scheduleNext(manual ? INTERACTION_PAUSE_MS : AUTO_ADVANCE_MS);
   };
   const goPrev = (manual = false) => {
     animateTo((activeStep - 1 + steps.length) % steps.length);
-    scheduleNext(manual ? INTERACTION_PAUSE_MS : AUTO_ADVANCE_MS);
+  };
+
+  const goToStep = (stepIndex: number) => {
+    animateTo(stepIndex);
+  };
+
+  // Touch events for mobile
+  const handleTouchStart = () => {
+    setIsPaused(true);
+    if (autoplayRef.current) clearTimeout(autoplayRef.current);
+    if (progressRef.current) clearInterval(progressRef.current);
+  };
+
+  const handleTouchEnd = () => {
+    setIsPaused(false);
+    startProgressAnimation(activeStep);
+  };
+
+  // Mouse events for desktop
+  const handleMouseEnter = () => {
+    setIsPaused(true);
+    if (autoplayRef.current) clearTimeout(autoplayRef.current);
+    if (progressRef.current) clearInterval(progressRef.current);
+  };
+
+  const handleMouseLeave = () => {
+    setIsPaused(false);
+    startProgressAnimation(activeStep);
   };
 
   useEffect(() => {
@@ -80,19 +152,17 @@ export default function HowItWorks() {
 
   useEffect(() => {
     if (!isVisible) return;
-    if (autoplayRef.current) clearTimeout(autoplayRef.current);
     
-    autoplayRef.current = setTimeout(() => {
-      setContentVisible(false);
-      setTimeout(() => {
-        setActiveStep((prev) => (prev + 1) % steps.length);
-        setContentVisible(true);
-      }, 180);
-    }, AUTO_ADVANCE_MS);
+    // Start progress animation for current step
+    if (!isPaused) {
+      startProgressAnimation(activeStep);
+    }
+    
     return () => {
       if (autoplayRef.current) clearTimeout(autoplayRef.current);
+      if (progressRef.current) clearInterval(progressRef.current);
     };
-  }, [isVisible, activeStep]);
+  }, [isVisible, activeStep, isPaused]);
 
   const StepIcon = steps[activeStep].icon;
 
@@ -100,6 +170,10 @@ export default function HowItWorks() {
     <section
       ref={sectionRef}
       className="w-full flex items-center justify-center px-3 sm:px-4 md:px-6 lg:px-8 py-12 sm:py-16 md:py-20 lg:py-24"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div
         className={`relative w-full max-w-7xl mx-auto rounded-2xl sm:rounded-3xl bg-white text-slate-800 border border-black/5 shadow-md overflow-hidden transition-all duration-700 ${
@@ -157,40 +231,49 @@ export default function HowItWorks() {
               </div>
             </div>
 
-            {/* Bottom controls - full width arrows pinned */}
+            {/* Bottom controls - individual step progress bars */}
             <div className="absolute left-0 right-0 bottom-0">
             <div className="w-full">
-                <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden flex">
+                <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden flex gap-1">
                   {/* Step 1 */}
                   <div 
-                    className={`h-full transition-all duration-300 ${
-                      activeStep >= 0 ? 'bg-emerald-500' : 'bg-gray-300'
-                    }`}
-                    style={{ 
-                      width: '33.33%',
-                      opacity: activeStep === 0 ? 1 : activeStep > 0 ? 1 : 0.5
-                    }}
-                  />
+                    className="h-full bg-gray-300 rounded-full flex-1 relative overflow-hidden cursor-pointer"
+                    onClick={() => goToStep(0)}
+                  >
+                    <div 
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-100 ease-linear"
+                      style={{ 
+                        width: `${stepProgress[0]}%`,
+                        opacity: activeStep === 0 ? 1 : stepProgress[0] > 0 ? 1 : 0.5
+                      }}
+                    />
+                  </div>
                   {/* Step 2 */}
                   <div 
-                    className={`h-full transition-all duration-300 ${
-                      activeStep >= 1 ? 'bg-emerald-500' : 'bg-gray-300'
-                    }`}
-                    style={{ 
-                      width: '33.33%',
-                      opacity: activeStep === 1 ? 1 : activeStep > 1 ? 1 : 0.5
-                    }}
-                  />
+                    className="h-full bg-gray-300 rounded-full flex-1 relative overflow-hidden cursor-pointer"
+                    onClick={() => goToStep(1)}
+                  >
+                    <div 
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-100 ease-linear"
+                      style={{ 
+                        width: `${stepProgress[1]}%`,
+                        opacity: activeStep === 1 ? 1 : stepProgress[1] > 0 ? 1 : 0.5
+                      }}
+                    />
+                  </div>
                   {/* Step 3 */}
                   <div 
-                    className={`h-full transition-all duration-300 ${
-                      activeStep >= 2 ? 'bg-emerald-500' : 'bg-gray-300'
-                    }`}
-                    style={{ 
-                      width: '33.34%',
-                      opacity: activeStep === 2 ? 1 : 0.5
-                    }}
-                  />
+                    className="h-full bg-gray-300 rounded-full flex-1 relative overflow-hidden cursor-pointer"
+                    onClick={() => goToStep(2)}
+                  >
+                    <div 
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-100 ease-linear"
+                      style={{ 
+                        width: `${stepProgress[2]}%`,
+                        opacity: activeStep === 2 ? 1 : stepProgress[2] > 0 ? 1 : 0.5
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="w-full border-t border-black/10">
