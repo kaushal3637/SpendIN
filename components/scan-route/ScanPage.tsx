@@ -290,6 +290,40 @@ export default function ScanPage() {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Refund Message */}
+                            {paymentResult?.status === 'refunded' && !showConversionModal && (
+                                <div className="mb-4 sm:mb-6 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg sm:rounded-xl p-4 mx-2 sm:mx-0 shadow-lg">
+                                    <div className="flex items-center justify-center gap-3 mb-2">
+                                        <AlertCircle className="w-8 h-8 text-orange-600" />
+                                        <h3 className="text-xl sm:text-2xl font-bold text-orange-900">
+                                            Payment Refunded
+                                        </h3>
+                                    </div>
+                                    <div className="text-center space-y-2">
+                                        <p className="text-orange-800 font-medium">
+                                            {paymentResult.error || 'UPI payout failed; USDC refunded'}
+                                        </p>
+                                        {paymentResult.refund && (
+                                            <div className="text-center space-y-1">
+                                                <p className="text-sm text-orange-700">
+                                                    Refund Amount: {paymentResult.refund.amount} USDC
+                                                </p>
+                                                {paymentResult.refund.fee && (
+                                                    <p className="text-xs text-orange-600">
+                                                        Fee Deducted: {paymentResult.refund.fee} USDC
+                                                    </p>
+                                                )}
+                                                {paymentResult.refund.transactionHash && (
+                                                    <p className="text-xs text-orange-600">
+                                                        Refund TX: {paymentResult.refund.transactionHash.slice(0, 10)}...
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -326,6 +360,9 @@ export default function ScanPage() {
                     setPaymentStep('')
                 }}
                 onPay={async () => {
+                    let txHash: string | undefined
+                    let userAddress: string | undefined
+                    
                     try {
                         setIsProcessingPayment(true)
                         setPaymentStep('Processing payment...')
@@ -345,7 +382,7 @@ export default function ScanPage() {
                         const provider = await wallet!.getEthereumProvider()
                         const ethersProvider = new ethers.BrowserProvider(provider)
                         const signer = await ethersProvider.getSigner()
-                        const userAddress = await signer.getAddress()
+                        userAddress = await signer.getAddress()
                         const usdcAddress = USDC_CONTRACT_ADDRESSES[connectedChain as keyof typeof USDC_CONTRACT_ADDRESSES]
 
                         // Prepare the meta transaction data (this will sign and prepare the transaction)
@@ -357,6 +394,7 @@ export default function ScanPage() {
                             chainId: connectedChain,
                             backendApiKey: API_KEY!,
                             backendUrl: BACKEND_URL,
+                            networkFee: conversionResult!.networkFee.toString(),
                             upiMerchantDetails: {
                                 pa: parsedData?.data?.pa || "merchant@upi",
                                 pn: parsedData?.data?.pn || "Merchant",
@@ -369,8 +407,23 @@ export default function ScanPage() {
 
                         // Execute the USDC transaction directly on frontend
                         const receipt = await prepared.send()
-                        const txHash = receipt?.transactionHash
+                        txHash = receipt?.transactionHash
                         const wasSuccess = !!(receipt?.success && txHash)
+
+                        console.log('Payment receipt:', receipt)
+
+                        // Check if the response indicates a refund was processed
+                        if (receipt?.status === 'refunded') {
+                            console.log('Backend processed refund:', receipt.refund)
+                            setPaymentResult({
+                                success: false,
+                                status: 'refunded',
+                                error: 'UPI payout failed; USDC refunded',
+                                refund: receipt.refund
+                            })
+                            setShowConversionModal(false)
+                            return
+                        }
 
                         if (!wasSuccess) {
                             throw new Error('USDC transaction failed')
@@ -403,6 +456,7 @@ export default function ScanPage() {
                             console.warn('Failed to store transaction details');
                         }
 
+
                         // Note: INR payout is already processed as part of the USDC meta transaction flow
                         // No need for separate payout call to avoid duplicate processing
                         console.log('USDC transaction completed successfully. INR payout was processed automatically.')
@@ -433,11 +487,65 @@ export default function ScanPage() {
                         }, 5000)
 
                     } catch (error) {
-                        setPaymentResult({
-                            success: false,
-                            error: error instanceof Error ? error.message : 'Payment data update failed',
-                            status: 'failed'
-                        })
+                        console.error('Payment processing error:', error)
+                        
+                        // If USDC transaction succeeded but something else failed, attempt manual refund
+                        if (txHash && conversionResult && userAddress) {
+                            console.log('Attempting manual refund due to payment processing error...')
+                            try {
+                                const refundAmountUsdc = (conversionResult.totalUsdcAmount - conversionResult.networkFee).toFixed(6)
+                                const refundResp = await fetch(`${BACKEND_URL}/api/payments/refund`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY! },
+                                    body: JSON.stringify({
+                                        chainId: connectedChain,
+                                        to: userAddress,
+                                        amount: refundAmountUsdc,
+                                        from: userAddress,
+                                        txHash: txHash,
+                                        networkFee: conversionResult.networkFee.toFixed(6),
+                                        totalPaid: conversionResult.totalUsdcAmount.toFixed(6),
+                                        reason: 'payment_processing_error'
+                                    })
+                                })
+                                
+                                if (refundResp.ok) {
+                                    const refundData = await refundResp.json()
+                                    console.log('Manual refund successful:', refundData)
+                                    setPaymentResult({
+                                        success: false,
+                                        status: 'refunded',
+                                        error: 'Payment failed but USDC refunded',
+                                        refund: {
+                                            amount: refundAmountUsdc,
+                                            transactionHash: refundData.data?.transactionHash,
+                                            to: userAddress
+                                        }
+                                    })
+                                } else {
+                                    const refundError = await refundResp.json().catch(() => ({}))
+                                    console.error('Manual refund failed:', refundError)
+                                    setPaymentResult({
+                                        success: false,
+                                        error: `Payment failed and refund failed: ${refundError.error || 'Unknown error'}`,
+                                        status: 'failed'
+                                    })
+                                }
+                            } catch (refundErr) {
+                                console.error('Manual refund error:', refundErr)
+                                setPaymentResult({
+                                    success: false,
+                                    error: error instanceof Error ? error.message : 'Payment failed and refund error',
+                                    status: 'failed'
+                                })
+                            }
+                        } else {
+                            setPaymentResult({
+                                success: false,
+                                error: error instanceof Error ? error.message : 'Payment failed',
+                                status: 'failed'
+                            })
+                        }
                         setPaymentStep('')
                     } finally {
                         setIsProcessingPayment(false)

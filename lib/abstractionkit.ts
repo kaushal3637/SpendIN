@@ -15,6 +15,7 @@ interface USDCMetaTransactionRequest {
     s: string;
   };
   chainId: number;
+  networkFee?: string;
 }
 
 export type CreateUSDCMetaTxInput = {
@@ -25,6 +26,7 @@ export type CreateUSDCMetaTxInput = {
   chainId: number;
   backendApiKey: string;
   backendUrl?: string;
+  networkFee?: string; // network fee for refund calculations
   upiMerchantDetails?: {
     pa: string;
     pn?: string;
@@ -37,7 +39,13 @@ export type CreateUSDCMetaTxInput = {
 
 export type CreateUSDCMetaTxResult = {
   metaTransaction: USDCMetaTransactionRequest;
-  send: () => Promise<{ success?: boolean; transactionHash?: string; receipt?: unknown }>;
+  send: () => Promise<{ 
+    success?: boolean; 
+    transactionHash?: string; 
+    receipt?: unknown;
+    status?: string;
+    refund?: { amount: string; fee?: string | undefined; transactionHash?: string | undefined; to?: string | undefined; } | undefined;
+  }>;
 };
 
 // Implements USDC meta transaction using transferWithAuthorization
@@ -49,6 +57,7 @@ export async function prepareUSDCMetaTransaction({
   chainId, 
   backendApiKey, 
   backendUrl = 'http://localhost:3001',
+  networkFee = '0.001',
   upiMerchantDetails 
 }: CreateUSDCMetaTxInput): Promise<CreateUSDCMetaTxResult> {
   const userAddress = await userSigner.getAddress();
@@ -143,7 +152,8 @@ export async function prepareUSDCMetaTransaction({
       r: sig.r,
       s: sig.s
     },
-    chainId
+    chainId,
+    networkFee: networkFee
   };
   
   console.log('USDC meta transaction signed and ready to send');
@@ -180,11 +190,14 @@ export async function prepareUSDCMetaTransaction({
       
       const executeData = await executeResponse.json();
       console.log('Meta transaction executed successfully');
+      console.log('Backend response:', executeData);
       
       return {
         success: executeData.success,
         transactionHash: executeData.data?.transactionHash,
-        receipt: executeData.data
+        receipt: executeData.data,
+        status: executeData.data?.status,
+        refund: executeData.data?.refund
       };
     }
   };

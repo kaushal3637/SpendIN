@@ -25,6 +25,12 @@ export interface PaymentResult {
   };
   error?: string;
   status: string;
+  refund?: {
+    amount: string;
+    fee?: string;
+    transactionHash?: string;
+    to?: string;
+  };
 }
 
 export interface PayoutResult {
