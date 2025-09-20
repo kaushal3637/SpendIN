@@ -13,8 +13,8 @@ export default function ConfirmationModal({
   userAmount,
   setUserAmount,
   isConverting,
-  isTestMode,
-  beneficiaryDetails,
+  // isTestMode,
+  // beneficiaryDetails,
   connectedChain,
   isValidChainId
 }: ConfirmationModalProps) {
@@ -115,9 +115,9 @@ export default function ConfirmationModal({
                   )}
                 </div>
 
-          {/* Transaction Details */}
+          {/* /Transaction Details */}
           <div className="space-y-2 mb-4">
-            <div className="flex items-center justify-between py-2">
+            {/* <div className="flex items-center justify-between py-2">
               <span className="text-sm text-slate-600">Payment to</span>
               <span className="text-sm font-medium text-slate-900">
                 {parsedData.data.pn || 'Merchant'}
@@ -128,7 +128,7 @@ export default function ConfirmationModal({
               <span className="text-sm font-mono text-slate-900">
                 {parsedData.data.pa}
               </span>
-            </div>
+            </div> */}
             {parsedData.data.tr && (
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm text-slate-600">Reference</span>

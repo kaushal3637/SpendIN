@@ -14,7 +14,7 @@ interface ConversionResponse {
 }
 
 // Estimate network fee dynamically using gas price and approximate gas usage
-async function estimateNetworkFeeUsdc(chainId: number): Promise<{ feeUsdc: number; networkName: string }>{
+async function estimateNetworkFeeUsdc(chainId: number): Promise<{ feeUsdc: number; networkName: string }> {
   const chain = getChainById(chainId);
   const rpcUrl = chain?.rpcUrls?.default?.http?.[0];
   const networkName = chain?.name || "Unknown Network";
@@ -52,7 +52,7 @@ async function estimateNetworkFeeUsdc(chainId: number): Promise<{ feeUsdc: numbe
     const pricesResp = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_last_updated_at=true`,
       {
-        headers: { Authorization: `Bearer ${COINGECKO_API_KEY}`, Accept: "application/json" },
+        headers: { Authorization: `Bearer ${COINGECKO_API_KEY}`, Accept: "application/json", "x-cg-demo-api-key": `${COINGECKO_API_KEY}` },
         next: { revalidate: 30 },
       }
     );
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse the request body
     const body = await request.json();
-    const { amount, chainId = 421614 } = body; // Default to Arbitrum Sepolia
+    const { amount, chainId } = body; // Default to Arbitrum Sepolia
 
     // Validate input
     if (!amount || typeof amount !== "number" || amount <= 0) {
@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
         headers: {
           Authorization: `Bearer ${COINGECKO_API_KEY}`,
           Accept: "application/json",
+          "x-cg-demo-api-key": `${COINGECKO_API_KEY}`
         },
         next: { revalidate: 60 },
       }

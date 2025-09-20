@@ -16,8 +16,8 @@ export default function ConversionModal({
   isProcessingPayment,
   paymentStep,
   balanceError,
-  isTestMode,
-  beneficiaryDetails,
+  // isTestMode,
+  // beneficiaryDetails,
   connectedChain,
   isValidChainId
 }: ConversionModalProps) {
@@ -175,12 +175,50 @@ export default function ConversionModal({
           >
             {isCheckingBalance ? (
               <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <svg
+                  className="animate-spin h-4 w-4 text-white mr-2"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  />
+                </svg>
                 Checking Balance...
               </>
             ) : isProcessingPayment ? (
               <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+               <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  />
+                </svg>
                 {paymentStep || 'Processing...'}
               </>
             ) : hasInsufficientBalance ? (
@@ -195,7 +233,7 @@ export default function ConversionModal({
               </>
             ) : (
               <>
-                Confirm Payment • ${conversionResult!.totalUsdcAmount.toFixed(2)} USDC
+                Pay ${conversionResult!.totalUsdcAmount.toFixed(2)} USDC
               </>
             )}
           </button>

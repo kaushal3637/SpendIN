@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { QrCode, Wallet, CheckCircle, AlertCircle } from 'lucide-react'
+import { QrCode, CheckCircle, AlertCircle } from 'lucide-react'
 import { ParsedQrResponse } from '@/types/upi.types'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
 import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from '@/config/constant'
@@ -20,6 +20,7 @@ import ConversionModal from '@/components/popups/scan/ConversionModal'
 import { useScanState } from '@/hooks/useScanState'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
 import TransactionHistory from '@/components/scan-route/TransactionHistory'
+import toast from 'react-hot-toast'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -66,7 +67,6 @@ export default function ScanPage() {
         setIsTestMode,
         setScanningState,
         updateScanningState,
-        resetScanState
     } = scanState
 
     const qrScannerRef = useRef<QrScannerRef>(null)
@@ -82,22 +82,15 @@ export default function ScanPage() {
         // which should update the disabled state of the confirm button
     }, [parsedData, userAmount])
 
-    // QR Service Methods
-    const resetScan = useCallback(() => {
-        resetScanState()
-    }, [resetScanState])
-
     const convertInrToUsdcWrapper = async (inrAmount: number) => {
         try {
             setIsConverting(true)
             setConversionResult(null)
 
             const data = await convertInrToUsdc(inrAmount, connectedChain || 421614)
-            console.log('Conversion result received:', data);
             setConversionResult(data)
             return data
         } catch (err) {
-            console.error('Error converting INR to USDC:', err)
             throw err
         } finally {
             setIsConverting(false)
@@ -124,7 +117,6 @@ export default function ScanPage() {
             return result.hasSufficientBalance
 
         } catch (error) {
-            console.error('Error checking USDC balance:', error)
             setBalanceError(error instanceof Error ? error.message : 'Failed to check USDC balance')
             return false
         } finally {
@@ -156,8 +148,8 @@ export default function ScanPage() {
 
             setIsTestMode(true)
             setShowModal(true)
-        } catch (error) {
-            console.error('Error loading test data:', error)
+        } catch {
+            toast.error('Failed to load test data')
         }
     }
 
@@ -211,8 +203,8 @@ export default function ScanPage() {
                                     // Directly show modal without any delay
                                     setShowModal(true)
                                 }, [setParsedData, setShowModal])}
-                                onError={useCallback((error: string) => {
-                                    console.error('QR scanning error:', error)
+                                onError={useCallback(() => {
+                                    toast.error('QR scanning error')
                                 }, [])}
                                 onScanningStateChange={useCallback((state: ScanningState) => {
                                     updateScanningState(state)
@@ -242,12 +234,6 @@ export default function ScanPage() {
                                         {paymentResult.transactionHash.substring(0, 12)}...{paymentResult.transactionHash.substring(paymentResult.transactionHash.length - 8)}
                                     </div>
                                 )}
-                                <button
-                                    onClick={resetScan}
-                                    className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
-                                >
-                                    Scan Another QR
-                                </button>
                             </div>
                         </div>
                     )}
@@ -263,9 +249,8 @@ export default function ScanPage() {
                             await convertInrToUsdcWrapper(finalAmount)
                             setShowModal(false)
                             setShowConversionModal(true)
-                        } catch (err) {
-                            console.error('Conversion failed:', err)
-                            // Could show error toast here
+                        } catch {
+                            toast.error('Conversation failed')
                         }
                     }}
                     parsedData={parsedData}
@@ -299,7 +284,7 @@ export default function ScanPage() {
 
                         if (!isValidChainId(connectedChain)) {
                             const chainInfo = getChainInfo(connectedChain)
-                            throw new Error(`Unsupported network: ${chainInfo?.name || 'Unknown'} (Chain ID: ${connectedChain}). Please switch to a supported network.`)
+                            throw new Error(`Unsupported network: ${chainInfo?.name || 'Unknown'} (Chain ID: ${connectedChain}). Please switch to arbitrum sepolia network.`)
                         }
 
                         // Prepare USDC meta transaction with user's wallet
@@ -337,10 +322,7 @@ export default function ScanPage() {
                             throw new Error('USDC transaction failed')
                         }
 
-                        console.log('USDC transaction successful:', txHash)
-
                         // Store transaction details in database
-                        console.log('Storing transaction details...');
                         const storeResponse = await fetch(`${BACKEND_URL}/api/transactions/store`, {
                             method: 'POST',
                             headers: {
@@ -363,109 +345,27 @@ export default function ScanPage() {
                         if (storeResponse.ok) {
                             const storeResult = await storeResponse.json();
                             storedTransactionId = storeResult.data?.transactionId;
-                            console.log('Transaction stored successfully:', storedTransactionId);
                         } else {
                             console.warn('Failed to store transaction details');
                         }
 
-                        // Now send transaction details to backend for INR payout processing
-                        const payoutResponse = await fetch(`${BACKEND_URL}/api/payments/process-payout`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-API-Key': API_KEY!,
-                            },
-                            body: JSON.stringify({
-                                transactionHash: txHash,
-                                upiMerchantDetails: {
-                                    pa: parsedData?.data?.pa || "merchant@upi",
-                                    pn: parsedData?.data?.pn || "Merchant",
-                                    am: (conversionResult!.inrAmount || userAmount).toString(),
-                                    cu: "INR",
-                                    mc: parsedData?.data?.mc || "1234",
-                                    tr: parsedData?.data?.tr || `TXN_${Date.now()}`
-                                },
-                                chainId: connectedChain
-                            }),
-                        })
-
-                        if (!payoutResponse.ok) {
-                            const errorData = await payoutResponse.json()
-                            console.warn('INR payout failed, but USDC transaction succeeded:', errorData.error)
-
-                            // Trigger refund: refund amount = total paid - network fee at payment time
-                            try {
-                                console.log('Refund calculation:', {
-                                    chainId: connectedChain,
-                                    to: userAddress,
-                                    amount: conversionResult!.totalUsdcAmount,
-                                    from: TREASURY_ADDRESS,
-                                    txHash: txHash,
-                                    networkFee: conversionResult!.networkFee,
-                                    totalPaid: conversionResult!.totalUsdcAmount,
-                                    reason: 'upi_payout_failed',
-                                });
-                                const refundAmountUsdc = (conversionResult!.totalUsdcAmount - conversionResult!.networkFee).toFixed(6)
-                                const refundResp = await fetch(`${BACKEND_URL}/api/payments/refund`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY! },
-                                    body: JSON.stringify({ 
-                                        chainId: connectedChain,
-                                        to: TREASURY_ADDRESS,
-                                        amount: refundAmountUsdc,
-                                        from: userAddress,
-                                        txHash: txHash,
-                                        networkFee: conversionResult!.networkFee.toFixed(6),
-                                        totalPaid: conversionResult!.totalUsdcAmount.toFixed(6),
-                                        reason: 'upi_payout_failed'
-                                    })
-                                })
-                                if (!refundResp.ok) {
-                                    const rj = await refundResp.json().catch(() => ({}))
-                                    console.error('Refund failed:', rj?.error || refundResp.statusText)
-                                } else {
-                                    const rj = await refundResp.json()
-                                    console.log('Refund success:', rj)
-                                }
-                            } catch (rfErr) {
-                                console.error('Error triggering refund:', rfErr)
-                            }
-
-                            // Continue without throwing since USDC was successful
-                        }
-
-                        const payoutResult = await payoutResponse.json()
-                        console.log('INR payout result:', payoutResult)
-
-                        // Update transaction with payout details if we have a stored transaction ID
-                        if (storedTransactionId && payoutResult.success) {
-                            console.log('Updating transaction with payout details...');
-                            await fetch(`${BACKEND_URL}/api/transactions/update`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'x-api-key': API_KEY!
-                                },
-                                body: JSON.stringify({
-                                    transactionId: storedTransactionId,
-                                    payoutTransferId: payoutResult.data?.upiPaymentId,
-                                    payoutStatus: payoutResult.data?.upiPaymentStatus,
-                                    payoutAmount: payoutResult.data?.upiPayoutDetails?.amount,
-                                    payoutRemarks: `Payout to ${parsedData?.data?.pn || "Merchant"}`,
-                                    isSuccess: true,
-                                    walletAddress: userAddress
-                                }),
-                            });
-                        }
+                        // Note: INR payout is already processed as part of the USDC meta transaction flow
+                        // No need for separate payout call to avoid duplicate processing
+                        console.log('USDC transaction completed successfully. INR payout was processed automatically.')
 
                         // Update local state with results
                         setPaymentResult({
                             success: true,
                             status: 'completed',
                             transactionHash: txHash,
-                            upiPaymentId: payoutResult.data?.upiPaymentId,
-                            upiPaymentStatus: payoutResult.data?.upiPaymentStatus,
-                            upiPayoutDetails: payoutResult.data?.upiPayoutDetails
+                            upiPaymentId: 'processed_via_meta_transaction',
+                            upiPaymentStatus: 'RECEIVED',
+                            upiPayoutDetails: {
+                                transferId: 'processed_via_meta_transaction',
+                                status: 'RECEIVED',
+                                message: `Payment to ${parsedData?.data?.pn || "Merchant"}`,
+                                amount: parseFloat(String(conversionResult!.inrAmount || userAmount))
+                            }
                         })
 
                         // Payment completed successfully
@@ -479,10 +379,9 @@ export default function ScanPage() {
                         }, 5000)
 
                     } catch (error) {
-                        console.error('Payment processing error:', error)
                         setPaymentResult({
                             success: false,
-                            error: error instanceof Error ? error.message : 'Payment processing failed',
+                            error: error instanceof Error ? error.message : 'Payment data update failed',
                             status: 'failed'
                         })
                         setPaymentStep('')

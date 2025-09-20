@@ -36,9 +36,8 @@ export function isAmountValid(amount?: string): boolean {
  */
 export function getCurrencyError(currency?: string): string | null {
   if (!isCurrencySupported(currency)) {
-    return `Unsupported currency: ${
-      currency || "Unknown"
-    }. This platform only supports INR (Indian Rupees).`;
+    return `Unsupported currency: ${currency || "Unknown"
+      }. This platform only supports INR (Indian Rupees).`;
   }
   return null;
 }
@@ -228,8 +227,7 @@ export async function loadTestData(): Promise<{
 
   // Get UPI ID from beneficiary instrument details
   const upiId =
-    // beneficiary?.beneficiary_instrument_details?.vpa ||
-     "failure@upi";
+    beneficiary?.beneficiary_instrument_details?.vpa || "success@upi";
 
   // Create test QR data using the beneficiary's UPI ID
   const testParsedData: ParsedQrResponse = {
@@ -238,7 +236,7 @@ export async function loadTestData(): Promise<{
     data: {
       pa: upiId,
       pn: beneficiary?.beneficiary_name || "Test Bene",
-      am: "10.00", // Test amount
+      am: "1.00", // Test amount
       cu: "INR",
       mc: "1234",
       tr: `TXN${Date.now()}`,
@@ -248,11 +246,9 @@ export async function loadTestData(): Promise<{
   // Generate QR string
   const qrString = `upi://pay?pa=${encodeURIComponent(
     upiId
-  )}&pn=${encodeURIComponent(testParsedData.data.pn || "Test Bene")}&am=${
-    testParsedData.data.am
-  }&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${
-    testParsedData.data.tr
-  }`;
+  )}&pn=${encodeURIComponent(testParsedData.data.pn || "Test Bene")}&am=${testParsedData.data.am
+    }&cu=${testParsedData.data.cu}&mc=${testParsedData.data.mc}&tr=${testParsedData.data.tr
+    }`;
 
   return {
     beneficiary,
