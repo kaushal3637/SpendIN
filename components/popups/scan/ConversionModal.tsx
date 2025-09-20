@@ -120,7 +120,7 @@ export default function ConversionModal({
                       <div>
                         <h4 className="font-medium text-teal-900 mb-1">What&apos;s included in this fee?</h4>
                         <p className="text-sm text-teal-800 leading-relaxed">
-                          This covers your <span className="font-semibold">ETH gas sponsorship</span> and upgrades your wallet to <span className="font-semibold">EIP-7702 compatible format</span> for seamless Web3 payments on <span className="font-semibold text-teal-700">{conversionResult!.networkName}</span>.
+                          This covers your <span className="font-semibold">ETH gas sponsorship</span> for seamless Web3 payments on <span className="font-semibold text-teal-700">{conversionResult!.networkName}</span>.
                         </p>
                       </div>
                     </div>
@@ -147,18 +147,6 @@ export default function ConversionModal({
                   <span className="text-emerald-700">UPI ID:</span>
                   <span className="font-mono text-emerald-900">{parsedData!.data.pa}</span>
                 </div>
-                {isTestMode && beneficiaryDetails && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-emerald-700">Beneficiary ID:</span>
-                      <span className="font-mono text-emerald-900 text-xs">{beneficiaryDetails.beneficiary_id}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-emerald-700">Beneficiary Email:</span>
-                      <span className="text-emerald-900 text-xs">{beneficiaryDetails.beneficiary_email}</span>
-                    </div>
-                  </>
-                )}
                 <div className="flex justify-between">
                   <span className="text-emerald-700">Your USDC Balance:</span>
                   <span className={`font-medium ${parseFloat(usdcBalance) < conversionResult!.totalUsdcAmount ? 'text-red-600' : 'text-emerald-900'}`}>
@@ -218,7 +206,26 @@ export default function ConversionModal({
           >
             {isCheckingBalance ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <svg
+                  className="animate-spin h-4 w-4 text-white mr-2"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  />
+                </svg>
                 Checking Balance...
               </>
             ) : hasInsufficientBalance ? (
