@@ -13,7 +13,6 @@ const initialScanState: ScanState = {
   showModal: false,
   showConversionModal: false,
   showReason: false,
-  showConfetti: false,
   parsedData: null,
   userAmount: "",
   conversionResult: null,
@@ -41,9 +40,7 @@ export function useScanState(): ScanState & ScanActions {
     initialScanState.showConversionModal
   );
   const [showReason, setShowReason] = useState(initialScanState.showReason);
-  const [showConfetti, setShowConfetti] = useState(
-    initialScanState.showConfetti
-  );
+;
 
   // Data states
   const [parsedData, setParsedData] = useState<ParsedQrResponse | null>(
@@ -88,7 +85,6 @@ export function useScanState(): ScanState & ScanActions {
     setShowModal(false);
     setShowConversionModal(false);
     setShowReason(false);
-    setShowConfetti(false);
     setParsedData(null);
     setUserAmount("");
     setConversionResult(null);
@@ -121,7 +117,6 @@ export function useScanState(): ScanState & ScanActions {
     showModal,
     showConversionModal,
     showReason,
-    showConfetti,
     parsedData,
     userAmount,
     conversionResult,
@@ -139,7 +134,6 @@ export function useScanState(): ScanState & ScanActions {
     setShowModal,
     setShowConversionModal,
     setShowReason,
-    setShowConfetti,
     setParsedData,
     setUserAmount,
     setConversionResult,

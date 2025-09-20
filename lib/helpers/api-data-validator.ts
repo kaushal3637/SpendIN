@@ -279,7 +279,6 @@ export function resetScanState(setters: ScanStateSetters): void {
   setters.setShowReason(false);
   setters.setPayoutResult(null);
   setters.setBeneficiaryDetails(null);
-  setters.setShowConfetti(false);
   setters.setPaymentResult(null);
   setters.setStoredTransactionId(null);
 }

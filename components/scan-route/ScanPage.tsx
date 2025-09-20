@@ -9,7 +9,6 @@ import { useWallet } from '@/context/WalletContext'
 import { getChainInfo, isValidChainId } from '@/lib/chain-validation'
 import { prepareUSDCMetaTransaction } from '@/lib/abstractionkit'
 import { ethers } from 'ethers'
-import Confetti from 'react-confetti'
 import { ScanningState } from '@/types/qr-service.types'
 import QrScanner from '@/components/scan-route/services/QrScanner'
 import { QrScannerRef } from '@/types/qr-service.types'
@@ -21,6 +20,7 @@ import { useScanState } from '@/hooks/useScanState'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
 import TransactionHistory from '@/components/scan-route/TransactionHistory'
 import { createBeneficiaryFromQR } from '@/api-helpers/auto-beneficiary'
+import PaymentStatusModal from '@/components/popups/scan/PaymentStatusModal'
 
 export default function ScanPage() {
     const { authenticated } = usePrivy()
@@ -34,6 +34,19 @@ export default function ScanPage() {
     const [usdcBalance, setUsdcBalance] = useState<string>('0')
     const [isCheckingBalance, setIsCheckingBalance] = useState(false)
     const [balanceError, setBalanceError] = useState<string | null>(null)
+    const [showStatusModal, setShowStatusModal] = useState(false)
+    const [statusData, setStatusData] = useState<{
+        isSuccess: boolean
+        transactionHash?: string
+        amount: number
+        merchantName: string
+        usdcAmount: number
+        inrAmount: number
+        errorMessage?: string
+        chainId?: number
+    } | null>(null)
+    const [scanKey, setScanKey] = useState(0)
+    const [showHistory, setShowHistory] = useState(false)
 
     // Use custom hook for scan state management
     const scanState = useScanState()
@@ -51,10 +64,8 @@ export default function ScanPage() {
         isProcessingPayment,
         paymentStep,
         isTestMode,
-        showConfetti,
         setShowModal,
         setShowConversionModal,
-        setShowConfetti,
         setParsedData,
         setUserAmount,
         setConversionResult,
@@ -72,6 +83,47 @@ export default function ScanPage() {
     useEffect(() => {
         setIsVisible(true)
     }, [])
+
+    // Handle scan again - reset entire scan page
+    const handleScanAgain = () => {
+        setShowStatusModal(false)
+        setStatusData(null)
+        setShowHistory(false)
+        // Reset all scan state to allow new scan
+        setParsedData(null)
+        setUserAmount('')
+        setConversionResult(null)
+        setPaymentResult(null)
+        setBeneficiaryDetails(null)
+        setPaymentStep('')
+        setIsConverting(false)
+        setIsProcessingPayment(false)
+        setShowModal(false)
+        setShowConversionModal(false)
+        // Force re-render of entire scan page
+        setScanKey(prev => prev + 1)
+        // Reset QR scanner
+        if (qrScannerRef.current) {
+            qrScannerRef.current.reset()
+        }
+    }
+
+    // Handle view history
+    const handleViewHistory = () => {
+        setShowStatusModal(false)
+        setShowHistory(true)
+    }
+
+    // Handle close history - re-render entire scan page
+    const handleCloseHistory = () => {
+        setShowHistory(false)
+        // Force re-render of entire scan page
+        setScanKey(prev => prev + 1)
+        // Reset QR scanner
+        if (qrScannerRef.current) {
+            qrScannerRef.current.reset()
+        }
+    }
 
     // Force re-render when validation state changes
     useEffect(() => {
@@ -130,18 +182,26 @@ export default function ScanPage() {
 
     return (
         <>
-            {/* Confetti Animation */}
-            {showConfetti && (
-                <Confetti
-                    width={window.innerWidth}
-                    height={window.innerHeight}
-                    recycle={false}
-                    numberOfPieces={500}
-                    gravity={0.3}
+
+            {/* Payment Status Modal */}
+            {showStatusModal && statusData && (
+                <PaymentStatusModal
+                    isOpen={showStatusModal}
+                    onClose={() => setShowStatusModal(false)}
+                    isSuccess={statusData.isSuccess}
+                    transactionHash={statusData.transactionHash}
+                    amount={statusData.amount}
+                    merchantName={statusData.merchantName}
+                    usdcAmount={statusData.usdcAmount}
+                    inrAmount={statusData.inrAmount}
+                    errorMessage={statusData.errorMessage}
+                    chainId={statusData.chainId}
+                    onScanAgain={handleScanAgain}
+                    onViewHistory={handleViewHistory}
                 />
             )}
 
-            <div className="bg-gradient-to-br from-emerald-50 via-white to-teal-50">
+            <div key={scanKey} className="bg-gradient-to-br from-emerald-50 via-white to-teal-50">
                 {/* Header */}
                 <div className={`transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
                     {/* Scanner Section */}
@@ -246,7 +306,11 @@ export default function ScanPage() {
                             />
                         </div>
 
-                        <HistoryButton />
+                        <HistoryButton 
+                            showHistory={showHistory}
+                            setShowHistory={setShowHistory}
+                            onCloseHistory={handleCloseHistory}
+                        />
                     </div>
 
                     {/* Payment Success */}
@@ -456,13 +520,20 @@ export default function ScanPage() {
 
                         // Payment completed successfully
                         setShowConversionModal(false)
-                        setShowConfetti(true)
                         setPaymentStep('')
 
-                        // Hide confetti after 5 seconds
-                        setTimeout(() => {
-                            setShowConfetti(false)
-                        }, 5000)
+                        // Set success data and show status modal
+                        setStatusData({
+                            isSuccess: true,
+                            transactionHash: txHash,
+                            amount: parseFloat(String(conversionResult!.inrAmount || userAmount)),
+                            merchantName: parsedData?.data?.pn || "Merchant",
+                            usdcAmount: conversionResult!.totalUsdcAmount,
+                            inrAmount: parseFloat(String(conversionResult!.inrAmount || userAmount)),
+                            chainId: connectedChain || undefined
+                        })
+                        setShowStatusModal(true)
+
 
                     } catch (error) {
                         console.error('Payment processing error:', error)
@@ -518,6 +589,18 @@ export default function ScanPage() {
                                 })
                             }
                         } else {
+                            // Set failure data and show status modal
+                            setStatusData({
+                                isSuccess: false,
+                                amount: parseFloat(String(conversionResult?.inrAmount || userAmount || 0)),
+                                merchantName: parsedData?.data?.pn || "Merchant",
+                                usdcAmount: conversionResult?.totalUsdcAmount || 0,
+                                inrAmount: parseFloat(String(conversionResult?.inrAmount || userAmount || 0)),
+                                errorMessage: error instanceof Error ? error.message : 'Payment failed',
+                                chainId: connectedChain || undefined
+                            })
+                            setShowStatusModal(true)
+
                             setPaymentResult({
                                 success: false,
                                 error: error instanceof Error ? error.message : 'Payment failed',
@@ -546,11 +629,19 @@ export default function ScanPage() {
     )
 }
 
-function HistoryButton() {
+function HistoryButton({ 
+    showHistory, 
+    setShowHistory,
+    onCloseHistory
+}: { 
+    showHistory: boolean
+    setShowHistory: (show: boolean) => void
+    onCloseHistory: () => void
+}) {
     const { wallets } = useWallets()
     const wallet = wallets[0]
-    const [showHistory, setShowHistory] = useState(false)
-    const [addr, setAddr] = useState<string | null>(null)
+    const [walletAddress, setWalletAddress] = useState<string | null>(null)
+
 
     useEffect(() => {
         const getAddress = async () => {
@@ -559,10 +650,10 @@ function HistoryButton() {
                 const provider = await wallet.getEthereumProvider()
                 const ethersProvider = new ethers.BrowserProvider(provider)
                 const signer = await ethersProvider.getSigner()
-                const a = await signer.getAddress()
-                setAddr(a)
+                const address = await signer.getAddress()
+                setWalletAddress(address)
             } catch {
-                setAddr(null)
+                setWalletAddress(null)
             }
         }
         getAddress()
@@ -571,21 +662,19 @@ function HistoryButton() {
     return (
         <div>
             <button
-                onClick={() => setShowHistory((s) => !s)}
-                disabled={!addr}
+                onClick={() => setShowHistory(!showHistory)}
+                disabled={!walletAddress}
                 className="flex items-center gap-2 justify-center w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             >
                 View Transaction History <TrendingUp className="w-4 h-4" />
             </button>
-            {showHistory && addr && (
-                <div className="mt-3">
-                    <TransactionHistory
-                        walletAddress={addr}
-                        backendUrl={BACKEND_URL}
-                        apiKey={API_KEY!}
-                        onClose={() => setShowHistory(false)}
-                    />
-                </div>
+            {showHistory && walletAddress && (
+                <TransactionHistory
+                    walletAddress={walletAddress}
+                    backendUrl={BACKEND_URL}
+                    apiKey={API_KEY!}
+                    onClose={onCloseHistory}
+                />
             )}
         </div>
     )

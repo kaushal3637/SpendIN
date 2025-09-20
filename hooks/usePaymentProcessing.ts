@@ -203,7 +203,7 @@ export function usePaymentProcessing({
         });
       }
 
-      // Payment completed successfully - close modal and show confetti
+      // Payment completed successfully - close modal
       onSuccess();
     } catch (error) {
       console.error("Payment processing error:", error);

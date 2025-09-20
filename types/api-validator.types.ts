@@ -69,7 +69,6 @@ export interface ScanStateSetters {
   setShowReason: (show: boolean) => void;
   setPayoutResult: (result: PayoutResult | null) => void;
   setBeneficiaryDetails: (details: BeneficiaryDetails | null) => void;
-  setShowConfetti: (show: boolean) => void;
   setPaymentResult: (result: PaymentResult | null) => void;
   setStoredTransactionId: (id: string | null) => void;
   qrScannerRef: React.MutableRefObject<QrScannerRef | null>;

@@ -12,7 +12,6 @@ export interface ScanState {
   showModal: boolean;
   showConversionModal: boolean;
   showReason: boolean;
-  showConfetti: boolean;
 
   // Data states
   parsedData: ParsedQrResponse | null;
@@ -38,7 +37,6 @@ export interface ScanActions {
   setShowModal: (show: boolean) => void;
   setShowConversionModal: (show: boolean) => void;
   setShowReason: (show: boolean) => void;
-  setShowConfetti: (show: boolean) => void;
 
   // Data actions
   setParsedData: (data: ParsedQrResponse | null) => void;
