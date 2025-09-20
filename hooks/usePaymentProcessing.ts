@@ -6,6 +6,7 @@ import { prepareUSDCMetaTransaction } from "@/lib/abstractionkit";
 import { isValidChainId, getChainInfo } from "@/lib/chain-validation";
 import { PaymentProcessingOptions } from "@/types/hooks/usePaymentProcessing";
 import { BACKEND_URL, API_KEY } from "@/config/constant";
+import { useWallet } from "@/context/WalletContext";
 
 export function usePaymentProcessing({
   parsedData,
@@ -22,6 +23,7 @@ export function usePaymentProcessing({
 }: Omit<PaymentProcessingOptions, "isTestMode">) {
   const { wallets } = useWallets();
   const wallet = wallets[0];
+  const { ensureAllowlist } = useWallet();
 
   const processPayment = useCallback(async () => {
     try {
@@ -30,6 +32,16 @@ export function usePaymentProcessing({
 
       // Check USDC balance before proceeding
       // This will be handled by the parent component
+
+      // Gate: ensure wallet is allowlisted (external backend handles DB+sanctions)
+      const provider = await wallet!.getEthereumProvider();
+      const ethersProvider = new ethers.BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
+      const userAddress = await signer.getAddress();
+      const allowed = await ensureAllowlist(userAddress);
+      if (!allowed) {
+        throw new Error("Wallet is not allowed to transact");
+      }
 
       // Validate chain ID before proceeding
       if (!connectedChain) {
@@ -80,9 +92,7 @@ export function usePaymentProcessing({
       onPaymentStep("Processing USDC meta-transaction...");
 
       // Use new client-side flow with user's wallet
-      const provider = await wallet!.getEthereumProvider();
-      const ethersProvider = new ethers.BrowserProvider(provider);
-      const signer = await ethersProvider.getSigner();
+      // provider/signer already created above
       const usdcAddress =
         USDC_CONTRACT_ADDRESSES[
           chainId as keyof typeof USDC_CONTRACT_ADDRESSES

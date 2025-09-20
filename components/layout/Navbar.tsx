@@ -29,7 +29,7 @@ export default function Navbar() {
 
   // Wallet context
   const { wallets: privyWallets } = useWallets()
-  const { selectedChain, setSelectedChain, connectedChain } = useWallet()
+  const { selectedChain, setSelectedChain, connectedChain, ensureAllowlist } = useWallet()
   const wallet = privyWallets[0]
 
   // Smooth scroll function
@@ -90,6 +90,14 @@ export default function Navbar() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [walletDropdownOpen])
+
+  // On wallet connect, quietly ensure allowlist in the background
+  useEffect(() => {
+    const walletAddress = user?.wallet?.address
+    if (!ready || !authenticated || !walletAddress) return
+    // Fire and forget; context caches the last checked address
+    void ensureAllowlist(walletAddress)
+  }, [ready, authenticated, user?.wallet?.address, ensureAllowlist])
 
   // Set default chain if none selected (Arbitrum Sepolia)
   useEffect(() => {

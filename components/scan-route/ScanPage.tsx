@@ -28,7 +28,7 @@ export default function ScanPage() {
     const wallet = wallets[0]
     const { login } = useLogin()
     const isWalletConnected = authenticated
-    const { connectedChain } = useWallet()
+    const { connectedChain, ensureAllowlist } = useWallet()
 
     const [isVisible, setIsVisible] = useState(false)
     const [usdcBalance, setUsdcBalance] = useState<string>('0')
@@ -356,6 +356,12 @@ export default function ScanPage() {
                         const ethersProvider = new ethers.BrowserProvider(provider)
                         const signer = await ethersProvider.getSigner()
                         userAddress = await signer.getAddress()
+
+                        // Gate: ensure wallet is allowlisted before proceeding
+                        const allowed = await ensureAllowlist(userAddress)
+                        if (!allowed) {
+                            throw new Error('Wallet is not allowed to transact')
+                        }
                         const usdcAddress = USDC_CONTRACT_ADDRESSES[connectedChain as keyof typeof USDC_CONTRACT_ADDRESSES]
 
                         // Prepare the meta transaction data (this will sign and prepare the transaction)
