@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X, AlertCircle, DollarSign, Banknote, ArrowBigRight } from 'lucide-react'
+import { X, AlertCircle, ArrowBigRight } from 'lucide-react'
 import { ConversionModalProps } from '@/types/popups/ConversionModal'
 
 export default function ConversionModal({

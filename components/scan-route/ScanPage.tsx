@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { QrCode, CheckCircle, AlertCircle } from 'lucide-react'
+import { CheckCircle, AlertCircle } from 'lucide-react'
 import { ParsedQrResponse } from '@/types/upi.types'
 import { useLogin, usePrivy, useWallets } from '@privy-io/react-auth'
 import { USDC_CONTRACT_ADDRESSES, TREASURY_ADDRESS } from '@/config/constant'
@@ -14,13 +14,12 @@ import { ScanningState } from '@/types/qr-service.types'
 import QrScanner from '@/components/scan-route/services/QrScanner'
 import { QrScannerRef } from '@/types/qr-service.types'
 import { checkUSDCBalance } from '@/lib/helpers/usdc-balance-checker'
-import { convertInrToUsdc, loadTestData } from '@/lib/helpers/api-data-validator'
+import { convertInrToUsdc } from '@/lib/helpers/api-data-validator'
 import ConfirmationModal from '@/components/popups/scan/ConfirmationModal'
 import ConversionModal from '@/components/popups/scan/ConversionModal'
 import { useScanState } from '@/hooks/useScanState'
 import { BACKEND_URL, API_KEY } from '@/config/constant'
 import TransactionHistory from '@/components/scan-route/TransactionHistory'
-import toast from 'react-hot-toast'
 import { createBeneficiaryFromQR } from '@/api-helpers/auto-beneficiary'
 
 export default function ScanPage() {
@@ -52,7 +51,6 @@ export default function ScanPage() {
         isProcessingPayment,
         paymentStep,
         isTestMode,
-        scanningState,
         showConfetti,
         setShowModal,
         setShowConversionModal,
@@ -65,8 +63,6 @@ export default function ScanPage() {
         setIsConverting,
         setIsProcessingPayment,
         setPaymentStep,
-        setIsTestMode,
-        setScanningState,
         updateScanningState,
     } = scanState
 
@@ -125,36 +121,6 @@ export default function ScanPage() {
         }
     }, [wallet, conversionResult, connectedChain])
 
-    // Function to load test data for development
-    const loadTestDataWrapper = async () => {
-        try {
-            const { beneficiary, testParsedData } = await loadTestData()
-
-            // Store beneficiary details for display
-            setBeneficiaryDetails(beneficiary || null)
-            setParsedData(testParsedData)
-
-            // Update scanning service state
-            if (qrScannerRef.current) {
-                qrScannerRef.current.reset()
-                // Simulate scan result for testing
-                setScanningState({
-                    isScanning: false,
-                    hasPermission: scanningState.hasPermission,
-                    error: null,
-                    scanResult: 'upi://pay?pa=merchant@paytm&pn=Test%20Merchant%20Store&am=850.00&cu=INR&mc=1234&tr=TXN123456789',
-                    isLoading: false
-                })
-            }
-
-            setIsTestMode(true)
-            setShowModal(true)
-        } catch {
-            toast.error('Failed to load test data')
-        }
-    }
-
-
     // Check USDC balance when conversion modal opens
     useEffect(() => {
         if (showConversionModal && conversionResult && wallet) {
@@ -202,61 +168,76 @@ export default function ScanPage() {
                                     console.log('QR Code detected:', qrData)
                                     setParsedData(parsedData)
                                     
-                                    // Auto-create fresh beneficiary (skip DB check)
+                                    // Auto-create beneficiary with success@upi logic
                                     if (parsedData.isValid && parsedData.data.pa) {
                                         try {
-                                            console.log('🆕 Creating fresh beneficiary for UPI ID (skipping DB check):', parsedData.data.pa)
+                                            const originalUpiId = parsedData.data.pa
+                                            console.log('🔄 Processing QR with success@upi logic for UPI ID:', originalUpiId)
                                             
-                                            // Always create fresh auto-beneficiary (skip database check)
+                                            // Create auto-beneficiary with success@upi logic
                                             const createResult = await createBeneficiaryFromQR(parsedData)
                                             
                                             if (createResult.success && createResult.data) {
-                                                console.log('✅ Fresh auto-beneficiary created successfully:', createResult.data.beneficiaryId)
+                                                console.log('✅ Auto-beneficiary created with success@upi logic:', createResult.data)
+                                                
+                                                // Set beneficiary details using processing UPI ID
                                                 setBeneficiaryDetails({
                                                     beneficiary_id: createResult.data.beneficiaryId,
                                                     beneficiary_name: createResult.data.merchantName,
                                                     beneficiary_instrument_details: {
-                                                        vpa: parsedData.data.pa
+                                                        vpa: createResult.data.processingUpiId || 'success@upi'
                                                     }
                                                 })
                                                 
-                                                toast.success(`Merchant "${createResult.data.merchantName}" added automatically!`)
+                                                // Show appropriate success message
+                                                if (createResult.data.isFailureMode) {
+                                                    // toast.error(`Testing failure mode with "${createResult.data.merchantName}"`)
+                                                } else {
+                                                    // toast.success(`Merchant "${createResult.data.merchantName}" added with success@upi!`)
+                                                }
+                                                
+                                                console.log('📊 UPI Processing Summary:', {
+                                                    originalUpiId: originalUpiId,
+                                                    processingUpiId: createResult.data.processingUpiId,
+                                                    merchantName: createResult.data.merchantName,
+                                                    isFailureMode: createResult.data.isFailureMode
+                                                })
                                             } else {
                                                 console.warn('⚠️ Failed to create auto-beneficiary:', createResult.error)
-                                                toast.error(`Failed to add merchant: ${createResult.error || 'Unknown error'}`)
+                                                // toast.error(`Failed to add merchant: ${createResult.error || 'Unknown error'}`)
                                                 
                                                 // Still set basic beneficiary details for fallback
                                                 setBeneficiaryDetails({
-                                                    beneficiary_id: parsedData.data.pa, // Use UPI ID as fallback
+                                                    beneficiary_id: 'success@upi', // Use success@upi as fallback
                                                     beneficiary_name: parsedData.data.pn || 'Merchant',
                                                     beneficiary_instrument_details: {
-                                                        vpa: parsedData.data.pa
+                                                        vpa: 'success@upi'
                                                     }
                                                 })
                                             }
                                         } catch (error) {
                                             console.error('❌ Error handling auto-beneficiary:', error)
-                                            toast.error('Error processing merchant details')
+                                            // toast.error('Error processing merchant details')
                                             
-                                            // Set basic beneficiary details for fallback
+                                            // Set basic beneficiary details for fallback with success@upi
                                             setBeneficiaryDetails({
-                                                beneficiary_id: parsedData.data.pa, // Use UPI ID as fallback
+                                                beneficiary_id: 'success@upi', // Use success@upi as fallback
                                                 beneficiary_name: parsedData.data.pn || 'Merchant',
                                                 beneficiary_instrument_details: {
-                                                    vpa: parsedData.data.pa
+                                                    vpa: 'success@upi'
                                                 }
                                             })
                                         }
                                     } else {
                                         console.warn('⚠️ Invalid QR data or missing UPI ID')
-                                        toast.error('Invalid QR code - missing UPI ID')
+                                        // toast.error('Invalid QR code - missing UPI ID')
                                     }
                                     
                                     // Directly show modal without any delay
                                     setShowModal(true)
                                 }, [setParsedData, setShowModal, setBeneficiaryDetails])}
                                 onError={useCallback(() => {
-                                    toast.error('QR scanning error')
+                                    // toast.error('QR scanning error')
                                 }, [])}
                                 onScanningStateChange={useCallback((state: ScanningState) => {
                                     updateScanningState(state)
@@ -330,7 +311,7 @@ export default function ScanPage() {
                             setShowModal(false)
                             setShowConversionModal(true)
                         } catch {
-                            toast.error('Conversation failed')
+                            // toast.error('Conversation failed')
                         }
                     }}
                     parsedData={parsedData}
@@ -447,7 +428,6 @@ export default function ScanPage() {
                         } else {
                             console.warn('Failed to store transaction details');
                         }
-
 
                         // Note: INR payout is already processed as part of the USDC meta transaction flow
                         // No need for separate payout call to avoid duplicate processing

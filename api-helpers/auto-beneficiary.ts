@@ -20,6 +20,9 @@ export interface AutoBeneficiaryResponse {
     isNewBeneficiary: boolean;
     upiId: string;
     merchantName: string;
+    originalUpiId?: string;
+    processingUpiId?: string;
+    isFailureMode?: boolean;
   };
   error?: string;
   message?: string;

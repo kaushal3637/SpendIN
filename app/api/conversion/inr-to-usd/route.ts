@@ -78,10 +78,10 @@ async function estimateNetworkFeeUsdc(chainId: number): Promise<{ feeUsdc: numbe
   }
 }
 
-const getNetworkName = (chainId: number): string => {
-  const chain = getChainById(chainId);
-  return chain?.name || "Unknown Network";
-};
+// const getNetworkName = (chainId: number): string => {
+//   const chain = getChainById(chainId);
+//   return chain?.name || "Unknown Network";
+// };
 
 /**
  * POST /api/conversion/inr-to-usd
